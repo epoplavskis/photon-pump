@@ -4,7 +4,7 @@ from collections import namedtuple
 import io
 import json
 import struct
-from typing import Dict, List, Any
+from typing import Dict, Sequence, Any
 import uuid
 from uuid import UUID
 from .messages import *
@@ -114,19 +114,23 @@ class Connection:
         return await cmd.future
 
     async def publish_event(self, type, stream, body=None, id=uuid.uuid4(), metadata=None, expected_version=-2, require_master=False):
-
        event = NewEvent(type, id, body, metadata)
        cmd = WriteEvents(stream, [event], expected_version=expected_version, require_master=require_master, loop=self.loop)
        await self.writer.enqueue(cmd)
        return await cmd.future
 
-    async def publish(self, stream:str, events:List[NewEventData], expected_version=ExpectedVersion.Any, require_master=False):
+    async def publish(self, stream:str, events:Sequence[NewEventData], expected_version=ExpectedVersion.Any, require_master=False):
        cmd = WriteEvents(stream, events, expected_version=expected_version, require_master=require_master, loop=self.loop)
        await self.writer.enqueue(cmd)
        return await cmd.future
 
-    async def get(self, stream:str, resolve_links=True, require_master=False, correlation_id:UUID=uuid.uuid4()):
+    async def get_event(self, stream:str, resolve_links=True, require_master=False, correlation_id:UUID=uuid.uuid4()):
        cmd = ReadEvent(stream, resolve_links, require_master, loop=self.loop)
+       await self.writer.enqueue(cmd)
+       return await cmd.future
+
+    async def get(self, stream:str, direction:StreamDirection=StreamDirection.Forward, from_event:int=0,max_count:int=100, resolve_links:bool=True, require_master:bool=False, correlation_id:UUID=uuid.uuid4()):
+       cmd = ReadStreamEvents(stream, from_event, max_count, resolve_links, require_master, loop=self.loop)
        await self.writer.enqueue(cmd)
        return await cmd.future
 

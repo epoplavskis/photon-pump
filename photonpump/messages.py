@@ -37,6 +37,10 @@ class TcpCommand(IntEnum):
     ReadAllEventsBackwardCompleted =   0xB9,
 
 
+class StreamDirection(IntEnum):
+    Forward = 0
+    Backward = 1
+
 
 class ContentType(IntEnum):
     Json = 0x01
@@ -46,6 +50,7 @@ class ContentType(IntEnum):
 class OperationFlags(IntEnum):
     Empty = 0x00
     Authenticated = 0x01
+
 
 class ExpectedVersion(IntEnum):
     """Static values for concurrency control
@@ -74,6 +79,7 @@ class Event(EventRecord):
     def json(self):
        return json.loads(self.data.decode('UTF-8'))
 
+
 class Operation:
 
     def send(self, writer):
@@ -86,6 +92,12 @@ class Operation:
         buf.extend(struct.pack('<IBB', HEADER_LENGTH + data_length, cmd, flags))
         buf.extend(correlation_id.bytes)
         return buf
+
+    def handle_response(self, header, payload, writer):
+        pass
+
+
+Pong = namedtuple('photonpump_result_Pong', ['correlation_id'])
 
 
 class Ping(Operation):
@@ -104,9 +116,6 @@ class Ping(Operation):
 
     def handle_response(self, header, payload, writer):
        self.future.set_result(Pong(header.correlation_id))
-
-
-Pong = namedtuple('photonpump_result_Pong', ['correlation_id'])
 
 
 def NewEvent(type:str,
@@ -225,6 +234,65 @@ class ReadEvent(Operation):
 
 
 ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
+
+
+class ReadStreamEvents(Operation):
+    """Command class for reading events from a stream.
+
+    Args:
+        stream: The name of the stream containing the event.
+        event_number: The sequence number of the event to read.
+        resolve_links (optional): True if eventstore should automatically resolve Link Events, otherwise False.
+        required_master (optional): True if this command must be sent direct to the master node, otherwise False.
+        correlation_id (optional): A unique identifer for this command.
+
+    """
+
+    def __init__(self,
+            stream:str,
+            from_event:int,
+            max_count:int=100,
+            resolve_links:bool=True,
+            require_master:bool=False,
+            direction:StreamDirection=StreamDirection.Forward,
+            credentials=None,
+            correlation_id:UUID=uuid4(),
+            loop=None):
+
+       self.correlation_id = correlation_id
+       self.future = Future(loop=loop)
+       self.flags = OperationFlags.Empty
+       self.command = TcpCommand.ReadStreamEventsForward if direction == StreamDirection.Forward else TcpCommand.ReadStreamEventsBackward
+       self.stream = stream
+
+       msg = messages_pb2.ReadStreamEvents()
+       msg.event_stream_id = stream
+       msg.from_event_number = from_event
+       msg.max_count = max_count
+       msg.require_master = require_master
+       msg.resolve_link_tos = resolve_links
+
+       self.data = msg.SerializeToString()
+
+    def handle_response(self, header, payload, writer):
+        result = messages_pb2.ReadStreamEventsCompleted()
+        result.ParseFromString(payload)
+        if result.result == ReadStreamResult.Success:
+            self.future.set_result([Event(
+                x.event.event_stream_id,
+                UUID(bytes_le=x.event.event_id),
+                x.event.event_number,
+                x.event.event_type,
+                x.event.data,
+                x.event.metadata,
+                x.event.created_epoch) for x in result.events ])
+        elif result.result == ReadEventResult.NoStream:
+            self.future.set_exception(exceptions.StreamNotFoundException("The stream '"+self.stream+"' was not found", self.stream))
+
+
+
+ReadStreamResult = make_enum(messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT)
+
 
 class HeartbeatResponse(Operation):
     """Command class for responding to heartbeats.
