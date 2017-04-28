@@ -7,9 +7,12 @@ from typing import Any, Dict, Sequence, Union
 from uuid import uuid4, UUID
 
 from . import messages_pb2
+from . import exceptions
 
 HEADER_LENGTH = 1 + 1 + 16
 
+def make_enum(descriptor):
+    return IntEnum(descriptor.name, [(x.name, x.number) for x in descriptor.values])
 
 class TcpCommand(IntEnum):
 
@@ -99,6 +102,9 @@ class Ping(Operation):
         self.correlation_id = correlation_id
         self.data = bytearray()
 
+    def handle_response(self, header, payload, writer):
+       self.future.set_result(Pong(header.correlation_id))
+
 
 Pong = namedtuple('photonpump_result_Pong', ['correlation_id'])
 
@@ -158,8 +164,23 @@ class WriteEvents(Operation):
 
        self.data = msg.SerializeToString()
 
+    def handle_response(self, header, payload, writer):
+        result = messages_pb2.WriteEventsCompleted()
+        result.ParseFromString(payload)
+        self.future.set_result(result)
+
 
 class ReadEvent(Operation):
+    """Command class for reading a single event.
+
+    Args:
+        stream: The name of the stream containing the event.
+        event_number: The sequence number of the event to read.
+        resolve_links (optional): True if eventstore should automatically resolve Link Events, otherwise False.
+        required_master (optional): True if this command must be sent direct to the master node, otherwise False.
+        correlation_id (optional): A unique identifer for this command.
+
+    """
 
     def __init__(self,
             stream:str,
@@ -183,6 +204,26 @@ class ReadEvent(Operation):
 
        self.data = msg.SerializeToString()
 
+    def handle_response(self, header, payload, writer):
+        result = messages_pb2.ReadEventCompleted()
+        result.ParseFromString(payload)
+        event = result.event.event
+
+        if result.result == ReadEventResult.Success:
+            self.future.set_result(Event(
+                event.event_stream_id,
+                UUID(bytes_le=event.event_id),
+                event.event_number,
+                event.event_type,
+                event.data,
+                event.metadata,
+                event.created_epoch))
+        elif result.result == ReadEventResult.NoStream:
+            self.future.set_exception(exceptions.StreamNotFoundException())
+
+
+
+ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 
 class HeartbeatResponse(Operation):
     """Command class for responding to heartbeats.

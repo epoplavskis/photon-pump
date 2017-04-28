@@ -8,6 +8,7 @@ from typing import Dict, List, Any
 import uuid
 from uuid import UUID
 from .messages import *
+from .exceptions import *
 from . import messages_pb2
 
 
@@ -15,29 +16,6 @@ HEADER_LENGTH = 1 + 1 + 16
 
 #: 1 byte command + 1 byte auth + UUID correlation length
 FLAGS_NONE = 0x00
-
-def read_writecompleted(header, payload):
-    result = messages_pb2.WriteEventsCompleted()
-    result.ParseFromString(payload)
-    return result
-
-def read_readevent_completed(header, payload):
-    result = messages_pb2.ReadEventCompleted()
-    result.ParseFromString(payload)
-    event = result.event.event
-    return messages.Event(
-        event.event_stream_id,
-        UUID(bytes_le=event.event_id),
-        event.event_number,
-        event.event_type,
-        event.data,
-        event.metadata,
-        event.created_epoch)
-
-result_readers = {}
-result_readers[TcpCommand.Pong] = lambda head, _: Pong(head.correlation_id)
-result_readers[TcpCommand.WriteEventsCompleted] = read_writecompleted
-result_readers[TcpCommand.ReadEventCompleted] = read_readevent_completed
 
 class Event(list):
 
@@ -117,8 +95,8 @@ class Connection:
                continue
            header = Header(size, cmd, flags, id)
            try:
-               result = result_readers[cmd](header, next_msg[HEADER_LENGTH:])
-               self._futures[id].future.set_result(result)
+               operation = self._futures[id]
+               operation.handle_response(header, next_msg[HEADER_LENGTH:], self.writer)
            except Exception as e:
                self._futures[id].future.set_exception(e)
            del self._futures[id]
