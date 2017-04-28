@@ -15,6 +15,24 @@ async def read_an_event(conn):
     print(event)
 
 
+async def write_two_events(conn):
+    await conn.publish('pony_stream', [
+        NewEvent('pony.jumped', body={
+            'name': 'Rainbow Colossus',
+            'height_m': 0.6
+        },
+        NewEvent('pony.jumped', body={
+            'name': 'Sunshine Carnivore',
+            'height_m': 1.12
+        })
+    ])
+
+
+async def read_two_events(conn):
+    events = await conn.get('pony_stream', max_count=2, from_event=0)
+    print events[0]
+
+
 async def ticker(delay):
     while True:
         yield NewEvent('tick', body{ 'tick': i})
