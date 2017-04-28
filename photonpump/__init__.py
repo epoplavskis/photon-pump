@@ -6,7 +6,8 @@ import json
 import struct
 from typing import Dict, List, Any
 import uuid
-from .messages import TcpCommand, Pong, NewEvent, WriteEvents, Header, Ping
+from uuid import UUID
+from .messages import Operation, TcpCommand, Pong, NewEvent, WriteEvents, Header, Ping, HeartbeatResponse
 from . import messages_pb2
 
 
@@ -34,22 +35,44 @@ class Event(list):
     def __repr__(self):
         return "Event(%)" % list.__repr__(self)
 
+
 class OutChannel:
+    """Wraps an asyncio StreamWriter with an operations queue.
 
-    def __init__(self, writer, loop=None):
-        self.queue = asyncio.Queue(maxize=100, loop=loop)
+    Args:
+        writer: an asyncio StreamWriter.
+        pending: a dict for storing pending operations.
+    """
+
+    def __init__(self, writer:asyncio.StreamWriter, pending:Dict[UUID,Operation], loop):
+        self.queue = asyncio.Queue(maxsize=100, loop=loop)
+        self.pending_operations = pending
         self.writer = writer
+        self.running = True
+        self.write_loop = asyncio.ensure_future(self._process())
 
-    async def enqueue(self, message):
+    async def enqueue(self, message:Operation):
+        """Enqueue an operation.
+
+        The operation will be added to the `pending` dict, and pushed onto the queue for sending.
+
+        Args:
+            message: The operation to send.
+        """
+        self.pending_operations[message.correlation_id] = message
+        print("Sending command ", message.correlation_id)
         await self.queue.put(message)
 
     async def _process(self):
-        while True:
+        while self.running:
             next = await self.queue.get()
-            self.write_header(next.header)
-            self.writer.write(next.payload)
+            next.send(self.writer)
 
-
+    def close(self):
+        """Close the underlying StreamWriter and cancel pending Operations."""
+        self.writer.close()
+        self.running = False
+        self.write_loop.cancel()
 
 class Connection:
 
@@ -63,43 +86,47 @@ class Connection:
 
     async def connect(self):
         reader, writer = await asyncio.open_connection(self.host, self.port, loop=self.loop)
-        self.writer = writer
+        self.writer = OutChannel(writer, self._futures, loop=self.loop)
         self.read_loop = asyncio.ensure_future(self._read_responses(reader))
         self.connected()
 
     async def _read_responses(self, reader):
        while True:
            next_msg_len = await reader.read(4)
+           print(next_msg_len)
            (size,) = struct.unpack('I', next_msg_len)
            next_msg = await reader.read(size)
            (cmd, flags,) = struct.unpack_from('BB', next_msg, 0)
            id = uuid.UUID(bytes=next_msg[2:HEADER_LENGTH])
-           print(id)
+           print("Got command ", cmd, id)
+           if cmd == TcpCommand.HeartbeatRequest:
+               await self.writer.enqueue(HeartbeatResponse(id))
+               continue
            header = Header(size, cmd, flags, id)
            try:
                result = result_readers[cmd](header, next_msg[HEADER_LENGTH:])
-               self._futures[id].set_result(result)
+               self._futures[id].future.set_result(result)
            except Exception as e:
-               self._futures[id].set_exception(e)
+               self._futures[id].future.set_exception(e)
            del self._futures[id]
 
     def close(self):
         self.writer.close()
         self.read_loop.cancel()
+        for cmd in self._futures.items():
+            cmd.future.cancel()
         self.disconnected()
 
     async def ping(self, correlation_id=uuid.uuid4()):
         cmd = Ping(correlation_id=correlation_id, loop=self.loop)
-        self._futures[cmd.correlation_id] = cmd.future
-        cmd.send(self.writer)
+        await self.writer.enqueue(cmd)
         return await cmd.future
 
     async def publish_event(self, type, stream, body=None, id=uuid.uuid4(), metadata=None, expected_version=-2, require_master=False):
 
        event = NewEvent(type, id, body, metadata)
        cmd = WriteEvents(stream, [event], expected_version=expected_version, require_master=require_master, loop=self.loop)
-       self._futures[cmd.correlation_id] = cmd.future
-       cmd.send(self.writer)
+       await self.writer.enqueue(cmd)
        return await cmd.future
 
 

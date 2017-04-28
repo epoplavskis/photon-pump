@@ -12,6 +12,10 @@ HEADER_LENGTH = 1 + 1 + 16
 
 
 class TcpCommand(IntEnum):
+
+    HeartbeatRequest = 0x01
+    HeartbeatResponse = 0x02
+
     Ping = 0x03
     Pong = 0x04
 
@@ -135,4 +139,20 @@ class WriteEvents(Operation):
            e.metadata = json.dumps(event.metadata).encode('UTF-8') if event.metadata else bytes()
 
        self.data = msg.SerializeToString()
+
+
+class HeartbeatResponse(Operation):
+    """Command class for responding to heartbeats.
+
+    Args:
+        correlation_id: The unique id of the HeartbeatRequest.
+    """
+
+    def __init__(self, correlation_id, loop=None):
+        self.flags = OperationFlags.Empty
+        self.command = TcpCommand.HeartbeatResponse
+        self.future = Future(loop=loop)
+        self.correlation_id = correlation_id
+        self.data = bytearray()
+
 

@@ -1,5 +1,7 @@
 import asyncio
 import pytest
+import uuid
+import photonpump
 from photonpump import Connection
 
 @pytest.yield_fixture
@@ -10,42 +12,46 @@ def loop():
     yield loop
     loop.close()
 
-def test_connect(loop):
+@pytest.mark.asyncio
+async def test_connection_events(event_loop):
 
-    connected = False
-    closed = False
+   connected = False
+   closed = False
 
-    def _on_connected():
+   def _on_connected():
        nonlocal connected
        connected = True
 
-    def _on_closed():
-        nonlocal closed
-        closed = True
+   def _on_closed():
+       nonlocal closed
+       closed = True
 
-    async def do_test():
-       conn = Connection(loop=loop)
-       conn.connected.append(_on_connected)
-       conn.disconnected.append(_on_closed)
+   conn = Connection(loop=event_loop)
+   conn.connected.append(_on_connected)
+   conn.disconnected.append(_on_closed)
 
-       await conn.connect()
-       print("a")
-       assert connected
+   await conn.connect()
+   assert connected
 
-       conn.close()
-       assert closed
-
-    loop.run_until_complete(do_test())
+   conn.close()
+   assert closed
 
 
-def test_ping(loop):
+@pytest.mark.asyncio
+async def test_ping(event_loop):
 
-    async def do_test(loop):
-       conn = Connection(loop=loop)
-       await conn.connect()
-       pong = await conn.ping()
+    conn = Connection(loop=event_loop)
+    await conn.connect()
 
-       assert pong
-       conn.close()
+    pong = await conn.ping()
+    assert pong
 
-    loop.run_until_complete(do_test(loop))
+    conn.close()
+
+@pytest.mark.asyncio
+async def test_ping_context_mgr(event_loop):
+
+    async with photonpump.connect(loop=event_loop) as conn:
+        id  = uuid.uuid4()
+        pong = await conn.ping(correlation_id=id)
+        assert pong.correlation_id == id

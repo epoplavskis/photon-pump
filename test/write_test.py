@@ -20,4 +20,3 @@ async def test_single_event_publish(event_loop):
 
         assert isinstance(result, messages_pb2.WriteEventsCompleted)
         assert result.first_event_number == 0
-        assert result.last_event_number == 0
