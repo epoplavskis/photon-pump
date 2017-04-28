@@ -7,7 +7,7 @@ import struct
 from typing import Dict, List, Any
 import uuid
 from uuid import UUID
-from .messages import Operation, TcpCommand, Pong, NewEvent, WriteEvents, Header, Ping, HeartbeatResponse
+from .messages import *
 from . import messages_pb2
 
 
@@ -128,6 +128,12 @@ class Connection:
        cmd = WriteEvents(stream, [event], expected_version=expected_version, require_master=require_master, loop=self.loop)
        await self.writer.enqueue(cmd)
        return await cmd.future
+
+    async def publish(self, stream:str, events:List[NewEventData], expected_version=ExpectedVersion.Any, require_master=False):
+       cmd = WriteEvents(stream, events, expected_version=expected_version, require_master=require_master, loop=self.loop)
+       await self.writer.enqueue(cmd)
+       return await cmd.future
+
 
 
 class ConnectionContextManager:
