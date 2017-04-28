@@ -85,7 +85,7 @@ class InChannel:
             reader:
             asyncio.StreamReader,
             writer: OutChannel,
-            pending: Dict[uuid, Operation]):
+            pending: Dict[UUID, Operation]):
         self.pending = pending
         self.reader = reader
         self.writer = writer

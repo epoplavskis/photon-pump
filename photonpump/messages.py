@@ -110,7 +110,7 @@ class StreamingIterator:
 
     async def enqueue_items(self, items):
         for item in items:
-            self.items.put_nowait(item)
+            await self.items.put(item)
 
     async def __anext__(self):
         if self.finished and self.items.empty():
