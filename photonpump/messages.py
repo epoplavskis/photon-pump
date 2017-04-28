@@ -1,4 +1,4 @@
-from asyncio import Future
+from asyncio import Future, Queue
 from collections import namedtuple
 from enum import IntEnum
 import json
@@ -99,6 +99,25 @@ EventRecord = namedtuple('photonpump_eventrecord', [
     'created'])
 
 
+class StreamingIterator:
+
+    def __init__(self, size):
+        self.items = Queue(maxsize=size)
+        self.finished = False
+
+    async def __aiter__(self):
+        return self
+
+    async def enqueue_items(self, items):
+        for item in items:
+            self.items.put_nowait(item)
+
+    async def __anext__(self):
+        if self.finished and self.items.empty():
+            raise StopAsyncIteration()
+        return await self.items.get()
+
+
 class Event(EventRecord):
 
     def json(self):
@@ -123,8 +142,11 @@ class Operation:
         buf.extend(self.correlation_id.bytes)
         return buf
 
-    def handle_response(self, header, payload, writer):
+    async def handle_response(self, header, payload, writer):
         pass
+
+    def __repr__(self):
+        return "Operation %s (%s)" % (self.__class__.__name__, self.correlation_id)
 
 
 Pong = namedtuple('photonpump_result_Pong', ['correlation_id'])
@@ -144,7 +166,7 @@ class Ping(Operation):
         self.correlation_id = correlation_id
         self.data = bytearray()
 
-    def handle_response(self, header, payload, writer):
+    async def handle_response(self, header, payload, writer):
         self.future.set_result(Pong(header.correlation_id))
 
 
@@ -218,7 +240,7 @@ class WriteEvents(Operation):
 
         self.data = msg.SerializeToString()
 
-    def handle_response(self, header, payload, writer):
+    async def handle_response(self, header, payload, writer):
         result = messages_pb2.WriteEventsCompleted()
         result.ParseFromString(payload)
         self.future.set_result(result)
@@ -263,7 +285,7 @@ class ReadEvent(Operation):
 
         self.data = msg.SerializeToString()
 
-    def handle_response(self, header, payload, writer):
+    async def handle_response(self, header, payload, writer):
         result = messages_pb2.ReadEventCompleted()
         result.ParseFromString(payload)
         event = result.event.event
@@ -336,7 +358,7 @@ class ReadStreamEvents(Operation):
 
         self.data = msg.SerializeToString()
 
-    def handle_response(self, header, payload, writer):
+    async def handle_response(self, header, payload, writer):
         result = messages_pb2.ReadStreamEventsCompleted()
         result.ParseFromString(payload)
         if result.result == ReadStreamResult.Success:
@@ -379,12 +401,17 @@ class IterStreamEvents(Operation):
             direction: StreamDirection=StreamDirection.Forward,
             credentials=None,
             correlation_id: UUID=uuid4(),
+            iterator: StreamingIterator=None,
             loop=None):
 
         self.correlation_id = correlation_id
-        self.future = Future(loop=loop)
+        self.batch_size = batch_size
         self.flags = OperationFlags.Empty
         self.stream = stream
+        self.iterator = iterator or StreamingIterator(batch_size * 2)
+        self.resolve_links = resolve_links
+        self.require_master = require_master
+        self.direction = direction
 
         if direction == StreamDirection.Forward:
             self.command = TcpCommand.ReadStreamEventsForward
@@ -400,28 +427,36 @@ class IterStreamEvents(Operation):
 
         self.data = msg.SerializeToString()
 
-    def handle_response(self, header, payload, writer):
+    async def handle_response(self, header, payload, writer):
         result = messages_pb2.ReadStreamEventsCompleted()
         result.ParseFromString(payload)
         if result.result == ReadStreamResult.Success:
-            self.future.set_result([Event(
-                x.event.event_stream_id,
-                UUID(bytes_le=x.event.event_id),
-                x.event.event_number,
-                x.event.event_type,
-                x.event.data,
-                x.event.metadata,
-                x.event.created_epoch) for x in result.events])
+            await self.iterator.enqueue_items(
+                [Event(
+                    x.event.event_stream_id,
+                    UUID(bytes_le=x.event.event_id),
+                    x.event.event_number,
+                    x.event.event_type,
+                    x.event.data,
+                    x.event.metadata,
+                    x.event.created_epoch) for x in result.events])
+            await writer.enqueue(IterStreamEvents(
+                self.stream,
+                batch_size=self.batch_size,
+                from_event=result.next_event_number,
+                resolve_links=self.resolve_links,
+                require_master=self.require_master,
+                direction=self.direction,
+                iterator=self.iterator,
+                correlation_id=uuid4()
+                ))
 
+            if result.is_end_of_stream:
+                self.iterator.finished = True
         elif result.result == ReadEventResult.NoStream:
             msg = "The stream '"+self.stream+"' was not found"
             exn = exceptions.StreamNotFoundException(msg, self.stream)
-            self.future.set_exception(exn)
-
-    async def iter(self):
-        batch = await self.future
-        for event in batch:
-            yield event
+            raise exn
 
 
 class HeartbeatResponse(Operation):

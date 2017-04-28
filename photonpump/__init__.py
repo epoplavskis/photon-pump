@@ -50,12 +50,14 @@ class OutChannel:
         Args:
             message: The operation to send.
         """
+        print("Enqueuing %s" % (message,))
         self.pending_operations[message.correlation_id] = message
         await self.queue.put(message)
 
     async def _process(self):
         while self.running:
             next = await self.queue.get()
+            print(next)
             next.send(self.writer)
 
     def close(self):
@@ -102,7 +104,7 @@ class Connection:
             header = Header(size, cmd, flags, id)
             try:
                 operation = self._futures[id]
-                operation.handle_response(
+                await operation.handle_response(
                         header,
                         next_msg[HEADER_LENGTH:], self.writer
                 )
@@ -113,8 +115,6 @@ class Connection:
     def close(self):
         self.writer.close()
         self.read_loop.cancel()
-        for cmd in self._futures.items():
-            cmd.future.cancel()
         self.disconnected()
 
     async def ping(self, correlation_id=uuid.uuid4()):
@@ -180,7 +180,7 @@ class Connection:
             correlation_id: UUID=uuid.uuid4()):
         cmd = IterStreamEvents(stream, from_event, batch_size, resolve_links, require_master, loop=self.loop)
         await self.writer.enqueue(cmd)
-        async for e in cmd.iter():
+        async for e in cmd.iterator:
             yield e
 
 

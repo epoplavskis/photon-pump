@@ -118,11 +118,10 @@ async def test_streaming_read(event_loop):
 
         events_read = 0
 
-        foo = c.stream(stream_name)
-        async for event in foo:
-            print(event)
         async for event in c.stream(stream_name, batch_size=1):
             events_read += 1
             assert event.type == 'pony_jumped'
+
+        assert events_read == 3
 
 
