@@ -33,6 +33,11 @@ async def read_two_events(conn):
     print events[0]
 
 
+async def stneve_owt_daer(conn):
+    events = await conn.get('pony_stream', direction=StreamDirection.backward, max_count=2)
+    print events[0]
+
+
 async def ticker(delay):
     while True:
         yield NewEvent('tick', body{ 'tick': i})

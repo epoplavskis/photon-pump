@@ -8,6 +8,7 @@ from .exceptions import *
 
 
 HEADER_LENGTH = 1 + 1 + 16
+SIZE_UINT_32 = 4
 
 #: 1 byte command + 1 byte auth + UUID correlation length
 FLAGS_NONE = 0x00
@@ -67,6 +68,43 @@ class OutChannel:
         self.write_loop.cancel()
 
 
+class InChannel:
+
+    _length = struct.Struct('<I')
+    _head = struct.Struct('>BBQQ')
+
+    def __init__(self, reader, writer, pending):
+        self.pending = pending
+        self.reader = reader
+        self.writer = writer
+        self.read_loop = asyncio.ensure_future(self.read_responses())
+
+    async def read_message(self):
+        next_msg_len = await self.reader.read(SIZE_UINT_32)
+        next_header = await self.reader.read(HEADER_LENGTH)
+        (size,) = self._length.unpack(next_msg_len)
+        next_msg = await self.reader.read(size - HEADER_LENGTH)
+        (cmd, flags,a,b) = self._head.unpack(next_header)
+        id = uuid.UUID(int=(a << 64 | b ))
+        header = Header(size, cmd, flags, id)
+        return header, next_msg
+
+    async def read_responses(self):
+        while True:
+            header, data = await self.read_message()
+
+            if header.cmd  == TcpCommand.HeartbeatRequest:
+                await self.writer.enqueue(HeartbeatResponse(id))
+                continue
+
+            operation = self.pending[header.correlation_id]
+            await operation.handle_response(header, data, self.writer)
+            del self.pending[header.correlation_id]
+
+    def close(self):
+        self.read_loop.cancel()
+
+
 class Connection:
 
     def __init__(self, host='127.0.0.1', port=1113, loop=None):
@@ -75,7 +113,7 @@ class Connection:
         self.host = host
         self.port = port
         self.loop = loop
-        self._futures = {}
+        self.operations = {}
 
     async def connect(self):
         reader, writer = await asyncio.open_connection(
@@ -84,37 +122,18 @@ class Connection:
                 loop=self.loop)
         self.writer = OutChannel(
                 writer,
-                self._futures,
+                self.operations,
                 loop=self.loop)
-        self.read_loop = asyncio.ensure_future(self._read_responses(reader))
-        self.connected()
-
-    async def _read_responses(self, reader):
-        while True:
-            next_msg_len = await reader.read(4)
-            print(next_msg_len)
-            (size,) = struct.unpack('I', next_msg_len)
-            next_msg = await reader.read(size)
-            (cmd, flags,) = struct.unpack_from('BB', next_msg, 0)
-            id = uuid.UUID(bytes=next_msg[2:HEADER_LENGTH])
-            print("Got command ", cmd, id)
-            if cmd == TcpCommand.HeartbeatRequest:
-                await self.writer.enqueue(HeartbeatResponse(id))
-                continue
-            header = Header(size, cmd, flags, id)
-            try:
-                operation = self._futures[id]
-                await operation.handle_response(
-                        header,
-                        next_msg[HEADER_LENGTH:], self.writer
+        self.reader = InChannel(
+                reader,
+                self.writer,
+                self.operations
                 )
-            except Exception as e:
-                self._futures[id].future.set_exception(e)
-            del self._futures[id]
+        self.connected()
 
     def close(self):
         self.writer.close()
-        self.read_loop.cancel()
+        self.reader.close()
         self.disconnected()
 
     async def ping(self, correlation_id=uuid.uuid4()):
