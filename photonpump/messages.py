@@ -195,6 +195,7 @@ class ReadEvent(Operation):
        self.future = Future(loop=loop)
        self.flags = OperationFlags.Empty
        self.command = TcpCommand.Read
+       self.stream = stream
 
        msg = messages_pb2.ReadEvent()
        msg.event_number = event_number
@@ -219,7 +220,7 @@ class ReadEvent(Operation):
                 event.metadata,
                 event.created_epoch))
         elif result.result == ReadEventResult.NoStream:
-            self.future.set_exception(exceptions.StreamNotFoundException())
+            self.future.set_exception(exceptions.StreamNotFoundException("The stream '"+self.stream+"' was not found", self.stream))
 
 
 

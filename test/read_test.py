@@ -38,3 +38,4 @@ async def test_missing_stream(event_loop):
             exc = e
 
         assert isinstance(exc, photonpump.StreamNotFoundException)
+        assert exc.stream == stream_name
