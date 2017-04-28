@@ -69,17 +69,30 @@ class OutChannel:
 
 
 class InChannel:
+    """Reads an asyncio.StreamReader and invokes pending operations with their responses
+
+    Args:
+        reader: an asyncio StreamReader.
+        writer: an OutChannel used for retrying or sending new replies.
+        pending: a dict for storing pending operations.
+    """
 
     _length = struct.Struct('<I')
     _head = struct.Struct('>BBQQ')
 
-    def __init__(self, reader, writer, pending):
+    def __init__(
+            self,
+            reader:
+            asyncio.StreamReader,
+            writer: OutChannel,
+            pending: Dict[uuid, Operation]):
         self.pending = pending
         self.reader = reader
         self.writer = writer
         self.read_loop = asyncio.ensure_future(self.read_responses())
 
     async def read_message(self):
+        """Read a single message from the reader, returning the tuple (header, data bytes)"""
         next_msg_len = await self.reader.read(SIZE_UINT_32)
         next_header = await self.reader.read(HEADER_LENGTH)
         (size,) = self._length.unpack(next_msg_len)
@@ -90,6 +103,7 @@ class InChannel:
         return header, next_msg
 
     async def read_responses(self):
+        """Loop forever reading messages and invoking the operation that caused them"""
         while True:
             header, data = await self.read_message()
 
