@@ -286,6 +286,10 @@ class ReadEvent(Operation):
 ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 
 
+ReadStreamResult = make_enum(
+        messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT)
+
+
 class ReadStreamEvents(Operation):
     """Command class for reading events from a stream.
 
@@ -350,8 +354,74 @@ class ReadStreamEvents(Operation):
             self.future.set_exception(exn)
 
 
-ReadStreamResult = make_enum(
-        messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT)
+class IterStreamEvents(Operation):
+    """Command class for iterating events from a stream.
+
+    Args:
+        stream: The name of the stream containing the event.
+        event_number: The sequence number of the event to read.
+        resolve_links (optional): True if eventstore should
+            automatically resolve Link Events, otherwise False.
+        required_master (optional): True if this command must be
+            sent direct to the master node, otherwise False.
+        correlation_id (optional): A unique identifer for this
+            command.
+
+    """
+
+    def __init__(
+            self,
+            stream: str,
+            from_event: int,
+            batch_size: int=100,
+            resolve_links: bool=True,
+            require_master: bool=False,
+            direction: StreamDirection=StreamDirection.Forward,
+            credentials=None,
+            correlation_id: UUID=uuid4(),
+            loop=None):
+
+        self.correlation_id = correlation_id
+        self.future = Future(loop=loop)
+        self.flags = OperationFlags.Empty
+        self.stream = stream
+
+        if direction == StreamDirection.Forward:
+            self.command = TcpCommand.ReadStreamEventsForward
+        else:
+            self.command = TcpCommand.ReadStreamEventsBackward
+
+        msg = messages_pb2.ReadStreamEvents()
+        msg.event_stream_id = stream
+        msg.from_event_number = from_event
+        msg.max_count = batch_size
+        msg.require_master = require_master
+        msg.resolve_link_tos = resolve_links
+
+        self.data = msg.SerializeToString()
+
+    def handle_response(self, header, payload, writer):
+        result = messages_pb2.ReadStreamEventsCompleted()
+        result.ParseFromString(payload)
+        if result.result == ReadStreamResult.Success:
+            self.future.set_result([Event(
+                x.event.event_stream_id,
+                UUID(bytes_le=x.event.event_id),
+                x.event.event_number,
+                x.event.event_type,
+                x.event.data,
+                x.event.metadata,
+                x.event.created_epoch) for x in result.events])
+
+        elif result.result == ReadEventResult.NoStream:
+            msg = "The stream '"+self.stream+"' was not found"
+            exn = exceptions.StreamNotFoundException(msg, self.stream)
+            self.future.set_exception(exn)
+
+    async def iter(self):
+        batch = await self.future
+        for event in batch:
+            yield event
 
 
 class HeartbeatResponse(Operation):

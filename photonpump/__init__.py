@@ -169,6 +169,20 @@ class Connection:
         await self.writer.enqueue(cmd)
         return await cmd.future
 
+    async def stream(
+            self,
+            stream: str,
+            direction: StreamDirection=StreamDirection.Forward,
+            from_event: int=0,
+            batch_size: int=100,
+            resolve_links: bool=True,
+            require_master: bool=False,
+            correlation_id: UUID=uuid.uuid4()):
+        cmd = IterStreamEvents(stream, from_event, batch_size, resolve_links, require_master, loop=self.loop)
+        await self.writer.enqueue(cmd)
+        async for e in cmd.iter():
+            yield e
+
 
 class ConnectionContextManager:
 
