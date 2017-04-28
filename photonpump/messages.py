@@ -11,8 +11,11 @@ from . import exceptions
 
 HEADER_LENGTH = 1 + 1 + 16
 
+
 def make_enum(descriptor):
-    return IntEnum(descriptor.name, [(x.name, x.number) for x in descriptor.values])
+    vals = [(x.name, x.number) for x in descriptor.values]
+    return IntEnum(descriptor.name, vals)
+
 
 class TcpCommand(IntEnum):
 
@@ -25,16 +28,16 @@ class TcpCommand(IntEnum):
     WriteEvents = 0x82
     WriteEventsCompleted = 0x83
 
-    Read =                             0xB0,
-    ReadEventCompleted =               0xB1,
-    ReadStreamEventsForward =          0xB2,
-    ReadStreamEventsForwardCompleted = 0xB3,
-    ReadStreamEventsBackward =         0xB4,
-    ReadStreamEventsBackwardCompleted =0xB5,
-    ReadAllEventsForward =             0xB6,
-    ReadAllEventsForwardCompleted =    0xB7,
-    ReadAllEventsBackward =            0xB8,
-    ReadAllEventsBackwardCompleted =   0xB9,
+    Read = 0xB0
+    ReadEventCompleted = 0xB1
+    ReadStreamEventsForward = 0xB2
+    ReadStreamEventsForwardCompleted = 0xB3
+    ReadStreamEventsBackward = 0xB4
+    ReadStreamEventsBackwardCompleted = 0xB5
+    ReadAllEventsForward = 0xB6
+    ReadAllEventsForwardCompleted = 0xB7
+    ReadAllEventsBackward = 0xB8
+    ReadAllEventsBackwardCompleted = 0xB9
 
 
 class StreamDirection(IntEnum):
@@ -57,9 +60,12 @@ class ExpectedVersion(IntEnum):
 
     Attributes:
         Any: No concurrency control.
-        StreamMustNotExist: The request should fail if the stream already exists.
-        StreamMustBeEmpty: The request should fail if the stream does not exist, or if the stream already contains events.
-        StreamMustExist: The request should fail if the stream does not exist.
+        StreamMustNotExist: The request should fail if the stream
+          already exists.
+        StreamMustBeEmpty: The request should fail if the stream
+          does not exist, or if the stream already contains events.
+        StreamMustExist: The request should fail if the stream
+          does not exist.
     """
 
     Any = -2
@@ -69,28 +75,52 @@ class ExpectedVersion(IntEnum):
 
 
 JsonDict = Dict[str, Any]
-Header = namedtuple('photonpump_result_header', ['size', 'cmd', 'flags', 'correlation_id'])
-NewEventData = namedtuple('photonpump_event', ['id', 'type', 'data', 'metadata'])
-EventRecord = namedtuple('photonpump_eventrecord', ['stream', 'id', 'event_number', 'type', 'data', 'metadata', 'created'])
+Header = namedtuple('photonpump_result_header', [
+    'size',
+    'cmd',
+    'flags',
+    'correlation_id'])
+
+
+NewEventData = namedtuple('photonpump_event', [
+    'id',
+    'type',
+    'data',
+    'metadata'])
+
+
+EventRecord = namedtuple('photonpump_eventrecord', [
+    'stream',
+    'id',
+    'event_number',
+    'type',
+    'data',
+    'metadata',
+    'created'])
 
 
 class Event(EventRecord):
 
     def json(self):
-       return json.loads(self.data.decode('UTF-8'))
+        return json.loads(self.data.decode('UTF-8'))
 
 
 class Operation:
 
     def send(self, writer):
-       header = self.make_header(len(self.data), self.command, self.flags, self.correlation_id)
-       writer.write(header)
-       writer.write(self.data)
+        header = self.make_header()
+        writer.write(header)
+        writer.write(self.data)
 
-    def make_header(self, data_length, cmd, flags, correlation_id):
+    def make_header(self):
         buf = bytearray()
-        buf.extend(struct.pack('<IBB', HEADER_LENGTH + data_length, cmd, flags))
-        buf.extend(correlation_id.bytes)
+        data_length = len(self.data)
+        buf.extend(struct.pack(
+            '<IBB',
+            HEADER_LENGTH + data_length,
+            self.command,
+            self.flags))
+        buf.extend(self.correlation_id.bytes)
         return buf
 
     def handle_response(self, header, payload, writer):
@@ -107,7 +137,7 @@ class Ping(Operation):
         correlation_id (optional): A unique identifer for this command.
     """
 
-    def __init__(self, correlation_id:UUID=uuid4(), loop=None):
+    def __init__(self, correlation_id: UUID=uuid4(), loop=None):
         self.flags = OperationFlags.Empty
         self.command = TcpCommand.Ping
         self.future = Future(loop=loop)
@@ -115,63 +145,78 @@ class Ping(Operation):
         self.data = bytearray()
 
     def handle_response(self, header, payload, writer):
-       self.future.set_result(Pong(header.correlation_id))
+        self.future.set_result(Pong(header.correlation_id))
 
 
-def NewEvent(type:str,
-             id:UUID=uuid4(),
-             data:JsonDict=None,
-             metadata:JsonDict=None) -> NewEventData:
+def NewEvent(type: str,
+             id: UUID=uuid4(),
+             data: JsonDict=None,
+             metadata: JsonDict=None) -> NewEventData:
     """Build the data structure for a new event.
 
     Args:
         type: An event type.
         id: The uuid identifier for the event.
-        data: A dict containing data for the event. These data must be json serializable.
-        metadata: A dict containing metadata about the event. These must be json serializable.
+        data: A dict containing data for the event. These data
+            must be json serializable.
+        metadata: A dict containing metadata about the event.
+            These must be json serializable.
     """
     return NewEventData(id, type, data, metadata)
 
 
 class WriteEvents(Operation):
-    """Command class for writing a sequence of events to a single stream.
+    """Command class for writing a sequence of events to a single
+        stream.
 
     Args:
         stream: The name of the stream to write to.
         events: A sequence of events to write.
-        expected_version (optional): The expected version of the target stream used for concurrency control.
-        required_master (optional): True if this command must be sent direct to the master node, otherwise False.
-        correlation_id (optional): A unique identifer for this command.
+        expected_version (optional): The expected version of the
+            target stream used for concurrency control.
+        required_master (optional): True if this command must be
+            sent direct to the master node, otherwise False.
+        correlation_id (optional): A unique identifer for this
+            command.
 
     """
 
-    def __init__(self,
-            stream:str,
-            events:Sequence[NewEventData],
-            expected_version:Union[ExpectedVersion,int]=ExpectedVersion.Any,
-            require_master:bool=False,
-            correlation_id:UUID=uuid4(),
+    def __init__(
+            self,
+            stream: str,
+            events: Sequence[NewEventData],
+            expected_version: Union[ExpectedVersion, int]=ExpectedVersion.Any,
+            require_master: bool=False,
+            correlation_id: UUID=uuid4(),
             loop=None):
-       self.correlation_id = correlation_id
-       self.future = Future(loop=loop)
-       self.flags = OperationFlags.Empty
-       self.command = TcpCommand.WriteEvents
+        self.correlation_id = correlation_id
+        self.future = Future(loop=loop)
+        self.flags = OperationFlags.Empty
+        self.command = TcpCommand.WriteEvents
 
-       msg = messages_pb2.WriteEvents()
-       msg.event_stream_id = stream
-       msg.require_master = require_master
-       msg.expected_version = expected_version
+        msg = messages_pb2.WriteEvents()
+        msg.event_stream_id = stream
+        msg.require_master = require_master
+        msg.expected_version = expected_version
 
-       for event in events:
-           e = msg.events.add()
-           e.event_id = event.id.bytes
-           e.event_type = event.type
-           e.data_content_type = ContentType.Json if event.data else ContentType.Binary
-           e.data = json.dumps(event.data).encode('UTF-8') if event.data else bytes()
-           e.metadata_content_type = ContentType.Json if event.metadata else ContentType.Binary
-           e.metadata = json.dumps(event.metadata).encode('UTF-8') if event.metadata else bytes()
+        for event in events:
+            e = msg.events.add()
+            e.event_id = event.id.bytes
+            e.event_type = event.type
+            if event.data:
+                e.data_content_type = ContentType.Json
+                e.data = json.dumps(event.data).encode('UTF-8')
+            else:
+                e.data_content_type = ContentType.Binary
+                e.data = bytes()
+            if event.metadata:
+                e.metadata_content_type = ContentType.Json
+                e.metadata = json.dumps(event.metadata).encode('UTF-8')
+            else:
+                e.metadata_content_type = ContentType.Binary
+                e.metadata = bytes()
 
-       self.data = msg.SerializeToString()
+        self.data = msg.SerializeToString()
 
     def handle_response(self, header, payload, writer):
         result = messages_pb2.WriteEventsCompleted()
@@ -185,34 +230,38 @@ class ReadEvent(Operation):
     Args:
         stream: The name of the stream containing the event.
         event_number: The sequence number of the event to read.
-        resolve_links (optional): True if eventstore should automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be sent direct to the master node, otherwise False.
-        correlation_id (optional): A unique identifer for this command.
+        resolve_links (optional): True if eventstore should
+            automatically resolve Link Events, otherwise False.
+        required_master (optional): True if this command must be
+            sent direct to the master node, otherwise False.
+        correlation_id (optional): A unique identifer for this
+            command.
 
     """
 
-    def __init__(self,
-            stream:str,
-            event_number:int,
-            resolve_links:bool=True,
-            require_master:bool=False,
+    def __init__(
+            self,
+            stream: str,
+            event_number: int,
+            resolve_links: bool=True,
+            require_master: bool=False,
             credentials=None,
-            correlation_id:UUID=uuid4(),
+            correlation_id: UUID=uuid4(),
             loop=None):
 
-       self.correlation_id = correlation_id
-       self.future = Future(loop=loop)
-       self.flags = OperationFlags.Empty
-       self.command = TcpCommand.Read
-       self.stream = stream
+        self.correlation_id = correlation_id
+        self.future = Future(loop=loop)
+        self.flags = OperationFlags.Empty
+        self.command = TcpCommand.Read
+        self.stream = stream
 
-       msg = messages_pb2.ReadEvent()
-       msg.event_number = event_number
-       msg.event_stream_id = stream
-       msg.require_master = require_master
-       msg.resolve_link_tos = resolve_links
+        msg = messages_pb2.ReadEvent()
+        msg.event_number = event_number
+        msg.event_stream_id = stream
+        msg.require_master = require_master
+        msg.resolve_link_tos = resolve_links
 
-       self.data = msg.SerializeToString()
+        self.data = msg.SerializeToString()
 
     def handle_response(self, header, payload, writer):
         result = messages_pb2.ReadEventCompleted()
@@ -229,8 +278,9 @@ class ReadEvent(Operation):
                 event.metadata,
                 event.created_epoch))
         elif result.result == ReadEventResult.NoStream:
-            self.future.set_exception(exceptions.StreamNotFoundException("The stream '"+self.stream+"' was not found", self.stream))
-
+            msg = "The stream '"+self.stream+"' was not found"
+            exn = exceptions.StreamNotFoundException(msg, self.stream)
+            self.future.set_exception(exn)
 
 
 ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
@@ -242,37 +292,45 @@ class ReadStreamEvents(Operation):
     Args:
         stream: The name of the stream containing the event.
         event_number: The sequence number of the event to read.
-        resolve_links (optional): True if eventstore should automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be sent direct to the master node, otherwise False.
-        correlation_id (optional): A unique identifer for this command.
+        resolve_links (optional): True if eventstore should
+            automatically resolve Link Events, otherwise False.
+        required_master (optional): True if this command must be
+            sent direct to the master node, otherwise False.
+        correlation_id (optional): A unique identifer for this
+            command.
 
     """
 
-    def __init__(self,
-            stream:str,
-            from_event:int,
-            max_count:int=100,
-            resolve_links:bool=True,
-            require_master:bool=False,
-            direction:StreamDirection=StreamDirection.Forward,
+    def __init__(
+            self,
+            stream: str,
+            from_event: int,
+            max_count: int=100,
+            resolve_links: bool=True,
+            require_master: bool=False,
+            direction: StreamDirection=StreamDirection.Forward,
             credentials=None,
-            correlation_id:UUID=uuid4(),
+            correlation_id: UUID=uuid4(),
             loop=None):
 
-       self.correlation_id = correlation_id
-       self.future = Future(loop=loop)
-       self.flags = OperationFlags.Empty
-       self.command = TcpCommand.ReadStreamEventsForward if direction == StreamDirection.Forward else TcpCommand.ReadStreamEventsBackward
-       self.stream = stream
+        self.correlation_id = correlation_id
+        self.future = Future(loop=loop)
+        self.flags = OperationFlags.Empty
+        self.stream = stream
 
-       msg = messages_pb2.ReadStreamEvents()
-       msg.event_stream_id = stream
-       msg.from_event_number = from_event
-       msg.max_count = max_count
-       msg.require_master = require_master
-       msg.resolve_link_tos = resolve_links
+        if direction == StreamDirection.Forward:
+            self.command = TcpCommand.ReadStreamEventsForward
+        else:
+            self.command = TcpCommand.ReadStreamEventsBackward
 
-       self.data = msg.SerializeToString()
+        msg = messages_pb2.ReadStreamEvents()
+        msg.event_stream_id = stream
+        msg.from_event_number = from_event
+        msg.max_count = max_count
+        msg.require_master = require_master
+        msg.resolve_link_tos = resolve_links
+
+        self.data = msg.SerializeToString()
 
     def handle_response(self, header, payload, writer):
         result = messages_pb2.ReadStreamEventsCompleted()
@@ -285,13 +343,15 @@ class ReadStreamEvents(Operation):
                 x.event.event_type,
                 x.event.data,
                 x.event.metadata,
-                x.event.created_epoch) for x in result.events ])
+                x.event.created_epoch) for x in result.events])
         elif result.result == ReadEventResult.NoStream:
-            self.future.set_exception(exceptions.StreamNotFoundException("The stream '"+self.stream+"' was not found", self.stream))
+            msg = "The stream '"+self.stream+"' was not found"
+            exn = exceptions.StreamNotFoundException(msg, self.stream)
+            self.future.set_exception(exn)
 
 
-
-ReadStreamResult = make_enum(messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT)
+ReadStreamResult = make_enum(
+        messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT)
 
 
 class HeartbeatResponse(Operation):
@@ -307,5 +367,3 @@ class HeartbeatResponse(Operation):
         self.future = Future(loop=loop)
         self.correlation_id = correlation_id
         self.data = bytearray()
-
-
