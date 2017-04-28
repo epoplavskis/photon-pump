@@ -22,6 +22,18 @@ class TcpCommand(IntEnum):
     WriteEvents = 0x82
     WriteEventsCompleted = 0x83
 
+    Read =                             0xB0,
+    ReadEventCompleted =               0xB1,
+    ReadStreamEventsForward =          0xB2,
+    ReadStreamEventsForwardCompleted = 0xB3,
+    ReadStreamEventsBackward =         0xB4,
+    ReadStreamEventsBackwardCompleted =0xB5,
+    ReadAllEventsForward =             0xB6,
+    ReadAllEventsForwardCompleted =    0xB7,
+    ReadAllEventsBackward =            0xB8,
+    ReadAllEventsBackwardCompleted =   0xB9,
+
+
 
 class ContentType(IntEnum):
     Json = 0x01
@@ -51,7 +63,13 @@ class ExpectedVersion(IntEnum):
 JsonDict = Dict[str, Any]
 Header = namedtuple('photonpump_result_header', ['size', 'cmd', 'flags', 'correlation_id'])
 NewEventData = namedtuple('photonpump_event', ['id', 'type', 'data', 'metadata'])
+EventRecord = namedtuple('photonpump_eventrecord', ['stream', 'id', 'event_number', 'type', 'data', 'metadata', 'created'])
 
+
+class Event(EventRecord):
+
+    def json(self):
+       return json.loads(self.data.decode('UTF-8'))
 
 class Operation:
 
@@ -137,6 +155,31 @@ class WriteEvents(Operation):
            e.data = json.dumps(event.data).encode('UTF-8') if event.data else bytes()
            e.metadata_content_type = ContentType.Json if event.metadata else ContentType.Binary
            e.metadata = json.dumps(event.metadata).encode('UTF-8') if event.metadata else bytes()
+
+       self.data = msg.SerializeToString()
+
+
+class ReadEvent(Operation):
+
+    def __init__(self,
+            stream:str,
+            event_number:int,
+            resolve_links:bool=True,
+            require_master:bool=False,
+            credentials=None,
+            correlation_id:UUID=uuid4(),
+            loop=None):
+
+       self.correlation_id = correlation_id
+       self.future = Future(loop=loop)
+       self.flags = OperationFlags.Empty
+       self.command = TcpCommand.Read
+
+       msg = messages_pb2.ReadEvent()
+       msg.event_number = event_number
+       msg.event_stream_id = stream
+       msg.require_master = require_master
+       msg.resolve_link_tos = resolve_links
 
        self.data = msg.SerializeToString()
 

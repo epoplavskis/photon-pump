@@ -21,10 +21,23 @@ def read_writecompleted(header, payload):
     result.ParseFromString(payload)
     return result
 
+def read_readevent_completed(header, payload):
+    result = messages_pb2.ReadEventCompleted()
+    result.ParseFromString(payload)
+    event = result.event.event
+    return messages.Event(
+        event.event_stream_id,
+        UUID(bytes_le=event.event_id),
+        event.event_number,
+        event.event_type,
+        event.data,
+        event.metadata,
+        event.created_epoch)
 
 result_readers = {}
 result_readers[TcpCommand.Pong] = lambda head, _: Pong(head.correlation_id)
 result_readers[TcpCommand.WriteEventsCompleted] = read_writecompleted
+result_readers[TcpCommand.ReadEventCompleted] = read_readevent_completed
 
 class Event(list):
 
@@ -131,6 +144,11 @@ class Connection:
 
     async def publish(self, stream:str, events:List[NewEventData], expected_version=ExpectedVersion.Any, require_master=False):
        cmd = WriteEvents(stream, events, expected_version=expected_version, require_master=require_master, loop=self.loop)
+       await self.writer.enqueue(cmd)
+       return await cmd.future
+
+    async def get(self, stream:str, resolve_links=True, require_master=False, correlation_id:UUID=uuid.uuid4()):
+       cmd = ReadEvent(stream, resolve_links, require_master, loop=self.loop)
        await self.writer.enqueue(cmd)
        return await cmd.future
 
