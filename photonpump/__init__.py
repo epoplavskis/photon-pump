@@ -4,26 +4,19 @@ from collections import namedtuple
 import io
 import json
 import struct
+from typing import Dict, List, Any
 import uuid
-from . import messages_pb2 as messages
+from .messages import TcpCommand, Pong, NewEvent, WriteEvents, Header, Ping
+from . import messages_pb2
 
-Header = namedtuple('photonpump_result_header', ['size', 'cmd', 'flags', 'correlation_id'])
-Pong = namedtuple('photonpump_result_Pong', ['correlation_id'])
-EventData = namedtuple('photonpump_event', ['eventId', 'eventType', 'data'])
+
+HEADER_LENGTH = 1 + 1 + 16
 
 #: 1 byte command + 1 byte auth + UUID correlation length
-HEADER_LENGTH = 1 + 1 + 16
 FLAGS_NONE = 0x00
 
-class TcpCommand:
-    Ping = 0x03
-    Pong = 0x04
-
-    WriteEvents = 0x82
-    WriteEventsCompleted = 0x83
-
 def read_writecompleted(header, payload):
-    result = messages.WriteEventsCompleted()
+    result = messages_pb2.WriteEventsCompleted()
     result.ParseFromString(payload)
     return result
 
@@ -40,6 +33,23 @@ class Event(list):
 
     def __repr__(self):
         return "Event(%)" % list.__repr__(self)
+
+class OutChannel:
+
+    def __init__(self, writer, loop=None):
+        self.queue = asyncio.Queue(maxize=100, loop=loop)
+        self.writer = writer
+
+    async def enqueue(self, message):
+        await self.queue.put(message)
+
+    async def _process(self):
+        while True:
+            next = await self.queue.get()
+            self.write_header(next.header)
+            self.writer.write(next.payload)
+
+
 
 class Connection:
 
@@ -79,45 +89,19 @@ class Connection:
         self.disconnected()
 
     async def ping(self, correlation_id=uuid.uuid4()):
-        fut = Future(loop=self.loop)
-        self._futures[correlation_id] = fut
-        buf = bytearray()
-        self.write_header(buf, 0, TcpCommand.Ping, FLAGS_NONE, correlation_id)
-        self.writer.write(buf)
-        return await fut
+        cmd = Ping(correlation_id=correlation_id, loop=self.loop)
+        self._futures[cmd.correlation_id] = cmd.future
+        cmd.send(self.writer)
+        return await cmd.future
 
-    async def publish_event(self, event_type, stream, body=None, eventId=uuid.uuid4(), expected_version=-2, require_master=False):
-       buf = bytearray()
+    async def publish_event(self, type, stream, body=None, id=uuid.uuid4(), metadata=None, expected_version=-2, require_master=False):
 
-       msg = messages_pb2.WriteEvents()
-       msg.event_stream_id = stream
-       msg.require_master = require_master
-       msg.expected_version = expected_version
+       event = NewEvent(type, id, body, metadata)
+       cmd = WriteEvents(stream, [event], expected_version=expected_version, require_master=require_master, loop=self.loop)
+       self._futures[cmd.correlation_id] = cmd.future
+       cmd.send(self.writer)
+       return await cmd.future
 
-       event = msg.events.add()
-       event.event_id = eventId.bytes
-       event.event_type = event_type
-       event.data_content_type = 1
-       event.data = json.dumps(body).encode('UTF-8')
-       event.metadata_content_type = 0
-       serialized = msg.SerializeToString()
-
-       fut = Future(loop=self.loop)
-       correlation_id = uuid.uuid4()
-       self._futures[correlation_id] = fut
-
-       print(correlation_id)
-       self.write_header(buf, len(serialized), TcpCommand.WriteEvents, FLAGS_NONE, correlation_id)
-       self.writer.write(buf)
-       self.writer.write(serialized)
-
-       return await fut
-
-    def write_header(self, buf, data_length, cmd, flags, correlation_id):
-        buf.extend(struct.pack('<I', HEADER_LENGTH + data_length))
-        buf.append(cmd)
-        buf.append(flags)
-        buf.extend(correlation_id.bytes)
 
 class ConnectionContextManager:
 
