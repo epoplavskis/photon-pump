@@ -15,9 +15,10 @@ async def read_an_event(conn):
     print(event)
 
 
-async def ticker(delay, to):
-    for i in range(to):
+async def ticker(delay):
+    while True:
         yield NewEvent('tick', body{ 'tick': i})
+        i += 1
         await asyncio.sleep(delay)
 
 
