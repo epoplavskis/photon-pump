@@ -6,6 +6,7 @@ from uuid import UUID
 from .messages import *
 from .exceptions import *
 
+__version__ = '0.1.0'
 
 HEADER_LENGTH = 1 + 1 + 16
 SIZE_UINT_32 = 4
@@ -120,6 +121,12 @@ class InChannel:
 
 
 class Connection:
+    """Top level object for interacting with Eventstore.
+
+    The connection is the entry point to working with Photon Pump. It exposes high level methods
+    that wrap the Operation types from photonpump.messages.
+
+    """
 
     def __init__(self, host='127.0.0.1', port=1113, loop=None):
         self.connected = Event()
@@ -150,7 +157,8 @@ class Connection:
         self.reader.close()
         self.disconnected()
 
-    async def ping(self, correlation_id=uuid.uuid4()):
+    async def ping(self, correlation_id: UUID=None):
+        correlation_id = correlation_id
         cmd = Ping(correlation_id=correlation_id, loop=self.loop)
         await self.writer.enqueue(cmd)
         return await cmd.future
@@ -184,7 +192,8 @@ class Connection:
             stream: str,
             resolve_links=True,
             require_master=False,
-            correlation_id: UUID=uuid.uuid4()):
+            correlation_id: UUID=None):
+        correlation_id = correlation_id
         cmd = ReadEvent(stream, resolve_links, require_master, loop=self.loop)
         await self.writer.enqueue(cmd)
         return await cmd.future
@@ -197,7 +206,8 @@ class Connection:
             max_count: int=100,
             resolve_links: bool=True,
             require_master: bool=False,
-            correlation_id: UUID=uuid.uuid4()):
+            correlation_id: UUID=None):
+        correlation_id = correlation_id
         cmd = ReadStreamEvents(stream, from_event, max_count, resolve_links, require_master, loop=self.loop)
         await self.writer.enqueue(cmd)
         return await cmd.future
@@ -210,7 +220,8 @@ class Connection:
             batch_size: int=100,
             resolve_links: bool=True,
             require_master: bool=False,
-            correlation_id: UUID=uuid.uuid4()):
+            correlation_id: UUID=None):
+        correlation_id = correlation_id
         cmd = IterStreamEvents(stream, from_event, batch_size, resolve_links, require_master, loop=self.loop)
         await self.writer.enqueue(cmd)
         async for e in cmd.iterator:

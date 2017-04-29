@@ -159,11 +159,11 @@ class Ping(Operation):
         correlation_id (optional): A unique identifer for this command.
     """
 
-    def __init__(self, correlation_id: UUID=uuid4(), loop=None):
+    def __init__(self, correlation_id: UUID=None, loop=None):
         self.flags = OperationFlags.Empty
         self.command = TcpCommand.Ping
         self.future = Future(loop=loop)
-        self.correlation_id = correlation_id
+        self.correlation_id = correlation_id or uuid4()
         self.data = bytearray()
 
     async def handle_response(self, header, payload, writer):
@@ -209,9 +209,9 @@ class WriteEvents(Operation):
             events: Sequence[NewEventData],
             expected_version: Union[ExpectedVersion, int]=ExpectedVersion.Any,
             require_master: bool=False,
-            correlation_id: UUID=uuid4(),
+            correlation_id: UUID=None,
             loop=None):
-        self.correlation_id = correlation_id
+        self.correlation_id = correlation_id or uuid4()
         self.future = Future(loop=loop)
         self.flags = OperationFlags.Empty
         self.command = TcpCommand.WriteEvents
@@ -268,10 +268,10 @@ class ReadEvent(Operation):
             resolve_links: bool=True,
             require_master: bool=False,
             credentials=None,
-            correlation_id: UUID=uuid4(),
+            correlation_id: UUID=None,
             loop=None):
 
-        self.correlation_id = correlation_id
+        self.correlation_id = correlation_id or uuid4()
         self.future = Future(loop=loop)
         self.flags = OperationFlags.Empty
         self.command = TcpCommand.Read
@@ -336,10 +336,10 @@ class ReadStreamEvents(Operation):
             require_master: bool=False,
             direction: StreamDirection=StreamDirection.Forward,
             credentials=None,
-            correlation_id: UUID=uuid4(),
+            correlation_id: UUID=None,
             loop=None):
 
-        self.correlation_id = correlation_id
+        self.correlation_id = correlation_id or uuid4()
         self.future = Future(loop=loop)
         self.flags = OperationFlags.Empty
         self.stream = stream
@@ -400,11 +400,11 @@ class IterStreamEvents(Operation):
             require_master: bool=False,
             direction: StreamDirection=StreamDirection.Forward,
             credentials=None,
-            correlation_id: UUID=uuid4(),
+            correlation_id: UUID=None,
             iterator: StreamingIterator=None,
             loop=None):
 
-        self.correlation_id = correlation_id
+        self.correlation_id = correlation_id or uuid4()
         self.batch_size = batch_size
         self.flags = OperationFlags.Empty
         self.stream = stream
@@ -470,5 +470,5 @@ class HeartbeatResponse(Operation):
         self.flags = OperationFlags.Empty
         self.command = TcpCommand.HeartbeatResponse
         self.future = Future(loop=loop)
-        self.correlation_id = correlation_id
+        self.correlation_id = correlation_id or uuid4()
         self.data = bytearray()

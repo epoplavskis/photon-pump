@@ -53,3 +53,22 @@ async def read_an_infinite_number_of_events(conn):
     async for event in conn.stream('ticker_stream'):
         print(event)
 ```
+
+# Todo
+
+- [ ] Allow event body to be any serializable object, not just dict
+- [ ] Fix support for binary bodies.
+- [ ] Implement the `publish from async generator` example from the docs.
+- [ ] Support for cluster + DNS discovery
+- [ ] Reconnection and retry logic.
+- [ ] Catch up subscription - probably as `conn.stream('my-stream', forever=True)`
+- [ ] Persistent Subscriptions
+- [ ] Event-based alternative to async generators, eg 
+        ```
+        conn.on_event.append(lambda e: print(e))
+        conn.watch('my-stream')
+        ```
+- [ ] Handle error cases properly.
+- [ ] Travis!
+- [ ] Read the Docs!
+- [ ] Add logging
