@@ -226,7 +226,7 @@ class Connection:
         await self.writer.enqueue(cmd)
         return await cmd.future
 
-    async def stream(
+    async def iter(
             self,
             stream: str,
             direction: StreamDirection=StreamDirection.Forward,

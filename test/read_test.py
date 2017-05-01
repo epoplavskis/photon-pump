@@ -118,7 +118,7 @@ async def test_streaming_read(event_loop):
 
         events_read = 0
 
-        async for event in c.stream(stream_name, batch_size=1):
+        async for event in c.iter(stream_name, batch_size=1):
             events_read += 1
             assert event.type == 'pony_jumped'
 
