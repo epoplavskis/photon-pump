@@ -10,8 +10,19 @@ Welcome to photon-pump's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   `Installation`_
+   api
 
-Photon-pump is a fast, user-friendly client for _Eventstore: http://geteventstore.com.
+Photon-pump is a fast, user-friendly client for Eventstore_.
+
+It emphasis a modular design, hidden behind an interface that's written for humans.
+
+Installation
+------------
+
+Photon pump is available on the `cheese shop`_
+
+
 
 
 Indices and tables
@@ -20,3 +31,6 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+.. _Eventstore: http://geteventstore.com
+.. _`cheese shop` https://pypi.org/

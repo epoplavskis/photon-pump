@@ -1,0 +1,1407 @@
+{
+  "family": "chair_variation",
+  "groups": [],
+  "variant_group": null,
+  "categories": [],
+  "enabled": true,
+  "values": {
+    "sku": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": "CHAIRTEST001-UK"
+      }
+    ],
+    "additional_dimensions": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "back_height": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "colour_name": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": "ash_veneer"
+      }
+    ],
+    "country_of_manufacture": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "cover_type": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "design_date": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "dimension_image": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "fabric_composition": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "filling": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "finish": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "fire_retardant": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": "uk"
+      }
+    ],
+    "foam_specification": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "gal_attr_popup_1": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": null
+      }
+    ],
+    "gal_attr_popup_2": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": null
+      }
+    ],
+    "gal_attr_popup_3": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": null
+      }
+    ],
+    "gal_attr_popup_4": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": null
+      }
+    ],
+    "gal_attr_thumb_1": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": null
+      }
+    ],
+    "gal_attr_thumb_2": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": null
+      }
+    ],
+    "gal_attr_thumb_3": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": null
+      }
+    ],
+    "gal_attr_thumb_4": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": null
+      }
+    ],
+    "legs_finish": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "made_strapline": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "made_strapline_colour": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "made_text_position": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "material": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": []
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": []
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": []
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": []
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": []
+      }
+    ],
+    "media_gallery": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": [
+          "13368"
+        ]
+      }
+    ],
+    "meta_description": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "meta_keyword": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "meta_title": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "name": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "price": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": [
+          {
+            "data": null,
+            "currency": "EUR"
+          },
+          {
+            "data": null,
+            "currency": "GBP"
+          }
+        ]
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": [
+          {
+            "data": null,
+            "currency": "EUR"
+          },
+          {
+            "data": null,
+            "currency": "GBP"
+          }
+        ]
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": [
+          {
+            "data": null,
+            "currency": "EUR"
+          },
+          {
+            "data": null,
+            "currency": "GBP"
+          }
+        ]
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": [
+          {
+            "data": null,
+            "currency": "EUR"
+          },
+          {
+            "data": null,
+            "currency": "GBP"
+          }
+        ]
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": [
+          {
+            "data": null,
+            "currency": "EUR"
+          },
+          {
+            "data": null,
+            "currency": "GBP"
+          }
+        ]
+      }
+    ],
+    "rrp_price": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": [
+          {
+            "data": null,
+            "currency": "EUR"
+          },
+          {
+            "data": null,
+            "currency": "GBP"
+          }
+        ]
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": [
+          {
+            "data": null,
+            "currency": "EUR"
+          },
+          {
+            "data": null,
+            "currency": "GBP"
+          }
+        ]
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": [
+          {
+            "data": null,
+            "currency": "EUR"
+          },
+          {
+            "data": null,
+            "currency": "GBP"
+          }
+        ]
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": [
+          {
+            "data": null,
+            "currency": "EUR"
+          },
+          {
+            "data": null,
+            "currency": "GBP"
+          }
+        ]
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": [
+          {
+            "data": null,
+            "currency": "EUR"
+          },
+          {
+            "data": null,
+            "currency": "GBP"
+          }
+        ]
+      }
+    ],
+    "small_image": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "small_image_label": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "special_features": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "status": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": "enabled"
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "style_pattern": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "tax_class_id": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail1_mediaurl": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail1_text": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail1_title": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail2_mediaurl": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail2_text": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail2_title": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail3_mediaurl": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail3_text": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail3_title": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail4_mediaurl": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail4_text": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail4_title": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "thumbnail_label": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "variation_image": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "variation_parent_product": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": "8"
+      }
+    ],
+    "version": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": "1"
+      }
+    ],
+    "visibility": [
+      {
+        "locale": "de_DE",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "fr_FR",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "it_IT",
+        "scope": null,
+        "data": null
+      },
+      {
+        "locale": "nl_NL",
+        "scope": null,
+        "data": null
+      }
+    ],
+    "depth": [
+      {
+        "locale": "en_GB",
+        "scope": null,
+        "data": "50"
+      }
+    ]
+  },
+  "associations": {
+    "ASSOCIATED": {
+      "groups": [],
+      "products": []
+    },
+    "CROSSSELL": {
+      "groups": [],
+      "products": []
+    },
+    "FABRIC_SAMPLES": {
+      "groups": [],
+      "products": []
+    },
+    "RELATED": {
+      "groups": [],
+      "products": []
+    },
+    "UPSELL": {
+      "groups": [],
+      "products": []
+    }
+  },
+  "sku": "CHAIRTEST001-UK",
+  "author": {
+    "name": "John Doe",
+    "email": "admin@example.com"
+  },
+  "changeset": {
+    "media_gallery": [
+      {
+        "locale": null,
+        "scope": null,
+        "data": [
+          "13368"
+        ]
+      }
+    ]
+  },
+  "completeness": [],
+  "variation_parent_product": "8"
+}

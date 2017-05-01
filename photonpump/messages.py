@@ -82,6 +82,22 @@ Header = namedtuple('photonpump_result_header', [
     'correlation_id'])
 
 
+def sizeof_fmt(num, suffix='B'):
+    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f%s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f%s%s" % (num, 'Yi', suffix)
+
+def print_header(header):
+    return "%s (%s) of %s flags=%d" % (TcpCommand(header.cmd).name,
+                                       header.correlation_id,
+                                       sizeof_fmt(header.size),
+                                       header.flags)
+
+Header.__repr__ = print_header
+
+
 NewEventData = namedtuple('photonpump_event', [
     'id',
     'type',
@@ -125,13 +141,21 @@ class Event(EventRecord):
 
 
 class Operation:
+    """The base class for requests to Eventstore.
+
+    Implementors have two responsibilities: they must serialize a byte-stream request
+    in the :meth:`~photonpump.messages.Operation.send` method, and they must deserialize and
+    handle the response in the :meth:`~photonpump.messages.Operation.handle_response` method.
+    """
 
     def send(self, writer):
+        """Write the byte-stream of this request to an instance of StreamWriter"""
         header = self.make_header()
         writer.write(header)
         writer.write(self.data)
 
     def make_header(self):
+        """Build the byte-array representing the operation's header."""
         buf = bytearray()
         data_length = len(self.data)
         buf.extend(struct.pack(
@@ -143,6 +167,11 @@ class Operation:
         return buf
 
     async def handle_response(self, header, payload, writer):
+        """Handle the response from Eventstore.
+
+        Implementors can choose whether to return a single result, return an async
+        generator, or send a new Operation to the :class:`photonpump.Connection`.
+        """
         pass
 
     def __repr__(self):
@@ -166,7 +195,7 @@ class Ping(Operation):
         self.correlation_id = correlation_id or uuid4()
         self.data = bytearray()
 
-    async def handle_response(self, header, payload, writer):
+    async def handle_response(self, header, payload, writer) -> Pong:
         self.future.set_result(Pong(header.correlation_id))
 
 
@@ -360,7 +389,13 @@ class ReadStreamEvents(Operation):
 
     async def handle_response(self, header, payload, writer):
         result = messages_pb2.ReadStreamEventsCompleted()
-        result.ParseFromString(payload)
+        try:
+            result.ParseFromString(payload)
+        except Exception as e:
+            print(e)
+            print(payload)
+            print(header)
+            raise
         if result.result == ReadStreamResult.Success:
             self.future.set_result([Event(
                 x.event.event_stream_id,
@@ -429,7 +464,12 @@ class IterStreamEvents(Operation):
 
     async def handle_response(self, header, payload, writer):
         result = messages_pb2.ReadStreamEventsCompleted()
-        result.ParseFromString(payload)
+        try:
+            result.ParseFromString(payload)
+        except Exception as e:
+            print(e)
+            print(payload)
+            print(header)
         if result.result == ReadStreamResult.Success:
             await self.iterator.enqueue_items(
                 [Event(

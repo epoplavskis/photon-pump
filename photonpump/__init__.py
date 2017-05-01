@@ -92,16 +92,31 @@ class InChannel:
         self.writer = writer
         self.read_loop = asyncio.ensure_future(self.read_responses())
 
-    async def read_message(self):
+    async def _read_header(self):
         """Read a single message from the reader, returning the tuple (header, data bytes)"""
         next_msg_len = await self.reader.read(SIZE_UINT_32)
         next_header = await self.reader.read(HEADER_LENGTH)
-        (size,) = self._length.unpack(next_msg_len)
-        next_msg = await self.reader.read(size - HEADER_LENGTH)
         (cmd, flags,a,b) = self._head.unpack(next_header)
+        (size,) = self._length.unpack(next_msg_len)
         id = uuid.UUID(int=(a << 64 | b ))
-        header = Header(size, cmd, flags, id)
-        return header, next_msg
+        return Header(size, cmd, flags, id)
+
+    async def read_message(self):
+        header = await self._read_header()
+        bytes_remaining = header.size - HEADER_LENGTH
+        next_chunk = await self.reader.read(bytes_remaining)
+        bytes_read = len(next_chunk)
+        if bytes_read == bytes_remaining:
+            return header, next_chunk
+        else:
+            body = bytearray(next_chunk)
+            while bytes_remaining > 0:
+                bytes_remaining -= bytes_read
+                next_chunk = await self.reader.read(bytes_remaining)
+                bytes_read = len(next_chunk)
+                body.extend(next_chunk)
+            return header, body
+
 
     async def read_responses(self):
         """Loop forever reading messages and invoking the operation that caused them"""
@@ -124,8 +139,7 @@ class Connection:
     """Top level object for interacting with Eventstore.
 
     The connection is the entry point to working with Photon Pump. It exposes high level methods
-    that wrap the Operation types from photonpump.messages.
-
+    that wrap the :class:`~photonpump.messages.Operation` types from photonpump.messages.
     """
 
     def __init__(self, host='127.0.0.1', port=1113, loop=None):
