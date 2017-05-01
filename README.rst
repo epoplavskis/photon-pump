@@ -65,6 +65,7 @@ Todo
 - [ ] Catch up subscription - probably as `conn.stream('my-stream', forever=True)`
 - [ ] Persistent Subscriptions
 - [ ] Event-based alternative to async generators, eg ::
+
         conn.on_event.append(lambda e: print(e))
         conn.watch('my-stream')
 

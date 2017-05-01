@@ -93,7 +93,7 @@ class InChannel:
         self.read_loop = asyncio.ensure_future(self.read_responses())
 
     async def _read_header(self):
-        """Read a single message from the reader, returning the tuple (header, data bytes)"""
+        """Read a message header from the StreamReader."""
         next_msg_len = await self.reader.read(SIZE_UINT_32)
         next_header = await self.reader.read(HEADER_LENGTH)
         (cmd, flags,a,b) = self._head.unpack(next_header)
