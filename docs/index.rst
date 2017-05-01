@@ -20,7 +20,10 @@ It emphasis a modular design, hidden behind an interface that's written for huma
 Installation
 ------------
 
-Photon pump is available on the `cheese shop`_
+Photon pump is available on the `cheese shop`_. ::
+    pip install photonpump
+
+You will need to install lib-protobuf 3.2.0 or above.
 
 
 
@@ -33,4 +36,4 @@ Indices and tables
 * :ref:`search`
 
 .. _Eventstore: http://geteventstore.com
-.. _`cheese shop` https://pypi.org/
+.. _cheese shop: https://pypi.org/
