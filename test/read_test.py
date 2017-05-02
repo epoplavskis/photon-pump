@@ -124,4 +124,29 @@ async def test_streaming_read(event_loop):
 
         assert events_read == 3
 
+@pytest.mark.asyncio
+async def test_async_comprehension(event_loop):
+
+
+    async def embiggen(e):
+        data = e.json()
+        data['Height'] *= 10
+        data['Distance'] *= 10
+
+    stream_name = str(uuid.uuid4())
+
+    async with connect(loop=event_loop) as c:
+
+        await given_a_stream_with_three_events(c, stream_name)
+
+        jumps = (e async for e in c.iter(stream_name, batch_size=2) if e.type =='pony_jumped')
+        big_jumps = (embiggen(e) async for e in jumps)
+
+        events_read = 0
+
+        async for event in big_jumps:
+            events_read += 1
+
+        assert events_read == 3
+
 
