@@ -1,0 +1,19 @@
+sudo: required
+
+language: python
+python:
+    - 3.6
+
+services:
+  - docker
+
+before_install:
+  - docker run -d -p 127.0.0.1:1113:1113 eventstore/eventstore
+
+install:
+  - pip install -r requirements.txt
+  - pip install -r requirements-test.txt
+
+script:
+  - py.test
+  - flake8 --exit-zero
