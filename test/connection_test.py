@@ -4,14 +4,6 @@ import uuid
 import photonpump
 from photonpump import Connection
 
-@pytest.yield_fixture
-def loop():
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    yield loop
-    loop.close()
-
 @pytest.mark.asyncio
 async def test_connection_events(event_loop):
 
