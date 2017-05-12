@@ -5,7 +5,6 @@ import codecs
 import os
 import sys
 
-import photonpump
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -33,7 +32,7 @@ class PyTest(TestCommand):
 
 setup(
     name='photon-pump',
-    version=photonpump.__version__,
+    version='0.1.0',
     url='http://github.com/madedotcom/photon-pump/',
     license='MIT',
     author='Bob Gregory',
