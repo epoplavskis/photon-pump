@@ -1,12 +1,9 @@
-from setuptools import setup, find_packages
-from setuptools.command.test import test as TestCommand
 import io
-import codecs
-import os
 import sys
 
+from setuptools import setup
+from setuptools.command.test import test as TestCommand
 
-here = os.path.abspath(os.path.dirname(__file__))
 
 def read(*filenames, **kwargs):
     encoding = kwargs.get('encoding', 'utf-8')
@@ -17,7 +14,11 @@ def read(*filenames, **kwargs):
             buf.append(f.read())
     return sep.join(buf)
 
+
 long_description = read('README.rst', 'CHANGES.md')
+requirements = read('requirements.txt').split('\n')
+requirements_test = read('requirements-test.txt').split('\n')
+
 
 class PyTest(TestCommand):
     def finalize_options(self):
@@ -30,14 +31,15 @@ class PyTest(TestCommand):
         errcode = pytest.main(self.test_args)
         sys.exit(errcode)
 
+
 setup(
     name='photon-pump',
     version='0.1.0',
     url='http://github.com/madedotcom/photon-pump/',
     license='MIT',
     author='Bob Gregory',
-    tests_require=['pytest'],
-    install_requires=['protobuf>=3.2.0'],
+    tests_require=requirements_test,
+    install_requires=requirements,
     cmdclass={'test': PyTest},
     author_email='bob@made.com',
     description='Fast, easy to use client for EventStore',
@@ -46,7 +48,7 @@ setup(
     include_package_data=True,
     platforms='any',
     test_suite='photonpump.test',
-    classifiers = [
+    classifiers=[
         'Programming Language :: Python',
         'Development Status :: 3 - Alpha',
         'Natural Language :: English',
