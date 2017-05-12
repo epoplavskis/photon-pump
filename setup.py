@@ -1,4 +1,3 @@
-from __future__ import print_function
 from setuptools import setup, find_packages
 from setuptools.command.test import test as TestCommand
 import io
@@ -6,7 +5,6 @@ import codecs
 import os
 import sys
 
-import photonpump
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -34,14 +32,12 @@ class PyTest(TestCommand):
 
 setup(
     name='photon-pump',
-    version=photonpump.__version__,
+    version='0.1.0',
     url='http://github.com/madedotcom/photon-pump/',
     license='MIT',
     author='Bob Gregory',
     tests_require=['pytest'],
-    install_requires=['protobuf>=3.2.0',
-                    'asyncio>=3.4.3',
-                    ],
+    install_requires=['protobuf>=3.2.0'],
     cmdclass={'test': PyTest},
     author_email='bob@made.com',
     description='Fast, easy to use client for EventStore',
