@@ -70,6 +70,6 @@ Todo
         conn.watch('my-stream')
 
 - [ ] Handle error cases properly.
-- [ ] Travis!
-- [ ] Read the Docs!
+- [X] Travis!
+- [X] Read the Docs!
 - [ ] Add logging
