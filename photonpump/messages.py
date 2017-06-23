@@ -1,10 +1,10 @@
 from asyncio import Future, Queue
 from collections import namedtuple
 from enum import IntEnum
-import json
-import struct
 from typing import Any, Dict, Sequence, Union
 from uuid import uuid4, UUID
+import json
+import struct
 
 from . import messages_pb2
 from . import exceptions
@@ -75,25 +75,27 @@ class ExpectedVersion(IntEnum):
 
 
 JsonDict = Dict[str, Any]
-Header = namedtuple('photonpump_result_header', [
-    'size',
-    'cmd',
-    'flags',
-    'correlation_id'])
+Header = namedtuple(
+    'photonpump_result_header', ['size', 'cmd', 'flags', 'correlation_id']
+)
 
 
 def sizeof_fmt(num, suffix='B'):
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+    for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
         num /= 1024.0
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
+
 def print_header(header):
-    return "%s (%s) of %s flags=%d" % (TcpCommand(header.cmd).name,
-                                       header.correlation_id,
-                                       sizeof_fmt(header.size),
-                                       header.flags)
+    return "%s (%s) of %s flags=%d" % (
+        TcpCommand(header.cmd).name,
+        header.correlation_id,
+        sizeof_fmt(header.size),
+        header.flags
+    )
+
 
 Header.__repr__ = print_header
 
@@ -143,13 +145,16 @@ class Event(EventRecord):
 class Operation:
     """The base class for requests to Eventstore.
 
-    Implementors have two responsibilities: they must serialize a byte-stream request
-    in the :meth:`~photonpump.messages.Operation.send` method, and they must deserialize and
-    handle the response in the :meth:`~photonpump.messages.Operation.handle_response` method.
+    Implementors have two responsibilities: they must serialize a byte-stream
+    request in the :meth:`~photonpump.messages.Operation.send` method, and
+    they must deserialize and handle the response in the
+    :meth:`~photonpump.messages.Operation.handle_response` method.
     """
 
     def send(self, writer):
-        """Write the byte-stream of this request to an instance of StreamWriter"""
+        """
+        Write the byte-stream of this request to an instance of StreamWriter
+        """
         header = self.make_header()
         writer.write(header)
         writer.write(self.data)
@@ -169,13 +174,16 @@ class Operation:
     async def handle_response(self, header, payload, writer):
         """Handle the response from Eventstore.
 
-        Implementors can choose whether to return a single result, return an async
-        generator, or send a new Operation to the :class:`photonpump.Connection`.
+        Implementors can choose whether to return a single result,
+        return an async generator, or send a new Operation to the
+        :class:`photonpump.Connection`.
         """
         pass
 
     def __repr__(self):
-        return "Operation %s (%s)" % (self.__class__.__name__, self.correlation_id)
+        return "Operation %s (%s)" % (
+            self.__class__.__name__, self.correlation_id
+        )
 
 
 Pong = namedtuple('photonpump_result_Pong', ['correlation_id'])

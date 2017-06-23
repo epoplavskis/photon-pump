@@ -1,9 +1,11 @@
-import photonpump
-from photonpump import connect, messages, messages_pb2
-import pytest
 import uuid
 
+import pytest
+
+from photonpump import messages, connect, StreamNotFoundException
+
 from .fixtures import given_a_stream_with_three_events
+
 
 @pytest.mark.asyncio
 async def test_single_event_roundtrip(event_loop):
@@ -23,7 +25,8 @@ async def test_single_event_roundtrip(event_loop):
 
         data = result.json()
         assert data['thing'] == 1
-        assert data['happening'] == True
+        assert data['happening'] is True
+
 
 @pytest.mark.asyncio
 async def test_missing_stream(event_loop):
@@ -35,12 +38,13 @@ async def test_missing_stream(event_loop):
         exc = None
 
         try:
-            result = await c.get_event(stream_name, 0)
+            await c.get_event(stream_name, 0)
         except Exception as e:
             exc = e
 
-        assert isinstance(exc, photonpump.StreamNotFoundException)
+        assert isinstance(exc, StreamNotFoundException)
         assert exc.stream == stream_name
+
 
 @pytest.mark.asyncio
 async def test_read_multiple(event_loop):
@@ -86,6 +90,7 @@ async def test_read_with_max_count(event_loop):
         data = event.json()
         assert data['Pony'] == 'Derpy Hooves'
 
+
 @pytest.mark.asyncio
 async def test_read_with_max_count_and_from_event(event_loop):
 
@@ -106,6 +111,7 @@ async def test_read_with_max_count_and_from_event(event_loop):
 
         data = event.json()
         assert data['Pony'] == 'Unlikely Hooves'
+
 
 @pytest.mark.asyncio
 async def test_streaming_read(event_loop):

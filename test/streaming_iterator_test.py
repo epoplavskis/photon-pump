@@ -1,7 +1,8 @@
-from photonpump import StreamingIterator
+from asyncio import Future
 
-from asyncio import Future, Queue
 import pytest
+
+from photonpump import StreamingIterator
 
 
 @pytest.mark.asyncio
@@ -18,7 +19,7 @@ async def test_a_single_batch(event_loop):
 
     async for i in gen:
         assert i == expected
-        expect += 1
+        expected += 1
 
 
 @pytest.mark.asyncio
@@ -40,7 +41,7 @@ async def test_multiple_batches(event_loop):
 
     async for i in gen:
         if batches:
-           gen.enqueue_items(batches.pop())
+            gen.enqueue_items(batches.pop())
 
         assert i == expected
         expected += 1
