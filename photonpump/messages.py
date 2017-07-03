@@ -122,18 +122,28 @@ class StreamingIterator:
     def __init__(self, size):
         self.items = Queue(maxsize=size)
         self.finished = False
+        self.fut = None
 
     async def __aiter__(self):
         return self
 
     async def enqueue_items(self, items):
+        print("here")
         for item in items:
+            print("there")
+            print(item)
             await self.items.put(item)
 
     async def __anext__(self):
         if self.finished and self.items.empty():
             raise StopAsyncIteration()
-        return await self.items.get()
+        self.fut = self.items.get()
+        return await self.fut
+
+    def cancel(self):
+        self.finished = True
+        if self.fut:
+            self.fut.cancel()
 
 
 class Event(EventRecord):
@@ -202,6 +212,9 @@ class Ping(Operation):
         self.future = Future(loop=loop)
         self.correlation_id = correlation_id or uuid4()
         self.data = bytearray()
+
+    def cancel(self):
+        self.future.cancel()
 
     async def handle_response(self, header, payload, writer) -> Pong:
         self.future.set_result(Pong(header.correlation_id))
@@ -282,6 +295,8 @@ class WriteEvents(Operation):
         result.ParseFromString(payload)
         self.future.set_result(result)
 
+    async def handle_response(self, header, payload, writer) -> Pong:
+        self.future.set_result(Pong(header.correlation_id))
 
 class ReadEvent(Operation):
     """Command class for reading a single event.
@@ -341,6 +356,8 @@ class ReadEvent(Operation):
             exn = exceptions.StreamNotFoundException(msg, self.stream)
             self.future.set_exception(exn)
 
+    async def handle_response(self, header, payload, writer) -> Pong:
+        self.future.set_result(Pong(header.correlation_id))
 
 ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 
@@ -418,6 +435,8 @@ class ReadStreamEvents(Operation):
             exn = exceptions.StreamNotFoundException(msg, self.stream)
             self.future.set_exception(exn)
 
+    async def handle_response(self, header, payload, writer) -> Pong:
+        self.future.set_result(Pong(header.correlation_id))
 
 class IterStreamEvents(Operation):
     """Command class for iterating events from a stream.
@@ -479,32 +498,40 @@ class IterStreamEvents(Operation):
             print(payload)
             print(header)
         if result.result == ReadStreamResult.Success:
+            print("Booob-a")
+            print(result.events)
             await self.iterator.enqueue_items(
                 [Event(
-                    x.event.event_stream_id,
-                    UUID(bytes_le=x.event.event_id),
-                    x.event.event_number,
-                    x.event.event_type,
-                    x.event.data,
-                    x.event.metadata,
-                    x.event.created_epoch) for x in result.events])
-            await writer.enqueue(IterStreamEvents(
-                self.stream,
-                batch_size=self.batch_size,
-                from_event=result.next_event_number,
-                resolve_links=self.resolve_links,
-                require_master=self.require_master,
-                direction=self.direction,
-                iterator=self.iterator,
-                correlation_id=uuid4()
-                ))
-
+                    x.event_stream_id,
+                    UUID(bytes_le=x.event_id),
+                    x.event_number,
+                    x.event_type,
+                    x.data,
+                    x.metadata,
+                    x.created_epoch) for x in (e.link if e.link else e.event for e in result.events)])
             if result.is_end_of_stream:
                 self.iterator.finished = True
+            else:
+                await writer.enqueue(IterStreamEvents(
+                    self.stream,
+                    batch_size=self.batch_size,
+                    from_event=result.next_event_number,
+                    resolve_links=self.resolve_links,
+                    require_master=self.require_master,
+                    direction=self.direction,
+                    iterator=self.iterator,
+                    correlation_id=uuid4()
+                    ))
         elif result.result == ReadEventResult.NoStream:
             msg = "The stream '"+self.stream+"' was not found"
             exn = exceptions.StreamNotFoundException(msg, self.stream)
             raise exn
+        else:
+            print("Booobb")
+            print(result)
+
+    def cancel(self):
+        self.iterator.cancel()
 
 
 class HeartbeatResponse(Operation):
@@ -520,3 +547,6 @@ class HeartbeatResponse(Operation):
         self.future = Future(loop=loop)
         self.correlation_id = correlation_id or uuid4()
         self.data = bytearray()
+
+    def cancel():
+        self.future.cancel()
