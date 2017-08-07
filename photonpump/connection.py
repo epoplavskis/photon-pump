@@ -48,6 +48,7 @@ class ConnectionHandler:
         await self.queue.put(ConnectionHandler.CONNECT)
 
     def hangup(self):
+        self._logger.debug("Connection hanging up")
         self._run_loop.cancel()
 
     async def ok(self):
@@ -80,13 +81,12 @@ class ConnectionHandler:
         if self._last_message == ConnectionHandler.CONNECT:
             await asyncio.sleep(random.uniform(0, self._current_attempts))
         try:
-            c = await self._loop.create_connection(self.getProtocol, host, port)
-            self._logger.debug("Got c: %s", c)
+            await self._loop.create_connection(self.getProtocol, host, port)
         except Exception as e:
             self._logger.error(e)
             if self._current_attempts == self._max_attempts:
                 raise
-            self._attempt_connect(host, port)
+            await self._attempt_connect(host, port)
 
     def getProtocol(self):
         return self._protocol
@@ -164,7 +164,10 @@ class EventstoreProtocol (asyncio.streams.FlowControlMixin):
             message: The operation to send.
         """
         self._pending_operations[message.correlation_id] = message
-        await self._queue.put(message)
+        try:
+            await self._queue.put(message)
+        except Exception as e:
+            self._logger.info(e)
 
     async def connect(self):
         await self._connectHandler.connect()
@@ -231,10 +234,13 @@ class EventstoreProtocol (asyncio.streams.FlowControlMixin):
         self.running = False
         if hangup:
             self._connectHandler.hangup()
+        for _, op in self._pending_operations.items():
+            op.cancel()
         if(self._read_loop):
             self._read_loop.cancel()
             self._write_loop.cancel()
             self._transport.close()
+
         self._is_connected = False
 
 

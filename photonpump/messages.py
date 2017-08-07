@@ -128,22 +128,31 @@ class StreamingIterator:
         return self
 
     async def enqueue_items(self, items):
-        print("here")
         for item in items:
-            print("there")
-            print(item)
             await self.items.put(item)
 
     async def __anext__(self):
         if self.finished and self.items.empty():
             raise StopAsyncIteration()
-        self.fut = self.items.get()
-        return await self.fut
+        try:
+            next = await self.items.get()
+        except Exception as e:
+            raise StopAsyncIteration()
+        if isinstance(next, StopIteration):
+            raise StopAsyncIteration()
+        if isinstance(next, Exception):
+            raise next
+        return next
+
+    async def athrow(self, e):
+        await self.items.put(e)
+
+    async def asend(self, m):
+        await self.items.put(m)
 
     def cancel(self):
         self.finished = True
-        if self.fut:
-            self.fut.cancel()
+        self.asend(StopIteration())
 
 
 class Event(EventRecord):
@@ -275,7 +284,10 @@ class WriteEvents(Operation):
             e = msg.events.add()
             e.event_id = event.id.bytes
             e.event_type = event.type
-            if event.data:
+            if isinstance(event.data, str):
+                e.data_content_type = ContentType.Json
+                e.data = event.data.encode('UTF-8')
+            elif event.data:
                 e.data_content_type = ContentType.Json
                 e.data = json.dumps(event.data).encode('UTF-8')
             else:
@@ -295,8 +307,9 @@ class WriteEvents(Operation):
         result.ParseFromString(payload)
         self.future.set_result(result)
 
-    async def handle_response(self, header, payload, writer) -> Pong:
-        self.future.set_result(Pong(header.correlation_id))
+    def cancel(self):
+        self.future.cancel()
+
 
 class ReadEvent(Operation):
     """Command class for reading a single event.
@@ -356,8 +369,8 @@ class ReadEvent(Operation):
             exn = exceptions.StreamNotFoundException(msg, self.stream)
             self.future.set_exception(exn)
 
-    async def handle_response(self, header, payload, writer) -> Pong:
-        self.future.set_result(Pong(header.correlation_id))
+    def cancel(self):
+        self.future.cancel()
 
 ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 
@@ -435,8 +448,9 @@ class ReadStreamEvents(Operation):
             exn = exceptions.StreamNotFoundException(msg, self.stream)
             self.future.set_exception(exn)
 
-    async def handle_response(self, header, payload, writer) -> Pong:
-        self.future.set_result(Pong(header.correlation_id))
+    def cancel(self):
+        self.future.cancel()
+
 
 class IterStreamEvents(Operation):
     """Command class for iterating events from a stream.
@@ -498,9 +512,8 @@ class IterStreamEvents(Operation):
             print(payload)
             print(header)
         if result.result == ReadStreamResult.Success:
-            print("Booob-a")
-            print(result.events)
-            await self.iterator.enqueue_items(
+            try:
+                await self.iterator.enqueue_items(
                 [Event(
                     x.event_stream_id,
                     UUID(bytes_le=x.event_id),
@@ -508,7 +521,9 @@ class IterStreamEvents(Operation):
                     x.event_type,
                     x.data,
                     x.metadata,
-                    x.created_epoch) for x in (e.link if e.link else e.event for e in result.events)])
+                    x.created_epoch) for x in (e.link if (e.link and e.link.event_id) else e.event for e in result.events)])
+            except Exception as e:
+                print(e)
             if result.is_end_of_stream:
                 self.iterator.finished = True
             else:
@@ -522,13 +537,15 @@ class IterStreamEvents(Operation):
                     iterator=self.iterator,
                     correlation_id=uuid4()
                     ))
-        elif result.result == ReadEventResult.NoStream:
+        elif result.result == ReadStreamResult.NoStream:
             msg = "The stream '"+self.stream+"' was not found"
             exn = exceptions.StreamNotFoundException(msg, self.stream)
-            raise exn
+            await self.iterator.athrow(exn)
         else:
-            print("Booobb")
+            print("I have ended up here")
             print(result)
+            print(result.result)
+            print(ReadEventResult.NoStream)
 
     def cancel(self):
         self.iterator.cancel()
