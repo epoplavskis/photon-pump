@@ -1,7 +1,9 @@
 import asyncio
+import logging
 
 import pytest
 
+logging.basicConfig(level=logging.DEBUG)
 
 @pytest.yield_fixture
 def event_loop():
