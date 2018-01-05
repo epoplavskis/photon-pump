@@ -6,8 +6,8 @@ import uuid
 from typing import Dict, Sequence
 from uuid import UUID
 
-from .exceptions import *
-from .messages import *
+from . import exceptions as ex
+from . import messages as msg
 
 __version__ = '0.1.0'
 
@@ -103,9 +103,6 @@ class ConnectionHandler:
 
 class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
-    _length = struct.Struct('<I')
-    _head = struct.Struct('>BBQQ')
-
     def __init__(self, host, port, queue, pending, logger=None, loop=None):
         self._loop = loop or asyncio.get_event_loop()
         self._host = host
@@ -175,7 +172,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             if not self.is_connecting:
                 asyncio.ensure_future(self.connect(), loop=self._loop)
 
-    async def enqueue(self, message: Operation):
+    async def enqueue(self, message: msg.Operation):
         """Enqueue an operation.
 
         The operation will be added to the `pending` dict, and
@@ -199,14 +196,12 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
         while self._is_connected:
             self.next = await self._queue.get()
-            self._logger.debug("Got a message to send!")
             try:
                 self.next.send(self._writer)
             except Exception as e:
                 self._logger.error(
                     "Failed to send message %s", e, exc_info=True
                 )
-            self._logger.debug("Did that")
             try:
                 await self._writer.drain()
             except Exception as e:
@@ -216,12 +211,8 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         """Read a message header from the StreamReader."""
         next_msg_len = await self._reader.read(SIZE_UINT_32)
         next_header = await self._reader.read(HEADER_LENGTH)
-        (cmd, flags, a, b) = self._head.unpack(next_header)
-        (size, ) = self._length.unpack(next_msg_len)
-        self._logger.debug("Next message len is %d", size)
-        id = uuid.UUID(int=(a << 64 | b))
 
-        return Header(size, cmd, flags, id)
+        return msg.parse_header(next_msg_len, next_header)
 
     async def read_message(self):
         header = await self._read_header()
@@ -243,16 +234,16 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             return header, body
 
     async def _read_responses(self):
-        """Loop forever reading messages and invoking the operation that caused them"""
+        """Loop forever reading messages and invoking 
+           the operation that caused them"""
 
         while True:
             header, data = await self.read_message()
             await self._connectHandler.ok()
-            self._logger.debug("Received message %s", header)
 
-            if header.cmd == TcpCommand.HeartbeatRequest:
+            if header.cmd == msg.TcpCommand.HeartbeatRequest:
                 self._logger.debug("Responding to heartbeat")
-                await self.enqueue(HeartbeatResponse(header.correlation_id))
+                await self.enqueue(msg.HeartbeatResponse(header.correlation_id))
 
                 continue
 
@@ -284,8 +275,9 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 class Connection:
     """Top level object for interacting with Eventstore.
 
-    The connection is the entry point to working with Photon Pump. It exposes high level methods
-    that wrap the :class:`~photonpump.messages.Operation` types from photonpump.messages.
+    The connection is the entry point to working with Photon Pump.
+    It exposes high level methods that wrap the
+    :class:`~photonpump.messages.Operation` types from photonpump.messages.
     """
 
     def __init__(self, host='127.0.0.1', port=1113, loop=None):
@@ -310,7 +302,7 @@ class Connection:
 
     async def ping(self, correlation_id: UUID = None):
         correlation_id = correlation_id
-        cmd = Ping(correlation_id=correlation_id, loop=self.loop)
+        cmd = msg.Ping(correlation_id=correlation_id, loop=self.loop)
         await self.protocol.enqueue(cmd)
 
         return await cmd.future
@@ -325,8 +317,8 @@ class Connection:
             expected_version=-2,
             require_master=False
     ):
-        event = NewEvent(type, id, body, metadata)
-        cmd = WriteEvents(
+        event = msg.NewEvent(type, id, body, metadata)
+        cmd = msg.WriteEvents(
             stream, [event],
             expected_version=expected_version,
             require_master=require_master,
@@ -339,11 +331,11 @@ class Connection:
     async def publish(
             self,
             stream: str,
-            events: Sequence[NewEventData],
-            expected_version=ExpectedVersion.Any,
+            events: Sequence[msg.NewEventData],
+            expected_version=msg.ExpectedVersion.Any,
             require_master=False
     ):
-        cmd = WriteEvents(
+        cmd = msg.WriteEvents(
             stream,
             events,
             expected_version=expected_version,
@@ -362,7 +354,7 @@ class Connection:
             correlation_id: UUID = None
     ):
         correlation_id = correlation_id
-        cmd = ReadEvent(stream, resolve_links, require_master, loop=self.loop)
+        cmd = msg.ReadEvent(stream, resolve_links, require_master, loop=self.loop)
         await self.protocol.enqueue(cmd)
 
         return await cmd.future
@@ -370,7 +362,7 @@ class Connection:
     async def get(
             self,
             stream: str,
-            direction: StreamDirection = StreamDirection.Forward,
+            direction: msg.StreamDirection = msg.StreamDirection.Forward,
             from_event: int = 0,
             max_count: int = 100,
             resolve_links: bool = True,
@@ -378,12 +370,13 @@ class Connection:
             correlation_id: UUID = None
     ):
         correlation_id = correlation_id
-        cmd = ReadStreamEvents(
+        cmd = msg.ReadStreamEvents(
             stream,
             from_event,
             max_count,
             resolve_links,
             require_master,
+            direction=direction,
             loop=self.loop
         )
         await self.protocol.enqueue(cmd)
@@ -393,7 +386,7 @@ class Connection:
     async def iter(
             self,
             stream: str,
-            direction: StreamDirection = StreamDirection.Forward,
+            direction: msg.StreamDirection = msg.StreamDirection.Forward,
             from_event: int = 0,
             batch_size: int = 100,
             resolve_links: bool = True,
@@ -401,7 +394,7 @@ class Connection:
             correlation_id: UUID = None
     ):
         correlation_id = correlation_id
-        cmd = IterStreamEvents(
+        cmd = msg.IterStreamEvents(
             stream,
             from_event,
             batch_size,
@@ -414,8 +407,9 @@ class Connection:
             yield e
 
     async def subscribe(self, stream: str, volatile=False):
-        cmd = CreateVolatileSubscription(stream, loop=self.loop)
+        cmd = msg.CreateVolatileSubscription(stream, loop=self.loop)
         await self.protocol.enqueue(cmd)
+
         return await cmd.future
 
 
