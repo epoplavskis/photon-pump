@@ -48,6 +48,20 @@ class TcpCommand(IntEnum):
     StreamEventAppeared = 0xC2
     SubscriptionDropped = 0xC4
 
+    ConnectToPersistentSubscription = 0xC5
+    PersistentSubscriptionConfirmation = 0xC6
+    PersistentSubscriptionStreamEventAppeared = 0xC7
+    CreatePersistentSubscription = 0xC8
+    CreatePersistentSubscriptionCompleted = 0xC9
+    DeletePersistentSubscription = 0xCA
+    DeletePersistentSubscriptionCompleted = 0xCB
+    PersistentSubscriptionAckEvents = 0xCC
+    PersistentSubscriptionNakEvents = 0xCD
+    UpdatePersistentSubscription = 0xCE
+    UpdatePersistentSubscriptionCompleted = 0xCF
+
+
+
 
 class StreamDirection(IntEnum):
     Forward = 0
@@ -604,13 +618,16 @@ class VolatileSubscription:
     def __init__(self, stream, initial_commit, initial_event_number):
         self.last_commit_position = initial_commit
         self.last_event_number = initial_event_number
-        self.events = StreamingIterator(4)
+        self.events = StreamingIterator(1)
         self.stream = stream
 
     async def enqueue(self, commit_position, event):
         self.last_commit_position = commit_position
         self.last_event_number = event.event_number
         await self.events.enqueue(event)
+
+    def cancel(self):
+        self.events.cancel()
 
 
 class CreateVolatileSubscription(Operation):
@@ -635,7 +652,7 @@ class CreateVolatileSubscription(Operation):
         self.stream = stream
         self.command = TcpCommand.SubscribeToStream
         self.flags = OperationFlags.Empty
-        self.future = Future(loop=loop)
+        self.future: Future = Future(loop=loop)
         self.data = msg.SerializeToString()
         self.correlation_id = correlation_id or uuid4()
         self.is_complete = False
@@ -681,3 +698,59 @@ class CreateVolatileSubscription(Operation):
             self.future.cancel()
         else:
             self.subscription.events.cancel()
+
+
+class CreatePersistentSubscription(Operation):
+
+    def __init__(
+            self,
+            name,
+            stream,
+            resolve_links=True,
+            start_from=0,
+            timeout_ms=200,
+            record_statistics=False,
+            live_buffer_size=128,
+            read_batch_size=128,
+            buffer_size=128,
+            max_retry_count=3,
+            prefer_round_robin=True,
+            checkpoint_after_ms=1024,
+            checkpoint_max_count=1024,
+            checkpoint_min_count=1024,
+            subscriber_max_count=10,
+            correlation_id=None,
+            loop=None
+    ) -> None:
+        self.stream = stream
+        self.name = name
+        msg = messages_pb2.CreatePersistentSubscription()
+        msg.subscription_group_name = name
+        msg.event_stream_id = stream
+        msg.start_from = start_from
+        msg.resolve_link_tos = resolve_links
+        msg.message_timeout_milliseconds = timeout_ms
+        msg.record_statistics = record_statistics
+        msg.live_buffer_size = live_buffer_size
+        msg.read_batch_size = read_batch_size
+        msg.buffer_size = buffer_size
+        msg.max_retry_count = max_retry_count
+        msg.prefer_round_robin = prefer_round_robin
+        msg.checkpoint_after_time = checkpoint_after_ms
+        msg.checkpoint_max_count = checkpoint_max_count
+        msg.checkpoint_min_count = checkpoint_min_count
+        msg.subscriber_max_count = subscriber_max_count
+
+        self.command = TcpCommand.CreatePersistentSubscription
+        self.flags = OperationFlags.Empty
+        self.future: Future = Future(loop=loop)
+        self.data = msg.SerializeToString()
+        self.correlation_id = correlation_id or uuid4()
+        self.is_complete = False
+
+    def handle_response(self, header, payload, writer):
+        print(header)
+        print(payload)
+
+    def cancel(self):
+        self.future.cancel()

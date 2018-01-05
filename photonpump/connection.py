@@ -405,8 +405,14 @@ class Connection:
         async for e in cmd.iterator:
             yield e
 
-    async def subscribe(self, stream: str, volatile=False):
+    async def subscribe_volatile(self, stream: str):
         cmd = msg.CreateVolatileSubscription(stream, loop=self.loop)
+        await self.protocol.enqueue(cmd)
+
+        return await cmd.future
+
+    async def subscribe(self, stream: str, name: str):
+        cmd = msg.CreatePersistentSubscription(stream, name, loop=self.loop)
         await self.protocol.enqueue(cmd)
 
         return await cmd.future
