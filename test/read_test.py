@@ -155,6 +155,7 @@ async def test_async_comprehension(event_loop):
 
         assert events_read == 3
 
+
 @pytest.mark.asyncio
 async def test_iter_from_missing_stream(event_loop):
 

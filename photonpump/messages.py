@@ -4,12 +4,15 @@ import struct
 from asyncio import Future, Queue
 from collections import namedtuple
 from enum import IntEnum
-from typing import Any, Dict, Sequence, Union, NamedTuple
+from typing import Any, Dict, Sequence, Union
 from uuid import UUID, uuid4
 
 from . import exceptions, messages_pb2
 
 HEADER_LENGTH = 1 + 1 + 16
+SIZE_UINT_32 = 4
+_LENGTH = struct.Struct('<I')
+_HEAD = struct.Struct('>BBQQ')
 
 
 def make_enum(descriptor):
@@ -84,6 +87,14 @@ JsonDict = Dict[str, Any]
 Header = namedtuple(
     'photonpump_result_header', ['size', 'cmd', 'flags', 'correlation_id']
 )
+
+
+def parse_header(length: bytearray, data: bytearray) -> Header:
+    (cmd, flags, a, b) = _HEAD.unpack(data)
+    (size, ) = _LENGTH.unpack(length)
+    msg_id = UUID(int=(a << 64 | b))
+
+    return Header(size, cmd, flags, msg_id)
 
 
 def sizeof_fmt(num, suffix='B'):
@@ -370,6 +381,7 @@ class ReadEvent(Operation):
         event = result.event.event
 
         self.is_complete = True
+
         if result.result == ReadEventResult.Success:
             self.future.set_result(
                 Event(
@@ -587,12 +599,19 @@ class HeartbeatResponse(Operation):
         self.future.cancel()
 
 
-class VolatileSubscription(NamedTuple):
+class VolatileSubscription:
 
-    stream: str
-    last_commit_position: int
-    last_event_number: int
-    iterator: StreamingIterator
+    def __init__(self, stream, initial_commit, initial_event_number):
+        self.last_commit_position = initial_commit
+        self.last_event_number = initial_event_number
+        self.events = StreamingIterator(4)
+        self.stream = stream
+
+    async def enqueue(self, commit_position, event):
+        self.last_commit_position = commit_position
+        self.last_event_number = event.event_number
+        await self.events.enqueue(event)
+
 
 class CreateVolatileSubscription(Operation):
     """Command class for creating a non-persistent subscription.
@@ -619,46 +638,46 @@ class CreateVolatileSubscription(Operation):
         self.future = Future(loop=loop)
         self.data = msg.SerializeToString()
         self.correlation_id = correlation_id or uuid4()
-        self.iterator = iterator or StreamingIterator(batch_size * 2)
         self.is_complete = False
 
     async def handle_response(self, header, payload, writer):
         if header.cmd == TcpCommand.SubscriptionConfirmation.value:
             result = messages_pb2.SubscriptionConfirmation()
             result.ParseFromString(payload)
-            self.future.set_result(
-                VolatileSubscription(
-                    self.stream,
-                    result.last_commit_position,
-                    result.last_event_number,
-                    self.iterator))
+            self.subscription = VolatileSubscription(
+                self.stream, result.last_commit_position,
+                result.last_event_number
+            )
+
+            self.future.set_result(self.subscription)
 
         elif header.cmd == TcpCommand.StreamEventAppeared:
             result = messages_pb2.StreamEventAppeared()
             try:
                 result.ParseFromString(payload)
-                self.iterator.enqueue(Event(
-                    result.event.event_stream_id,
-                    UUID(bytes_le=result.event.event_id),
-                    result.event.event_number,
-                    result.event.event_type,
-                    result.event.data,
-                    result.event.metadata,
-                    result.event.created_epoch
-                ))
+                event = result.event.event
+                await self.subscription.enqueue(
+                    result.event.commit_position,
+                    Event(
+                        event.event_stream_id,
+                        UUID(bytes_le=event.event_id),
+                        event.event_number,
+                        event.event_type,
+                        event.data,
+                        event.metadata,
+                        event.created_epoch
+                    )
+                )
             except Exception as e:
                 logging.debug(e)
                 logging.debug(payload)
                 logging.debug(header)
 
         elif header.cmd == TcpCommand.SubscriptionDropped:
-            result = messages_pb2.SubscriptionDropped()
-            try:
-                result.ParseFromString(payload)
-            except Exception as e:
-                logging.debug(e)
-                logging.debug(payload)
-                logging.debug(header)
+            self.subscription.events.cancel()
 
     def cancel(self):
-        self.future.cancel()
+        if not self.future.done():
+            self.future.cancel()
+        else:
+            self.subscription.events.cancel()
