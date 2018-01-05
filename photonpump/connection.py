@@ -1,12 +1,9 @@
 import asyncio
 import logging
 import random
-import struct
 import uuid
-from typing import Dict, Sequence
-from uuid import UUID
+from typing import Sequence
 
-from . import exceptions as ex
 from . import messages as msg
 
 __version__ = '0.1.0'
@@ -300,7 +297,7 @@ class Connection:
         self.protocol.close(True)
         self.disconnected()
 
-    async def ping(self, correlation_id: UUID = None):
+    async def ping(self, correlation_id: uuid.UUID = None):
         correlation_id = correlation_id
         cmd = msg.Ping(correlation_id=correlation_id, loop=self.loop)
         await self.protocol.enqueue(cmd)
@@ -351,10 +348,12 @@ class Connection:
             stream: str,
             resolve_links=True,
             require_master=False,
-            correlation_id: UUID = None
+            correlation_id: uuid.UUID = None
     ):
         correlation_id = correlation_id
-        cmd = msg.ReadEvent(stream, resolve_links, require_master, loop=self.loop)
+        cmd = msg.ReadEvent(
+            stream, resolve_links, require_master, loop=self.loop
+        )
         await self.protocol.enqueue(cmd)
 
         return await cmd.future
@@ -367,7 +366,7 @@ class Connection:
             max_count: int = 100,
             resolve_links: bool = True,
             require_master: bool = False,
-            correlation_id: UUID = None
+            correlation_id: uuid.UUID = None
     ):
         correlation_id = correlation_id
         cmd = msg.ReadStreamEvents(
@@ -391,7 +390,7 @@ class Connection:
             batch_size: int = 100,
             resolve_links: bool = True,
             require_master: bool = False,
-            correlation_id: UUID = None
+            correlation_id: uuid.UUID = None
     ):
         correlation_id = correlation_id
         cmd = msg.IterStreamEvents(

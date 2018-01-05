@@ -4,7 +4,7 @@ import struct
 from asyncio import Future, Queue
 from collections import namedtuple
 from enum import IntEnum
-from typing import Any, Dict, NamedTuple, Sequence, Union
+from typing import Any, Dict, Sequence, Union
 from uuid import UUID, uuid4
 
 from . import exceptions, messages_pb2
