@@ -644,11 +644,12 @@ class CreateVolatileSubscription(Operation):
         if header.cmd == TcpCommand.SubscriptionConfirmation.value:
             result = messages_pb2.SubscriptionConfirmation()
             result.ParseFromString(payload)
-            self.subscription = VolatileSubscription(self.stream, result.last_commit_position, result.last_event_number)
-
-            self.future.set_result(
-                self.subscription
+            self.subscription = VolatileSubscription(
+                self.stream, result.last_commit_position,
+                result.last_event_number
             )
+
+            self.future.set_result(self.subscription)
 
         elif header.cmd == TcpCommand.StreamEventAppeared:
             result = messages_pb2.StreamEventAppeared()
