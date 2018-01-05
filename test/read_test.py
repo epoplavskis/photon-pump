@@ -156,3 +156,12 @@ async def test_async_comprehension(event_loop):
         assert events_read == 3
 
 
+@pytest.mark.asyncio
+async def test_iter_from_missing_stream(event_loop):
+
+    async with connect(loop=event_loop) as c:
+        try:
+            events = [e async for e in c.iter('my-stream-that-isnt-a-stream')]
+            assert False
+        except Exception as e:
+            assert isinstance(e, StreamNotFoundException)
