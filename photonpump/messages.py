@@ -615,10 +615,10 @@ class HeartbeatResponse(Operation):
 
 class VolatileSubscription:
 
-    def __init__(self, stream, initial_commit, initial_event_number):
+    def __init__(self, stream, initial_commit, initial_event_number, buffer_size):
         self.last_commit_position = initial_commit
         self.last_event_number = initial_event_number
-        self.events = StreamingIterator(1)
+        self.events = StreamingIterator(buffer_size)
         self.stream = stream
 
     async def enqueue(self, commit_position, event):
@@ -643,7 +643,7 @@ class CreateVolatileSubscription(Operation):
             resolve_links: bool = True,
             correlation_id: UUID = None,
             iterator: StreamingIterator = None,
-            batch_size: int = 1024,
+            buffer_size: int = 1,
             loop=None
     ) -> None:
         msg = messages_pb2.SubscribeToStream()
@@ -656,6 +656,7 @@ class CreateVolatileSubscription(Operation):
         self.data = msg.SerializeToString()
         self.correlation_id = correlation_id or uuid4()
         self.is_complete = False
+        self.buffer_size = buffer_size
 
     async def handle_response(self, header, payload, writer):
         if header.cmd == TcpCommand.SubscriptionConfirmation.value:
@@ -663,7 +664,8 @@ class CreateVolatileSubscription(Operation):
             result.ParseFromString(payload)
             self.subscription = VolatileSubscription(
                 self.stream, result.last_commit_position,
-                result.last_event_number
+                result.last_event_number,
+                self.buffer_size
             )
 
             self.future.set_result(self.subscription)
@@ -691,13 +693,13 @@ class CreateVolatileSubscription(Operation):
                 logging.debug(header)
 
         elif header.cmd == TcpCommand.SubscriptionDropped:
-            self.subscription.events.cancel()
+            self.subscription.cancel()
 
     def cancel(self):
         if not self.future.done():
             self.future.cancel()
         else:
-            self.subscription.events.cancel()
+            self.subscription.cancel()
 
 
 class CreatePersistentSubscription(Operation):

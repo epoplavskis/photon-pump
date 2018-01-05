@@ -117,7 +117,7 @@ async def test_subscription_confirmed(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_subscription_confirmed(event_loop):
+async def test_event_appeared(event_loop):
     cmd = CreateVolatileSubscription('my-stream', correlation_id=uuid4())
 
     await confirm_subscription(cmd, 1, 2)
@@ -138,21 +138,26 @@ async def test_subscription_confirmed(event_loop):
 
 @pytest.mark.asyncio
 async def test_subscription_dropped(event_loop):
-    cmd = CreateVolatileSubscription('my-stream', correlation_id=uuid4())
+    cmd = CreateVolatileSubscription('my-stream', correlation_id=uuid4(), buffer_size=4)
 
     await confirm_subscription(cmd, 1, 2)
+    print(1)
     await receive_event(
         cmd, event_type='fake-news', commit_pos=51, event_number=33
     )
+    print(1)
     await receive_event(
         cmd, event_type='fake-news', commit_pos=52, event_number=34
     )
+    print(1)
     await receive_event(
         cmd, event_type='fake-news', commit_pos=53, event_number=35
     )
 
+    print(1)
     await drop_subscription(cmd)
 
+    print(1)
     subscription = await cmd.future
     events = [e async for e in subscription.events]
 
