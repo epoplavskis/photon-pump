@@ -1,18 +1,22 @@
 import json
 import logging
+import binascii
+import math
 import struct
 from asyncio import Future, Queue
 from collections import namedtuple
 from enum import IntEnum
-from typing import Any, Dict, Sequence, Union
+from typing import Any, Dict, NamedTuple, Sequence, Union
 from uuid import UUID, uuid4
+
+from google.protobuf import text_format
 
 from . import exceptions, messages_pb2
 
 HEADER_LENGTH = 1 + 1 + 16
 SIZE_UINT_32 = 4
 _LENGTH = struct.Struct('<I')
-_HEAD = struct.Struct('>BBQQ')
+_HEAD = struct.Struct('<BBIIII')
 
 
 def make_enum(descriptor):
@@ -60,7 +64,7 @@ class TcpCommand(IntEnum):
     UpdatePersistentSubscription = 0xCE
     UpdatePersistentSubscriptionCompleted = 0xCF
 
-
+    BadRequest = 0xf0
 
 
 class StreamDirection(IntEnum):
@@ -99,16 +103,50 @@ class ExpectedVersion(IntEnum):
 
 JsonDict = Dict[str, Any]
 Header = namedtuple(
-    'photonpump_result_header', ['size', 'cmd', 'flags', 'correlation_id']
+    'photonpump_result_header',
+    ['size', 'cmd', 'flags', 'correlation_id', 'username', 'password']
 )
 
 
-def parse_header(length: bytearray, data: bytearray) -> Header:
-    (cmd, flags, a, b) = _HEAD.unpack(data)
-    (size, ) = _LENGTH.unpack(length)
-    msg_id = UUID(int=(a << 64 | b))
+class Credential:
 
-    return Header(size, cmd, flags, msg_id)
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+
+        username_bytes = username.encode('UTF-8')
+        password_bytes = password.encode('UTF-8')
+
+        self.length = 2 + len(username_bytes) + len(password_bytes)
+        self.bytes = bytearray()
+
+        self.bytes.extend(len(username_bytes).to_bytes(1, byteorder='big'))
+        self.bytes.extend(username_bytes)
+        self.bytes.extend(len(password_bytes).to_bytes(1, byteorder='big'))
+        self.bytes.extend(password_bytes)
+
+    @classmethod
+    def from_bytes(cls, data):
+        """
+        I am so sorry.
+        """
+        len_username = int.from_bytes(data[0:2], byteorder='big')
+        offset_username = 2 + len_username
+        username = data[2:offset_username].decode('UTF-8')
+        offset_password = 2 + offset_username
+        len_password = int.from_bytes(
+            data[offset_username:offset_password], byteorder='big'
+        )
+        password = data[offset_password:offset_password + len_password
+                       ].decode('UTF-8')
+
+        return cls(username, password)
+
+
+def parse_header(length: bytearray, data: bytearray) -> Header:
+    (size, ) = _LENGTH.unpack(length)
+
+    return Header(size, data[0], data[1], UUID(bytes_le=data[2:18]))
 
 
 def sizeof_fmt(num, suffix='B'):
@@ -128,6 +166,7 @@ def print_header(header):
 
 
 Header.__repr__ = print_header
+Header.__new__.__defaults__ = (None, None)
 
 NewEventData = namedtuple(
     'photonpump_event', ['id', 'type', 'data', 'metadata']
@@ -138,6 +177,10 @@ EventRecord = namedtuple(
     ['stream', 'id', 'event_number', 'type', 'data', 'metadata', 'created']
 )
 
+def _json(self):
+    return json.loads(self.data.decode('UTF-8'))
+
+EventRecord.json = _json
 
 class StreamingIterator:
 
@@ -183,10 +226,61 @@ class StreamingIterator:
         self.asend(StopIteration())
 
 
-class Event(EventRecord):
+class Event:
 
-    def json(self):
-        return json.loads(self.data.decode('UTF-8'))
+    def __init__(self, event: EventRecord, link: EventRecord) -> None:
+        self.event = event
+        self.link = link
+
+    @property
+    def original_event(self) -> EventRecord:
+        return self.link or self
+
+    @property
+    def original_event_id(self) -> UUID:
+        return self.original_event.id
+
+
+def dump(*chunks: bytearray):
+    data = bytearray()
+
+    for chunk in chunks:
+        data.extend(chunk)
+
+    length = len(data)
+    rows = length / 16
+
+    dump = []
+    for i in range(0, math.ceil(rows)):
+        offset = i * 16
+        row = data[offset:offset + 16]
+        hex = "{0: <47}".format(" ".join("{:02x}".format(x) for x in row))
+        dump.append("%06d: %s | %a" % (offset, hex, bytes(row)))
+    logging.debug("\n".join(dump))
+
+
+def _make_event(record: messages_pb2.ResolvedEvent):
+
+    link = EventRecord(
+        record.link.event_stream_id,
+        UUID(bytes_le=record.link.event_id),
+        record.link.event_number,
+        record.link.event_type,
+        record.link.data,
+        record.link.metadata,
+        record.link.created_epoch
+    ) if record.link is not None else None
+
+    event = EventRecord(
+        record.event.event_stream_id,
+        UUID(bytes_le=record.event.event_id),
+        record.event.event_number,
+        record.event.event_type,
+        record.event.data,
+        record.event.metadata,
+        record.event.created_epoch
+    )
+    return Event(event, link)
 
 
 class Operation:
@@ -198,11 +292,22 @@ class Operation:
     :meth:`~photonpump.messages.Operation.handle_response` method.
     """
 
+    one_way = False
+
+    def __init__(self, credential: Credential = None):
+        self.credential = credential
+
+        if credential is None:
+            self.flags = OperationFlags.Empty
+        else:
+            self.flags = OperationFlags.Authenticated
+
     def send(self, writer):
         """
         Write the byte-stream of this request to an instance of StreamWriter
         """
         header = self.make_header()
+        dump(header[4:], self.data)
         writer.write(header)
         writer.write(self.data)
 
@@ -210,12 +315,17 @@ class Operation:
         """Build the byte-array representing the operation's header."""
         buf = bytearray()
         data_length = len(self.data)
+        authn_length = self.credential.length if self.credential is not None else 0
         buf.extend(
             struct.pack(
-                '<IBB', HEADER_LENGTH + data_length, self.command, self.flags
+                '<IBB', HEADER_LENGTH + authn_length + data_length,
+                self.command, self.flags
             )
         )
-        buf.extend(self.correlation_id.bytes)
+        buf.extend(self.correlation_id.bytes_le)
+
+        if self.flags == OperationFlags.Authenticated:
+            buf.extend(self.credential.bytes)
 
         return buf
 
@@ -245,12 +355,13 @@ class Ping(Operation):
         correlation_id (optional): A unique identifer for this command.
     """
 
-    def __init__(self, correlation_id: UUID = None, loop=None):
+    def __init__(self, correlation_id: UUID = None, credential=None, loop=None):
         self.flags = OperationFlags.Empty
         self.command = TcpCommand.Ping
         self.future = Future(loop=loop)
         self.correlation_id = correlation_id or uuid4()
         self.data = bytearray()
+        super().__init__(credential)
 
     def cancel(self):
         self.future.cancel()
@@ -303,6 +414,7 @@ class WriteEvents(Operation):
             expected_version: Union[ExpectedVersion, int] = ExpectedVersion.Any,
             require_master: bool = False,
             correlation_id: UUID = None,
+            credential=None,
             loop=None
     ):
         self.correlation_id = correlation_id or uuid4()
@@ -338,6 +450,7 @@ class WriteEvents(Operation):
                 e.metadata = bytes()
 
         self.data = msg.SerializeToString()
+        super().__init__(credential)
 
     async def handle_response(self, header, payload, writer):
         result = messages_pb2.WriteEventsCompleted()
@@ -370,8 +483,8 @@ class ReadEvent(Operation):
             event_number: int,
             resolve_links: bool = True,
             require_master: bool = False,
-            credentials=None,
             correlation_id: UUID = None,
+            credentials=None,
             loop=None
     ):
 
@@ -388,26 +501,16 @@ class ReadEvent(Operation):
         msg.resolve_link_tos = resolve_links
 
         self.data = msg.SerializeToString()
+        super().__init__(credentials)
 
     async def handle_response(self, header, payload, writer):
         result = messages_pb2.ReadEventCompleted()
         result.ParseFromString(payload)
-        event = result.event.event
 
         self.is_complete = True
 
         if result.result == ReadEventResult.Success:
-            self.future.set_result(
-                Event(
-                    event.event_stream_id,
-                    UUID(bytes_le=event.event_id),
-                    event.event_number,
-                    event.event_type,
-                    event.data,
-                    event.metadata,
-                    event.created_epoch
-                )
-            )
+            self.future.set_result(_make_event(result.event))
         elif result.result == ReadEventResult.NoStream:
             msg = "The stream '" + self.stream + "' was not found"
             exn = exceptions.StreamNotFoundException(msg, self.stream)
@@ -470,6 +573,7 @@ class ReadStreamEvents(Operation):
         msg.resolve_link_tos = resolve_links
 
         self.data = msg.SerializeToString()
+        super().__init__(credentials)
 
     async def handle_response(self, header, payload, writer):
         result = messages_pb2.ReadStreamEventsCompleted()
@@ -479,15 +583,7 @@ class ReadStreamEvents(Operation):
         if result.result == ReadStreamResult.Success:
             self.future.set_result(
                 [
-                    Event(
-                        x.event.event_stream_id,
-                        UUID(bytes_le=x.event.event_id),
-                        x.event.event_number,
-                        x.event.event_type,
-                        x.event.data,
-                        x.event.metadata,
-                        x.event.created_epoch
-                    ) for x in result.events
+                    _make_event(x) for x in result.events
                 ]
             )
         elif result.result == ReadEventResult.NoStream:
@@ -529,7 +625,6 @@ class IterStreamEvents(Operation):
 
         self.correlation_id = correlation_id or uuid4()
         self.batch_size = batch_size
-        self.flags = OperationFlags.Empty
         self.stream = stream
         self.iterator = iterator or StreamingIterator(batch_size * 2)
         self.resolve_links = resolve_links
@@ -549,6 +644,7 @@ class IterStreamEvents(Operation):
         msg.resolve_link_tos = resolve_links
 
         self.data = msg.SerializeToString()
+        super().__init__(credentials)
 
     async def handle_response(self, header, payload, writer):
         result = messages_pb2.ReadStreamEventsCompleted()
@@ -558,15 +654,7 @@ class IterStreamEvents(Operation):
         if result.result == ReadStreamResult.Success:
             await self.iterator.enqueue_items(
                 [
-                    Event(
-                        x.event_stream_id,
-                        UUID(bytes_le=x.event_id),
-                        x.event_number,
-                        x.event_type,
-                        x.data,
-                        x.metadata,
-                        x.created_epoch
-                    ) for x in (e.event for e in result.events)
+                    _make_event(x) for x in result.events
                 ]
             )
 
@@ -601,6 +689,7 @@ class HeartbeatResponse(Operation):
     Args:
         correlation_id: The unique id of the HeartbeatRequest.
     """
+    one_way = True
 
     def __init__(self, correlation_id, loop=None):
         self.flags = OperationFlags.Empty
@@ -608,6 +697,7 @@ class HeartbeatResponse(Operation):
         self.future = Future(loop=loop)
         self.correlation_id = correlation_id or uuid4()
         self.data = bytearray()
+        super().__init__()
 
     def cancel(self):
         self.future.cancel()
@@ -615,7 +705,9 @@ class HeartbeatResponse(Operation):
 
 class VolatileSubscription:
 
-    def __init__(self, stream, initial_commit, initial_event_number, buffer_size):
+    def __init__(
+            self, stream, initial_commit, initial_event_number, buffer_size
+    ):
         self.last_commit_position = initial_commit
         self.last_event_number = initial_event_number
         self.events = StreamingIterator(buffer_size)
@@ -623,8 +715,46 @@ class VolatileSubscription:
 
     async def enqueue(self, commit_position, event):
         self.last_commit_position = commit_position
-        self.last_event_number = event.event_number
+        self.last_event_number = event.original_event.event_number
         await self.events.enqueue(event)
+
+    def cancel(self):
+        self.events.cancel()
+
+
+class PersistentSubscription:
+
+    def __init__(
+            self,
+            conn,
+            name,
+            stream,
+            correlation_id,
+            initial_commit,
+            initial_event_number,
+            buffer_size,
+            auto_ack=False
+    ):
+        self.initial_commit_position = initial_commit
+        self.name = name
+        self.correlation_id = correlation_id
+        self.last_event_number = initial_event_number
+        self.events = StreamingIterator(buffer_size)
+        self.stream = stream
+        self.auto_ack = auto_ack
+        self.conn = conn
+
+    async def enqueue(self, event):
+        self.last_event_number = event.original_event.event_number
+        await self.events.enqueue(event)
+
+        if self.auto_ack:
+            await self.conn.ack(event)
+
+    async def ack(self, message: Event):
+        await self.conn.ack(
+            self.name, message.original_event_id, correlation_id=self.correlation_id
+        )
 
     def cancel(self):
         self.events.cancel()
@@ -641,9 +771,10 @@ class CreateVolatileSubscription(Operation):
             self,
             stream: str,
             resolve_links: bool = True,
-            correlation_id: UUID = None,
             iterator: StreamingIterator = None,
             buffer_size: int = 1,
+            credentials: Credential = None,
+            correlation_id: UUID = None,
             loop=None
     ) -> None:
         msg = messages_pb2.SubscribeToStream()
@@ -653,10 +784,12 @@ class CreateVolatileSubscription(Operation):
         self.command = TcpCommand.SubscribeToStream
         self.flags = OperationFlags.Empty
         self.future: Future = Future(loop=loop)
+        self.future.set_result(None)
         self.data = msg.SerializeToString()
         self.correlation_id = correlation_id or uuid4()
         self.is_complete = False
         self.buffer_size = buffer_size
+        super().__init__(credentials)
 
     async def handle_response(self, header, payload, writer):
         if header.cmd == TcpCommand.SubscriptionConfirmation.value:
@@ -664,8 +797,7 @@ class CreateVolatileSubscription(Operation):
             result.ParseFromString(payload)
             self.subscription = VolatileSubscription(
                 self.stream, result.last_commit_position,
-                result.last_event_number,
-                self.buffer_size
+                result.last_event_number, self.buffer_size
             )
 
             self.future.set_result(self.subscription)
@@ -674,18 +806,10 @@ class CreateVolatileSubscription(Operation):
             result = messages_pb2.StreamEventAppeared()
             try:
                 result.ParseFromString(payload)
-                event = result.event.event
+                event = _make_event(result.event)
                 await self.subscription.enqueue(
-                    result.event.commit_position,
-                    Event(
-                        event.event_stream_id,
-                        UUID(bytes_le=event.event_id),
-                        event.event_number,
-                        event.event_type,
-                        event.data,
-                        event.metadata,
-                        event.created_epoch
-                    )
+                    event.original_event.commit_position,
+                    event
                 )
             except Exception as e:
                 logging.debug(e)
@@ -702,6 +826,17 @@ class CreateVolatileSubscription(Operation):
             self.subscription.cancel()
 
 
+SubscriptionResult = make_enum(
+    messages_pb2.
+    _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED_CREATEPERSISTENTSUBSCRIPTIONRESULT
+)
+
+
+class SubscriptionCreatedResponse(NamedTuple):
+    result: SubscriptionResult
+    reason: str
+
+
 class CreatePersistentSubscription(Operation):
 
     def __init__(
@@ -709,8 +844,8 @@ class CreatePersistentSubscription(Operation):
             name,
             stream,
             resolve_links=True,
-            start_from=0,
-            timeout_ms=200,
+            start_from=-1,
+            timeout_ms=8192,
             record_statistics=False,
             live_buffer_size=128,
             read_batch_size=128,
@@ -719,8 +854,9 @@ class CreatePersistentSubscription(Operation):
             prefer_round_robin=True,
             checkpoint_after_ms=1024,
             checkpoint_max_count=1024,
-            checkpoint_min_count=1024,
+            checkpoint_min_count=10,
             subscriber_max_count=10,
+            credentials=None,
             correlation_id=None,
             loop=None
     ) -> None:
@@ -744,15 +880,97 @@ class CreatePersistentSubscription(Operation):
         msg.subscriber_max_count = subscriber_max_count
 
         self.command = TcpCommand.CreatePersistentSubscription
-        self.flags = OperationFlags.Empty
         self.future: Future = Future(loop=loop)
         self.data = msg.SerializeToString()
         self.correlation_id = correlation_id or uuid4()
         self.is_complete = False
+        super().__init__(credentials)
 
-    def handle_response(self, header, payload, writer):
-        print(header)
-        print(payload)
+    async def handle_response(self, header, payload, writer):
+
+        result = messages_pb2.CreatePersistentSubscriptionCompleted()
+        result.ParseFromString(payload)
+        self.future.set_result(
+            SubscriptionCreatedResponse(result.result, result.reason)
+        )
 
     def cancel(self):
         self.future.cancel()
+
+
+class ConnectPersistentSubscription(Operation):
+
+    def __init__(
+            self,
+            name,
+            stream,
+            connection,
+            max_in_flight=10,
+            credentials=None,
+            correlation_id=None,
+            loop=None
+    ) -> None:
+        self.stream = stream
+        self.max_in_flight = max_in_flight
+        self.name = name
+        self.conn = connection
+        msg = messages_pb2.ConnectToPersistentSubscription()
+        msg.subscription_id = name
+        msg.event_stream_id = stream
+        msg.allowed_in_flight_messages = max_in_flight
+
+        self.command = TcpCommand.ConnectToPersistentSubscription
+        self.future: Future = Future(loop=loop)
+        self.data = msg.SerializeToString()
+        self.correlation_id = correlation_id or uuid4()
+        self.is_complete = False
+        super().__init__(credentials)
+
+    def createSubscription(self, payload):
+        result = messages_pb2.PersistentSubscriptionConfirmation()
+        result.ParseFromString(payload)
+        self.subscription = PersistentSubscription(
+            self.conn, result.subscription_id, self.stream, self.correlation_id,
+            result.last_commit_position, result.last_event_number,
+            self.max_in_flight
+        )
+
+        self.future.set_result(self.subscription)
+
+    async def yieldEvent(self, payload):
+        result = messages_pb2.PersistentSubscriptionStreamEventAppeared()
+        result.ParseFromString(payload)
+        try:
+            await self.subscription.enqueue(
+                _make_event(result.event)
+            )
+        except Exception as e:
+            print(e)
+
+    async def handle_response(self, header, payload, writer):
+        try:
+            if header.cmd == TcpCommand.PersistentSubscriptionConfirmation:
+                self.createSubscription(payload)
+            elif header.cmd == TcpCommand.PersistentSubscriptionStreamEventAppeared:
+                await self.yieldEvent(payload)
+        except Exception as e:
+            print(e)
+
+    def cancel(self):
+        self.future.cancel()
+
+
+class AcknowledgeMessages(Operation):
+
+    one_way = True
+
+    def __init__(
+            self, name, message_ids, correlation_id, credentials=None, loop=None
+    ) -> None:
+        msg = messages_pb2.PersistentSubscriptionAckEvents()
+        msg.subscription_id = name
+        msg.processed_event_ids.extend([id.bytes_le for id in message_ids])
+        self.command = TcpCommand.PersistentSubscriptionAckEvents
+        self.data = msg.SerializeToString()
+        self.correlation_id = correlation_id or uuid4()
+        super().__init__(credentials)

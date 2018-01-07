@@ -78,14 +78,17 @@ class ConnectionHandler:
 
     async def _attempt_connect(self, host, port):
         self._current_attempts += 1
-        self._logger.debug(
+        self._logger.info(
             "Attempting connection to %s:%d attempt %d of %d", host, port,
             self._current_attempts, self._max_attempts
         )
 
         if self._last_message == ConnectionHandler.CONNECT:
-            await asyncio.sleep(random.uniform(0, self._current_attempts))
+            sleep_time = random.uniform(0, self._current_attempts)
+            self._logger.debug("Sleeping for %d secs", sleep_time)
+            await asyncio.sleep(sleep_time)
         try:
+            self._last_message = ConnectionHandler.CONNECT
             await self._loop.create_connection(self.getProtocol, host, port)
         except Exception as e:
             self._logger.error(e)
@@ -105,7 +108,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         self._host = host
         self._is_connecting = False
         self._port = port
-        self._logger = logger or logging.getLogger()
+        self._logger = logger or logging.getLogger(__name__)
         self._queue = queue
         self._pending_operations = pending
         self._read_loop = None
@@ -119,7 +122,6 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
     def connection_made(self, transport):
         self._transport = transport
-        logging.info(transport.is_closing())
         self._running = True
         self._is_connected = True
         self.is_connecting = False
@@ -178,11 +180,13 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         Args:
             message: The operation to send.
         """
-        self._pending_operations[message.correlation_id] = message
+
+        if not message.one_way:
+            self._pending_operations[message.correlation_id] = message
         try:
             await self._queue.put(message)
         except Exception as e:
-            self._logger.info(e)
+            self._logger.error(e)
 
     async def connect(self):
         await self._connectHandler.connect()
@@ -195,6 +199,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             self.next = await self._queue.get()
             try:
                 self.next.send(self._writer)
+                self._logger.debug("Sent outbound message %s", self.next)
             except Exception as e:
                 self._logger.error(
                     "Failed to send message %s", e, exc_info=True
@@ -208,6 +213,8 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         """Read a message header from the StreamReader."""
         next_msg_len = await self._reader.read(SIZE_UINT_32)
         next_header = await self._reader.read(HEADER_LENGTH)
+        print("next header")
+        msg.dump(next_header)
 
         return msg.parse_header(next_msg_len, next_header)
 
@@ -231,20 +238,24 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             return header, body
 
     async def _read_responses(self):
-        """Loop forever reading messages and invoking 
+        """Loop forever reading messages and invoking
            the operation that caused them"""
 
         while True:
             header, data = await self.read_message()
+            msg.dump(data)
             await self._connectHandler.ok()
 
             if header.cmd == msg.TcpCommand.HeartbeatRequest:
-                self._logger.debug("Responding to heartbeat")
                 await self.enqueue(msg.HeartbeatResponse(header.correlation_id))
 
                 continue
 
-            operation = self._pending_operations[header.correlation_id]
+            self._logger.debug("Received message %s", header)
+            operation = self._pending_operations.get(header.correlation_id)
+            if operation is None:
+                self._logger.error("No operation can handle message %s", header)
+                continue
             self._logger.debug("Received response to operation %s", operation)
             await operation.handle_response(header, data, self)
 
@@ -253,6 +264,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
     def close(self, hangup=False):
         """Close the underlying StreamWriter and cancel pending Operations."""
+        self._logger.info("Closing connection")
         self.running = False
 
         if hangup:
@@ -277,7 +289,14 @@ class Connection:
     :class:`~photonpump.messages.Operation` types from photonpump.messages.
     """
 
-    def __init__(self, host='127.0.0.1', port=1113, loop=None):
+    def __init__(
+            self,
+            host='127.0.0.1',
+            port=1113,
+            username=None,
+            password=None,
+            loop=None
+    ):
         self.connected = Event()
         self.disconnected = Event()
         self.host = host
@@ -288,6 +307,11 @@ class Connection:
         self.protocol = EventstoreProtocol(
             host, port, self.queue, self.operations, loop=self.loop
         )
+
+        if username and password:
+            self.credential = msg.Credential(username, password)
+        else:
+            self.credential = None
 
     async def connect(self):
         await self.protocol.connect()
@@ -411,17 +435,53 @@ class Connection:
 
         return await cmd.future
 
-    async def subscribe(self, stream: str, name: str):
-        cmd = msg.CreatePersistentSubscription(stream, name, loop=self.loop)
+    async def create_subscription(self, stream: str, name: str):
+        cmd = msg.CreatePersistentSubscription(
+            stream, name, credentials=self.credential, loop=self.loop
+        )
         await self.protocol.enqueue(cmd)
 
         return await cmd.future
 
+    async def connect_subscription(self, subscription: str, stream: str):
+        cmd = msg.ConnectPersistentSubscription(
+            subscription,
+            stream,
+            self,
+            credentials=self.credential,
+            loop=self.loop
+        )
+        await self.protocol.enqueue(cmd)
+
+        return await cmd.future
+
+    async def ack(self, subscription, message_id, correlation_id=None):
+        cmd = msg.AcknowledgeMessages(
+            subscription, [message_id],
+            correlation_id,
+            credentials=self.credential,
+            loop=self.loop
+        )
+        await self.protocol.enqueue(cmd)
+
 
 class ConnectionContextManager:
 
-    def __init__(self, host='127.0.0.1', port=1113, loop=None):
-        self.conn = Connection(host=host, port=port, loop=loop)
+    def __init__(
+            self,
+            host='127.0.0.1',
+            port=1113,
+            username=None,
+            password=None,
+            loop=None
+    ):
+        self.conn = Connection(
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            loop=loop
+        )
 
     async def __aenter__(self):
         await self.conn.connect()
