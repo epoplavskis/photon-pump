@@ -134,4 +134,23 @@ def test_three_messages_two_calls():
     )
 
 
+def test_two_messages_three_calls():
+    messages = []
+
+    reader = MessageReader(messages.append)
+    data = heartbeat_data + persistent_stream_event_appeared
+
+    reader.process(data[0:125])
+    assert len(messages) == 1
+    reader.process(data[125:])
+    assert len(messages) == 2
+
+    [heartbeat, event] = messages
+
+    assert heartbeat.conversation_id == heartbeat_id
+    assert event.conversation_id == uuid.UUID(
+        'f192d72f-7abd-4ae4-ae05-f206873c749d'
+    )
+
+
 
