@@ -14,8 +14,9 @@ heartbeat_data = read_hex(
 
 heartbeat_id = uuid.UUID('c181659f-800b-4b58-a85d-5fd3fdc523b9')
 
-persistent_stream_event_appeared = read_hex("""
-dd 01 00 00
+persistent_stream_event_appeared = read_hex(
+    """
+ef 01 00 00
 c7 00 2f d7 92 f1 bd 7a e4 4a ae 05 f2 06 87 3c
 74 9d
 0a da 03 0a c4 01 0a 31 43 61 6e 63 65 6c 6c 61
@@ -48,8 +49,8 @@ d5 ea 08 50 b3 ab 9a d9 8d 2c 12 90 02 0a 10 24
 39 64 65 2d 33 35 34 66 2d 38 38 32 35 2d 63 31
 61 37 61 65 38 31 30 62 61 38 22 7d 48 d2 e3 c7
 d7 e8 ec d5 ea 08 50 d2 ab 9a d9 8d 2c
-""")
-
+"""
+)
 
 
 def test_read_heartbeat_request_single_call():
@@ -93,8 +94,11 @@ def test_a_message_with_a_payload():
     reader.process(persistent_stream_event_appeared)
 
     [received] = messages
-    assert received.conversation_id == uuid.UUID('f192d72f-7abd-4ae4-ae05-f206873c749d')
+    assert received.conversation_id == uuid.UUID(
+        'f192d72f-7abd-4ae4-ae05-f206873c749d'
+    )
     assert received.command == TcpCommand.PersistentSubscriptionStreamEventAppeared
+
 
 def test_two_messages_one_call():
 
@@ -106,4 +110,28 @@ def test_two_messages_one_call():
     [heartbeat, event] = messages
 
     assert heartbeat.conversation_id == heartbeat_id
-    assert event.conversation_id == uuid.UUID('f192d72f-7abd-4ae4-ae05-f206873c749d')
+    assert event.conversation_id == uuid.UUID(
+        'f192d72f-7abd-4ae4-ae05-f206873c749d'
+    )
+
+
+def test_three_messages_two_calls():
+    messages = []
+
+    reader = MessageReader(messages.append)
+    data = heartbeat_data + persistent_stream_event_appeared + heartbeat_data
+
+    reader.process(data[0:250])
+    assert len(messages) == 1
+    reader.process(data[250:])
+    assert len(messages) == 3
+
+    [heartbeat, event, heartbeat] = messages
+
+    assert heartbeat.conversation_id == heartbeat_id
+    assert event.conversation_id == uuid.UUID(
+        'f192d72f-7abd-4ae4-ae05-f206873c749d'
+    )
+
+
+

@@ -156,7 +156,6 @@ class MessageReader:
         self.header_bytes_required = (self.MESSAGE_MIN_SIZE)
         self.length = 0
         self.message_offset = 0
-        self.message_bytes_required = 0
         self.conversation_id = None
         self.message = None
 
@@ -164,14 +163,16 @@ class MessageReader:
         chunk_offset = 0
         chunk_len = len(chunk)
 
+        print("new chunk")
+        print("chunk_offset=%d chunk_len=%d length=%d" % (
+            chunk_offset, chunk_len, self.length
+            ))
         while chunk_offset < chunk_len:
-            print("chunk offset=%d chunk_len=%d expected_length=%d" % (chunk_offset, chunk_len, self.length))
             while self.header_bytes_required and chunk_offset < chunk_len:
                 self.header_bytes[self.MESSAGE_MIN_SIZE
                                   - self.header_bytes_required
                                  ] = chunk[chunk_offset]
                 chunk_offset += 1
-                self.message_offset += 1
                 self.header_bytes_required -= 1
 
                 if not self.header_bytes_required:
@@ -183,33 +184,50 @@ class MessageReader:
                         bytes_le=(self.header_bytes[6:22].tobytes())
                     )
 
-            print("chunk offset=%d chunk_len=%d expected_length=%d" % (chunk_offset, chunk_len, self.length))
-            self.message_bytes_required = self.length - HEADER_LENGTH
-            print(self.message_bytes_required)
+                    print("new header")
+                    print("chunk_offset=%d chunk_len=%d length=%d" % (
+                        chunk_offset, chunk_len, self.length))
+                self.message_offset = HEADER_LENGTH
 
-            if self.message_bytes_required > 0:
+            message_bytes_required = self.length - self.message_offset
+            print(message_bytes_required)
+
+            if message_bytes_required > 0:
+                print("needs moar bytes!")
+                print("chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d" % (
+                    chunk_offset, chunk_len, self.length, message_bytes_required
+                ))
                 if not self.message:
-                    self.message = bytearray(self.message_bytes_required)
+                    self.message = bytearray(message_bytes_required)
 
                 end_span = min(
-                    chunk_len, self.message_bytes_required + chunk_offset
+                    chunk_len, message_bytes_required + chunk_offset
                 )
+                bytes_read = end_span - chunk_offset
                 self.message.extend(chunk[chunk_offset:end_span])
-                self.message_bytes_required -= end_span - chunk_offset
+                message_bytes_required -= bytes_read
+                self.message_offset += bytes_read
                 chunk_offset = end_span
+                print("needs moar bytes?")
+                print("chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d" % (
+                    chunk_offset, chunk_len, self.length, message_bytes_required
+                ))
 
-            if not self.message_bytes_required:
+            if not message_bytes_required:
+                print("raising message")
                 self.on_message_received(
                     InboundMessage(
                         self.conversation_id, self.cmd, bytearray(), self.length
                     )
                 )
                 self.length = -1
-                self.message_offset = -1
+                self.message_offset = 0
                 self.conversation_id = None
                 self.cmd = -1
                 self.header_bytes_required = self.MESSAGE_MIN_SIZE
                 self.message = None
+                print("chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d" % (
+                    chunk_offset, chunk_len, self.length, message_bytes_required))
 
 
 class HeartbeatConversation:
