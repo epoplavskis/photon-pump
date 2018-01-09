@@ -121,14 +121,13 @@ class Credential:
 class InboundMessage:
 
     def __init__(
-            self, conversation_id: UUID, command: TcpCommand, payload: Any,
-            length: int
+            self, conversation_id: UUID, command: TcpCommand, payload: Any
     ) -> None:
         self.conversation_id = conversation_id
         self.command = command
         self.payload = payload
-        self.length = length
-        self.data_length = length - HEADER_LENGTH
+        self.data_length = len(payload)
+        self.length = HEADER_LENGTH + self.data_length
 
 
 class OutboundMessage:
@@ -144,6 +143,9 @@ class OutboundMessage:
         self.command = command
         self.payload = payload
         self.creds = creds
+
+        self.length = HEADER_LENGTH
+        self.is_authenticated = False
 
 
 class MessageReader:
@@ -164,9 +166,11 @@ class MessageReader:
         chunk_len = len(chunk)
 
         print("new chunk")
-        print("chunk_offset=%d chunk_len=%d length=%d" % (
-            chunk_offset, chunk_len, self.length
-            ))
+        print(
+            "chunk_offset=%d chunk_len=%d length=%d" %
+            (chunk_offset, chunk_len, self.length)
+        )
+
         while chunk_offset < chunk_len:
             while self.header_bytes_required and chunk_offset < chunk_len:
                 self.header_bytes[self.MESSAGE_MIN_SIZE
@@ -185,8 +189,10 @@ class MessageReader:
                     )
 
                     print("new header")
-                    print("chunk_offset=%d chunk_len=%d length=%d" % (
-                        chunk_offset, chunk_len, self.length))
+                    print(
+                        "chunk_offset=%d chunk_len=%d length=%d" %
+                        (chunk_offset, chunk_len, self.length)
+                    )
                 self.message_offset = HEADER_LENGTH
 
             message_bytes_required = self.length - self.message_offset
@@ -194,24 +200,31 @@ class MessageReader:
 
             if message_bytes_required > 0:
                 print("needs moar bytes!")
-                print("chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d" % (
-                    chunk_offset, chunk_len, self.length, message_bytes_required
-                ))
+                print(
+                    "chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d"
+                    % (
+                        chunk_offset, chunk_len, self.length,
+                        message_bytes_required
+                    )
+                )
+
                 if not self.message:
                     self.message = bytearray(message_bytes_required)
 
-                end_span = min(
-                    chunk_len, message_bytes_required + chunk_offset
-                )
+                end_span = min(chunk_len, message_bytes_required + chunk_offset)
                 bytes_read = end_span - chunk_offset
                 self.message.extend(chunk[chunk_offset:end_span])
                 message_bytes_required -= bytes_read
                 self.message_offset += bytes_read
                 chunk_offset = end_span
                 print("needs moar bytes?")
-                print("chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d" % (
-                    chunk_offset, chunk_len, self.length, message_bytes_required
-                ))
+                print(
+                    "chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d"
+                    % (
+                        chunk_offset, chunk_len, self.length,
+                        message_bytes_required
+                    )
+                )
 
             if not message_bytes_required:
                 print("raising message")
@@ -226,14 +239,52 @@ class MessageReader:
                 self.cmd = -1
                 self.header_bytes_required = self.MESSAGE_MIN_SIZE
                 self.message = None
-                print("chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d" % (
-                    chunk_offset, chunk_len, self.length, message_bytes_required))
+                print(
+                    "chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d"
+                    % (
+                        chunk_offset, chunk_len, self.length,
+                        message_bytes_required
+                    )
+                )
 
 
-class HeartbeatConversation:
+class Conversation:
 
-    def __init__(self, conversation_id: UUID):
-        self.conversation = conversation
+    def __init__(
+            self, conversation_id: UUID = None, credential: Credential = None
+    ) -> None:
+        self.conversation_id = conversation_id or uuid4()
+        self.result: Future = Future()
+        self.is_complete = False
+
+    def reply(self, response: InboundMessage):
+        pass
+
+    def on_response(self, response: InboundMessage):
+        return self.reply(response)
+
+
+class HeartbeatConversation(Conversation):
+
+    def __init__(self, conversation_id: UUID) -> None:
+        super().__init__(conversation_id)
+
+    def start(self):
+        self.result.set_result(None)
+        self.is_complete = True
+        return OutboundMessage(
+            self.conversation_id, TcpCommand.HeartbeatResponse, b''
+        )
+
+
+class PingConversation(Conversation):
+
+    def start(self):
+        return OutboundMessage(self.conversation_id, TcpCommand.Ping, b'')
+
+    def reply(self, _: InboundMessage):
+        self.result.set_result(None)
+        self.is_complete = True
 
 
 class ExpectedVersion(IntEnum):

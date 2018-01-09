@@ -151,6 +151,3 @@ def test_two_messages_three_calls():
     assert event.conversation_id == uuid.UUID(
         'f192d72f-7abd-4ae4-ae05-f206873c749d'
     )
-
-
-
