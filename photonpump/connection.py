@@ -213,7 +213,6 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         """Read a message header from the StreamReader."""
         next_msg_len = await self._reader.read(SIZE_UINT_32)
         next_header = await self._reader.read(HEADER_LENGTH)
-        print("next header")
         msg.dump(next_header)
 
         return msg.parse_header(next_msg_len, next_header)
@@ -251,7 +250,6 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
                 continue
 
-            self._logger.debug("Received message %s", header)
             operation = self._pending_operations.get(header.correlation_id)
             if operation is None:
                 self._logger.error("No operation can handle message %s", header)

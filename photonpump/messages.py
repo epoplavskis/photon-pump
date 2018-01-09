@@ -1,6 +1,7 @@
+import array
+import binascii
 import json
 import logging
-import binascii
 import math
 import struct
 from asyncio import Future, Queue
@@ -82,32 +83,6 @@ class OperationFlags(IntEnum):
     Authenticated = 0x01
 
 
-class ExpectedVersion(IntEnum):
-    """Static values for concurrency control
-
-    Attributes:
-        Any: No concurrency control.
-        StreamMustNotExist: The request should fail if the stream
-          already exists.
-        StreamMustBeEmpty: The request should fail if the stream
-          does not exist, or if the stream already contains events.
-        StreamMustExist: The request should fail if the stream
-          does not exist.
-    """
-
-    Any = -2
-    StreamMustNotExist = -1
-    StreamMustBeEmpty = 0
-    StreamMustExist = -4
-
-
-JsonDict = Dict[str, Any]
-Header = namedtuple(
-    'photonpump_result_header',
-    ['size', 'cmd', 'flags', 'correlation_id', 'username', 'password']
-)
-
-
 class Credential:
 
     def __init__(self, username, password):
@@ -143,10 +118,111 @@ class Credential:
         return cls(username, password)
 
 
+class InboundMessage:
+
+    def __init__(
+            self, conversation_id: UUID, command: TcpCommand, payload: Any,
+            length: int
+    ) -> None:
+        self.conversation_id = conversation_id
+        self.command = command
+        self.payload = payload
+        self.length = length
+        self.data_length = length - HEADER_LENGTH
+
+
+class OutboundMessage:
+
+    def __init__(
+            self,
+            conversation_id: UUID,
+            command: TcpCommand,
+            payload: Any,
+            creds: Credential = None
+    ) -> None:
+        self.conversation = conversation_id
+        self.command = command
+        self.payload = payload
+        self.creds = creds
+
+
+class MessageReader:
+
+    MESSAGE_MIN_SIZE = SIZE_UINT_32 + HEADER_LENGTH
+
+    def __init__(self, on_message_received):
+        self.on_message_received = on_message_received
+        self.header_bytes = array.array('B', [0] * (self.MESSAGE_MIN_SIZE))
+        self.header_bytes_required = (self.MESSAGE_MIN_SIZE)
+        self.length = 0
+        self.message_offset = 0
+        self.conversation_id = None
+
+    def process(self, chunk: bytes):
+        chunk_offset = 0
+        chunk_len = len(chunk)
+
+        while self.header_bytes_required and chunk_offset < chunk_len:
+            self.header_bytes[self.MESSAGE_MIN_SIZE - self.header_bytes_required
+                             ] = chunk[chunk_offset]
+            chunk_offset += 1
+            self.message_offset += 1
+            self.header_bytes_required -= 1
+
+            if not self.header_bytes_required:
+                (self.length, self.cmd, self.flags) = struct.unpack(
+                    '<IBB', self.header_bytes[0:6]
+                )
+
+                self.conversation_id = UUID(bytes_le=(self.header_bytes[6:22].tobytes()))
+
+        if self.length == (self.message_offset - SIZE_UINT_32):
+            self.on_message_received(
+                InboundMessage(
+                    self.conversation_id, self.cmd, bytearray(), self.length
+                )
+            )
+
+        if chunk_len == chunk_offset:
+            return
+
+
+class HeartbeatConversation:
+
+    def __init__(self, conversation_id: UUID):
+        self.conversation = conversation
+
+
+class ExpectedVersion(IntEnum):
+    """Static values for concurrency control
+
+    Attributes:
+        Any: No concurrency control.
+        StreamMustNotExist: The request should fail if the stream
+          already exists.
+        StreamMustBeEmpty: The request should fail if the stream
+          does not exist, or if the stream already contains events.
+        StreamMustExist: The request should fail if the stream
+          does not exist.
+    """
+
+    Any = -2
+    StreamMustNotExist = -1
+    StreamMustBeEmpty = 0
+    StreamMustExist = -4
+
+
+JsonDict = Dict[str, Any]
+Header = namedtuple(
+    'photonpump_result_header',
+    ['size', 'cmd', 'flags', 'correlation_id', 'username', 'password']
+)
+
+
 def parse_header(length: bytearray, data: bytearray) -> Header:
     (size, ) = _LENGTH.unpack(length)
 
-    return Header(size, data[0], data[1], UUID(bytes_le=data[2:18]))
+    return Header(size, data[0], data[1], UUID(bytes_le=data[2:18]), None, None)
 
 
 def sizeof_fmt(num, suffix='B'):
@@ -177,10 +253,13 @@ EventRecord = namedtuple(
     ['stream', 'id', 'event_number', 'type', 'data', 'metadata', 'created']
 )
 
+
 def _json(self):
     return json.loads(self.data.decode('UTF-8'))
 
+
 EventRecord.json = _json
+
 
 class StreamingIterator:
 
@@ -251,6 +330,7 @@ def dump(*chunks: bytearray):
     rows = length / 16
 
     dump = []
+
     for i in range(0, math.ceil(rows)):
         offset = i * 16
         row = data[offset:offset + 16]
@@ -280,6 +360,7 @@ def _make_event(record: messages_pb2.ResolvedEvent):
         record.event.metadata,
         record.event.created_epoch
     )
+
     return Event(event, link)
 
 
@@ -581,11 +662,7 @@ class ReadStreamEvents(Operation):
         result.ParseFromString(payload)
 
         if result.result == ReadStreamResult.Success:
-            self.future.set_result(
-                [
-                    _make_event(x) for x in result.events
-                ]
-            )
+            self.future.set_result([_make_event(x) for x in result.events])
         elif result.result == ReadEventResult.NoStream:
             msg = "The stream '" + self.stream + "' was not found"
             exn = exceptions.StreamNotFoundException(msg, self.stream)
@@ -653,9 +730,7 @@ class IterStreamEvents(Operation):
 
         if result.result == ReadStreamResult.Success:
             await self.iterator.enqueue_items(
-                [
-                    _make_event(x) for x in result.events
-                ]
+                [_make_event(x) for x in result.events]
             )
 
             if result.is_end_of_stream:
@@ -753,7 +828,9 @@ class PersistentSubscription:
 
     async def ack(self, message: Event):
         await self.conn.ack(
-            self.name, message.original_event_id, correlation_id=self.correlation_id
+            self.name,
+            message.original_event_id,
+            correlation_id=self.correlation_id
         )
 
     def cancel(self):
@@ -808,8 +885,7 @@ class CreateVolatileSubscription(Operation):
                 result.ParseFromString(payload)
                 event = _make_event(result.event)
                 await self.subscription.enqueue(
-                    event.original_event.commit_position,
-                    event
+                    event.original_event.commit_position, event
                 )
             except Exception as e:
                 logging.debug(e)
@@ -941,9 +1017,7 @@ class ConnectPersistentSubscription(Operation):
         result = messages_pb2.PersistentSubscriptionStreamEventAppeared()
         result.ParseFromString(payload)
         try:
-            await self.subscription.enqueue(
-                _make_event(result.event)
-            )
+            await self.subscription.enqueue(_make_event(result.event))
         except Exception as e:
             print(e)
 
