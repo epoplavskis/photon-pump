@@ -156,35 +156,60 @@ class MessageReader:
         self.header_bytes_required = (self.MESSAGE_MIN_SIZE)
         self.length = 0
         self.message_offset = 0
+        self.message_bytes_required = 0
         self.conversation_id = None
+        self.message = None
 
     def process(self, chunk: bytes):
         chunk_offset = 0
         chunk_len = len(chunk)
 
-        while self.header_bytes_required and chunk_offset < chunk_len:
-            self.header_bytes[self.MESSAGE_MIN_SIZE - self.header_bytes_required
-                             ] = chunk[chunk_offset]
-            chunk_offset += 1
-            self.message_offset += 1
-            self.header_bytes_required -= 1
+        while chunk_offset < chunk_len:
+            print("chunk offset=%d chunk_len=%d expected_length=%d" % (chunk_offset, chunk_len, self.length))
+            while self.header_bytes_required and chunk_offset < chunk_len:
+                self.header_bytes[self.MESSAGE_MIN_SIZE
+                                  - self.header_bytes_required
+                                 ] = chunk[chunk_offset]
+                chunk_offset += 1
+                self.message_offset += 1
+                self.header_bytes_required -= 1
 
-            if not self.header_bytes_required:
-                (self.length, self.cmd, self.flags) = struct.unpack(
-                    '<IBB', self.header_bytes[0:6]
+                if not self.header_bytes_required:
+                    (self.length, self.cmd, self.flags) = struct.unpack(
+                        '<IBB', self.header_bytes[0:6]
+                    )
+
+                    self.conversation_id = UUID(
+                        bytes_le=(self.header_bytes[6:22].tobytes())
+                    )
+
+            print("chunk offset=%d chunk_len=%d expected_length=%d" % (chunk_offset, chunk_len, self.length))
+            self.message_bytes_required = self.length - HEADER_LENGTH
+            print(self.message_bytes_required)
+
+            if self.message_bytes_required > 0:
+                if not self.message:
+                    self.message = bytearray(self.message_bytes_required)
+
+                end_span = min(
+                    chunk_len, self.message_bytes_required + chunk_offset
                 )
+                self.message.extend(chunk[chunk_offset:end_span])
+                self.message_bytes_required -= end_span - chunk_offset
+                chunk_offset = end_span
 
-                self.conversation_id = UUID(bytes_le=(self.header_bytes[6:22].tobytes()))
-
-        if self.length == (self.message_offset - SIZE_UINT_32):
-            self.on_message_received(
-                InboundMessage(
-                    self.conversation_id, self.cmd, bytearray(), self.length
+            if not self.message_bytes_required:
+                self.on_message_received(
+                    InboundMessage(
+                        self.conversation_id, self.cmd, bytearray(), self.length
+                    )
                 )
-            )
-
-        if chunk_len == chunk_offset:
-            return
+                self.length = -1
+                self.message_offset = -1
+                self.conversation_id = None
+                self.cmd = -1
+                self.header_bytes_required = self.MESSAGE_MIN_SIZE
+                self.message = None
 
 
 class HeartbeatConversation:
