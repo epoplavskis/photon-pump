@@ -4,10 +4,10 @@ class PhotonPumpException(Exception):
 
 class ConversationException(PhotonPumpException):
 
-    def __init__(self, conversation_id, message, *args):
+    def __init__(self, conversation_id, message, *args, **kwargs):
         self.conversation_id = conversation_id
         self.message = message
-        super().__init__(conversation_id, message, *args)
+        super().__init__(conversation_id, message, *args, **kwargs)
 
 
 class StreamNotFound(ConversationException):
@@ -18,6 +18,38 @@ class StreamNotFound(ConversationException):
         )
         self.stream = stream
         self.conversation_id = conversation_id
+
+
+class StreamDeleted(ConversationException):
+
+    def __init__(self, conversation_id, stream):
+        super().__init__(
+            "The stream %s has been deleted" % stream, stream, conversation_id
+        )
+        self.stream = stream
+        self.conversation_id = conversation_id
+
+
+class ReadError(ConversationException):
+
+    def __init__(self, conversation_id, stream, error):
+        super().__init__(
+            "Failed to read from stream %s %s" % (stream, error), stream,
+            conversation_id, error
+        )
+        self.stream = stream
+        self.conversation_id = conversation_id
+
+
+class AccessDenied(ConversationException):
+
+    def __init__(self, conversation_id, type, error, **kwargs):
+        super().__init__(
+            "Access denied for %s %s" % (type, conversation_id),
+            conversation_id, error, kwargs
+        )
+        self.conversation_id = conversation_id
+        self.conversation_type = type
 
 
 class EventNotFound(ConversationException):

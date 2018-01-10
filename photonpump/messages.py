@@ -724,14 +724,30 @@ class ReadEventConversation(Conversation):
             self.result.set_result(_make_event(result.event))
         elif result.result == ReadEventResult.NoStream:
             self.raise_exception(
-                exceptions.StreamNotFound(
-                    self.conversation_id, self.stream
-                )
+                exceptions.StreamNotFound(self.conversation_id, self.stream)
             )
         elif result.result == ReadEventResult.NotFound:
             self.raise_exception(
                 exceptions.EventNotFound(
                     self.conversation_id, self.stream, self.event_number
+                )
+            )
+        elif result.result == ReadEventResult.StreamDeleted:
+            self.raise_exception(
+                exceptions.StreamDeleted(self.conversation_id, self.stream)
+            )
+        elif result.result == ReadEventResult.Error:
+            self.raise_exception(
+                exceptions.ReadError(
+                    self.conversation_id, self.stream, result.error
+                )
+            )
+        elif result.result == ReadEventResult.AccessDenied:
+            self.raise_exception(
+                exceptions.AccessDenied(
+                    self.conversation_id, type(self).__name__, result.error,
+                    event_number=self.event_number,
+                    stream=self.stream
                 )
             )
 

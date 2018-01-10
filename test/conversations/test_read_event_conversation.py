@@ -95,3 +95,52 @@ def test_stream_not_found():
 
     assert isinstance(exn, exceptions.StreamNotFound)
     assert exn.stream == 'my-stream'
+
+
+def test_stream_deleted():
+    convo = msg.ReadEventConversation('my-stream', 23)
+    convo.respond_to(
+        msg.InboundMessage(
+            uuid4(), msg.TcpCommand.ReadEventCompleted,
+            b'\x08\x03\x12\x00'
+        )
+    )
+
+    assert convo.is_complete
+    exn = convo.result.exception()
+
+    assert isinstance(exn, exceptions.StreamDeleted)
+    assert exn.stream == 'my-stream'
+
+
+def test_read_error():
+    convo = msg.ReadEventConversation('my-stream', 23)
+    convo.respond_to(
+        msg.InboundMessage(
+            uuid4(), msg.TcpCommand.ReadEventCompleted,
+            b'\x08\x04\x12\x00'
+        )
+    )
+
+    assert convo.is_complete
+    exn = convo.result.exception()
+
+    assert isinstance(exn, exceptions.ReadError)
+    assert exn.stream == 'my-stream'
+
+
+def test_access_denied():
+    convo = msg.ReadEventConversation('my-stream', 23)
+    convo.respond_to(
+        msg.InboundMessage(
+            uuid4(), msg.TcpCommand.ReadEventCompleted,
+            b'\x08\x05\x12\x00'
+        )
+    )
+
+    assert convo.is_complete
+    exn = convo.result.exception()
+
+    assert isinstance(exn, exceptions.AccessDenied)
+    assert exn.conversation_type == 'ReadEventConversation'
+
