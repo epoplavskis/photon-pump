@@ -1,7 +1,8 @@
 from uuid import uuid4
 
 from photonpump.messages import (
-    HEADER_LENGTH, HeartbeatConversation, PingConversation, TcpCommand, InboundMessage
+    HEADER_LENGTH, HeartbeatConversation, InboundMessage, PingConversation,
+    TcpCommand
 )
 
 
@@ -31,6 +32,7 @@ def test_ping_conversation():
     assert request.is_authenticated is False
     assert request.payload == b''
 
+
 def test_ping_response():
 
     conversation = PingConversation()
@@ -39,11 +41,8 @@ def test_ping_response():
     assert not conversation.is_complete
 
     conversation.reply(
-        InboundMessage(
-            conversation.conversation_id,
-            TcpCommand.Pong,
-            b''
-        ))
+        InboundMessage(conversation.conversation_id, TcpCommand.Pong, b'')
+    )
 
     assert conversation.is_complete
     assert conversation.result.done

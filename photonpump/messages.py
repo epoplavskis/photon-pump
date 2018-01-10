@@ -83,6 +83,9 @@ class OperationFlags(IntEnum):
     Authenticated = 0x01
 
 
+OperationResult = make_enum(messages_pb2._OPERATIONRESULT)
+
+
 class Credential:
 
     def __init__(self, username, password):
@@ -121,11 +124,11 @@ class Credential:
 class InboundMessage:
 
     def __init__(
-            self, conversation_id: UUID, command: TcpCommand, payload: Any
+            self, conversation_id: UUID, command: TcpCommand, payload: bytes=None
     ) -> None:
         self.conversation_id = conversation_id
         self.command = command
-        self.payload = payload
+        self.payload = payload or b''
         self.data_length = len(payload)
         self.length = HEADER_LENGTH + self.data_length
 
@@ -139,7 +142,7 @@ class OutboundMessage:
             payload: Any,
             creds: Credential = None
     ) -> None:
-        self.conversation = conversation_id
+        self.conversation_id = conversation_id
         self.command = command
         self.payload = payload
         self.creds = creds
@@ -230,7 +233,7 @@ class MessageReader:
                 print("raising message")
                 self.on_message_received(
                     InboundMessage(
-                        self.conversation_id, self.cmd, bytearray(), self.length
+                        self.conversation_id, self.cmd, bytearray()
                     )
                 )
                 self.length = -1
@@ -256,12 +259,25 @@ class Conversation:
         self.conversation_id = conversation_id or uuid4()
         self.result: Future = Future()
         self.is_complete = False
+        self.credential = credential
 
     def reply(self, response: InboundMessage):
         pass
 
+    def raise_bad_request(self, response):
+        error = response.payload.decode('UTF-8')
+        exn = exceptions.BadRequest(self.conversation_id, error)
+        self.raise_exception(exn)
+
+    def raise_exception(self, exn):
+        self.is_complete =True
+        self.result.set_exception(exn)
+
     def on_response(self, response: InboundMessage):
-        return self.reply(response)
+        if response.command is TcpCommand.BadRequest:
+            self.raise_bad_request(response)
+        else:
+            return self.reply(response)
 
 
 class HeartbeatConversation(Conversation):
@@ -632,6 +648,85 @@ class WriteEvents(Operation):
         result.ParseFromString(payload)
         self.is_complete = True
         self.future.set_result(result)
+
+    def cancel(self):
+        self.future.cancel()
+
+
+class WriteEventsConversation(Conversation):
+    """Command class for writing a sequence of events to a single
+        stream.
+
+    Args:
+        stream: The name of the stream to write to.
+        events: A sequence of events to write.
+        expected_version (optional): The expected version of the
+            target stream used for concurrency control.
+        required_master (optional): True if this command must be
+            sent direct to the master node, otherwise False.
+        correlation_id (optional): A unique identifer for this
+            command.
+
+    """
+
+    def __init__(
+            self,
+            stream: str,
+            events: Sequence[NewEventData],
+            expected_version: Union[ExpectedVersion, int] = ExpectedVersion.Any,
+            require_master: bool = False,
+            conversation_id: UUID=None,
+            credential=None,
+            loop=None
+    ):
+        super().__init__(conversation_id, credential)
+        self.stream = stream
+        self.require_master = require_master
+        self.events = events
+        self.expected_version = expected_version
+
+    def start(self):
+        msg = messages_pb2.WriteEvents()
+        msg.event_stream_id = self.stream
+        msg.require_master = self.require_master
+        msg.expected_version = self.expected_version
+
+        for event in self.events:
+            e = msg.events.add()
+            e.event_id = event.id.bytes_le
+            e.event_type = event.type
+
+            if isinstance(event.data, str):
+                e.data_content_type = ContentType.Json
+                e.data = event.data.encode('UTF-8')
+            elif event.data:
+                e.data_content_type = ContentType.Json
+                e.data = json.dumps(event.data).encode('UTF-8')
+            else:
+                e.data_content_type = ContentType.Binary
+                e.data = bytes()
+
+            if event.metadata:
+                e.metadata_content_type = ContentType.Json
+                e.metadata = json.dumps(event.metadata).encode('UTF-8')
+            else:
+                e.metadata_content_type = ContentType.Binary
+                e.metadata = bytes()
+
+        data = msg.SerializeToString()
+        return OutboundMessage(
+            self.conversation_id,
+            TcpCommand.WriteEvents,
+            data,
+            self.credential
+        )
+
+
+    def reply(self, response:InboundMessage):
+        result = messages_pb2.WriteEventsCompleted()
+        result.ParseFromString(response.payload)
+        self.is_complete = True
+        self.result.set_result(result)
 
     def cancel(self):
         self.future.cancel()
