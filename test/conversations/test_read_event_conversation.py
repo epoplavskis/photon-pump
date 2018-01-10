@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from photonpump import messages as msg
+from photonpump import messages as msg, exceptions
 from photonpump import messages_pb2 as proto
 
 
@@ -49,3 +49,49 @@ def test_read_single_event_success():
             response.SerializeToString()
         )
     )
+
+    assert convo.is_complete
+    result = convo.result.result()
+
+    assert isinstance(result, msg.Event)
+    assert result.event.stream == 'stream-123'
+    assert result.event.id == event_id
+    assert result.event.type == 'event-type'
+    assert result.event.event_number == 32
+
+    assert result.link is None
+
+
+def test_event_not_found():
+
+    convo = msg.ReadEventConversation('my-stream', 23)
+    convo.respond_to(
+        msg.InboundMessage(
+            uuid4(), msg.TcpCommand.ReadEventCompleted,
+            b'\x08\x01\x12\x00'
+        )
+    )
+
+    assert convo.is_complete
+    exn = convo.result.exception()
+
+    assert isinstance(exn, exceptions.EventNotFound)
+    assert exn.stream == 'my-stream'
+    assert exn.event_number == 23
+
+
+def test_stream_not_found():
+
+    convo = msg.ReadEventConversation('my-stream', 23)
+    convo.respond_to(
+        msg.InboundMessage(
+            uuid4(), msg.TcpCommand.ReadEventCompleted,
+            b'\x08\x02\x12\x00'
+        )
+    )
+
+    assert convo.is_complete
+    exn = convo.result.exception()
+
+    assert isinstance(exn, exceptions.StreamNotFound)
+    assert exn.stream == 'my-stream'

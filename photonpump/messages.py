@@ -723,9 +723,17 @@ class ReadEventConversation(Conversation):
         if result.result == ReadEventResult.Success:
             self.result.set_result(_make_event(result.event))
         elif result.result == ReadEventResult.NoStream:
-            msg = "The stream '" + self.stream + "' was not found"
-            exn = exceptions.StreamNotFoundException(msg, self.stream)
-            self.result.set_exception(exn)
+            self.raise_exception(
+                exceptions.StreamNotFound(
+                    self.conversation_id, self.stream
+                )
+            )
+        elif result.result == ReadEventResult.NotFound:
+            self.raise_exception(
+                exceptions.EventNotFound(
+                    self.conversation_id, self.stream, self.event_number
+                )
+            )
 
     def cancel(self):
         self.future.cancel()
