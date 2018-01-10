@@ -11,6 +11,7 @@ from typing import Any, Dict, NamedTuple, Sequence, Union
 from uuid import UUID, uuid4
 
 from google.protobuf import text_format
+from google.protobuf.message import DecodeError
 
 from . import exceptions, messages_pb2
 
@@ -66,6 +67,12 @@ class TcpCommand(IntEnum):
     UpdatePersistentSubscriptionCompleted = 0xCF
 
     BadRequest = 0xf0
+    NotHandled = 0xF1
+    Authenticate = 0xF2
+    Authenticated = 0xF3
+    NotAuthenticated = 0xF4
+    IdentifyClient = 0xF5
+    ClientIdentified = 0xF6
 
 
 class StreamDirection(IntEnum):
@@ -84,6 +91,7 @@ class OperationFlags(IntEnum):
 
 
 OperationResult = make_enum(messages_pb2._OPERATIONRESULT)
+NotHandledReason = make_enum(messages_pb2._NOTHANDLED_NOTHANDLEDREASON)
 
 
 class Credential:
@@ -124,7 +132,8 @@ class Credential:
 class InboundMessage:
 
     def __init__(
-            self, conversation_id: UUID, command: TcpCommand, payload: bytes=None
+            self, conversation_id: UUID, command: TcpCommand,
+            payload: bytes = None
     ) -> None:
         self.conversation_id = conversation_id
         self.command = command
@@ -232,9 +241,7 @@ class MessageReader:
             if not message_bytes_required:
                 print("raising message")
                 self.on_message_received(
-                    InboundMessage(
-                        self.conversation_id, self.cmd, bytearray()
-                    )
+                    InboundMessage(self.conversation_id, self.cmd, bytearray())
                 )
                 self.length = -1
                 self.message_offset = 0
@@ -264,20 +271,50 @@ class Conversation:
     def reply(self, response: InboundMessage):
         pass
 
-    def raise_bad_request(self, response):
-        error = response.payload.decode('UTF-8')
-        exn = exceptions.BadRequest(self.conversation_id, error)
-        self.raise_exception(exn)
-
     def raise_exception(self, exn):
-        self.is_complete =True
+        self.is_complete = True
         self.result.set_exception(exn)
 
-    def on_response(self, response: InboundMessage):
-        if response.command is TcpCommand.BadRequest:
-            self.raise_bad_request(response)
+    def raise_conversation_error(self, exn_type, response):
+        error = response.payload.decode('UTF-8')
+        exn = exn_type(self.conversation_id, error)
+        self.raise_exception(exn)
+
+    def raise_unhandled_message(self, response):
+        body = messages_pb2.NotHandled()
+        body.ParseFromString(response.payload)
+
+        if body.reason == NotHandledReason.NotReady:
+            self.raise_exception(exceptions.NotReady(self.conversation_id))
+        elif body.reason == NotHandledReason.TooBusy:
+            self.raise_exception(exceptions.TooBusy(self.conversation_id))
+        elif body.reason == NotHandledReason.NotMaster:
+            self.raise_exception(exceptions.NotMaster(self.conversation_id))
         else:
-            return self.reply(response)
+            self.raise_exception(
+                exceptions.NotHandled(self.conversation_id, body.reason)
+            )
+
+    def respond_to(self, response: InboundMessage):
+        try:
+            if response.command is TcpCommand.BadRequest:
+                self.raise_conversation_error(exceptions.BadRequest, response)
+            elif response.command is TcpCommand.NotAuthenticated:
+                self.raise_conversation_error(
+                    exceptions.NotAuthenticated, response
+                )
+            elif response.command is TcpCommand.NotHandled:
+                self.raise_unhandled_message(response)
+            else:
+                return self.reply(response)
+        except DecodeError as e:
+            self.raise_exception(
+                exceptions.PayloadUnreadable(
+                    self.conversation_id, response.payload, e
+                )
+            )
+
+        return None
 
 
 class HeartbeatConversation(Conversation):
@@ -288,6 +325,7 @@ class HeartbeatConversation(Conversation):
     def start(self):
         self.result.set_result(None)
         self.is_complete = True
+
         return OutboundMessage(
             self.conversation_id, TcpCommand.HeartbeatResponse, b''
         )
@@ -675,7 +713,7 @@ class WriteEventsConversation(Conversation):
             events: Sequence[NewEventData],
             expected_version: Union[ExpectedVersion, int] = ExpectedVersion.Any,
             require_master: bool = False,
-            conversation_id: UUID=None,
+            conversation_id: UUID = None,
             credential=None,
             loop=None
     ):
@@ -714,15 +752,12 @@ class WriteEventsConversation(Conversation):
                 e.metadata = bytes()
 
         data = msg.SerializeToString()
+
         return OutboundMessage(
-            self.conversation_id,
-            TcpCommand.WriteEvents,
-            data,
-            self.credential
+            self.conversation_id, TcpCommand.WriteEvents, data, self.credential
         )
 
-
-    def reply(self, response:InboundMessage):
+    def reply(self, response: InboundMessage):
         result = messages_pb2.WriteEventsCompleted()
         result.ParseFromString(response.payload)
         self.is_complete = True
