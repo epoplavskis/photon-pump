@@ -497,7 +497,7 @@ def _make_event(record: messages_pb2.ResolvedEvent):
         record.link.data,
         record.link.metadata,
         record.link.created_epoch
-    ) if record.link is not None else None
+    ) if record.HasField('link') else None
 
     event = EventRecord(
         record.event.event_stream_id,
@@ -574,32 +574,6 @@ class Operation:
         )
 
 
-Pong = namedtuple('photonpump_result_Pong', ['correlation_id'])
-
-
-class Ping(Operation):
-    """Command class for server pings.
-
-    Args:
-        correlation_id (optional): A unique identifer for this command.
-    """
-
-    def __init__(self, correlation_id: UUID = None, credential=None, loop=None):
-        self.flags = OperationFlags.Empty
-        self.command = TcpCommand.Ping
-        self.future = Future(loop=loop)
-        self.correlation_id = correlation_id or uuid4()
-        self.data = bytearray()
-        super().__init__(credential)
-
-    def cancel(self):
-        self.future.cancel()
-
-    async def handle_response(self, header, payload, writer) -> Pong:
-        self.is_complete = True
-        self.future.set_result(Pong(header.correlation_id))
-
-
 def NewEvent(
         type: str,
         id: UUID = uuid4(),
@@ -618,77 +592,6 @@ def NewEvent(
     """
 
     return NewEventData(id, type, data, metadata)
-
-
-class WriteEvents(Operation):
-    """Command class for writing a sequence of events to a single
-        stream.
-
-    Args:
-        stream: The name of the stream to write to.
-        events: A sequence of events to write.
-        expected_version (optional): The expected version of the
-            target stream used for concurrency control.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
-        correlation_id (optional): A unique identifer for this
-            command.
-
-    """
-
-    def __init__(
-            self,
-            stream: str,
-            events: Sequence[NewEventData],
-            expected_version: Union[ExpectedVersion, int] = ExpectedVersion.Any,
-            require_master: bool = False,
-            correlation_id: UUID = None,
-            credential=None,
-            loop=None
-    ):
-        self.correlation_id = correlation_id or uuid4()
-        self.future = Future(loop=loop)
-        self.flags = OperationFlags.Empty
-        self.command = TcpCommand.WriteEvents
-
-        msg = messages_pb2.WriteEvents()
-        msg.event_stream_id = stream
-        msg.require_master = require_master
-        msg.expected_version = expected_version
-
-        for event in events:
-            e = msg.events.add()
-            e.event_id = event.id.bytes
-            e.event_type = event.type
-
-            if isinstance(event.data, str):
-                e.data_content_type = ContentType.Json
-                e.data = event.data.encode('UTF-8')
-            elif event.data:
-                e.data_content_type = ContentType.Json
-                e.data = json.dumps(event.data).encode('UTF-8')
-            else:
-                e.data_content_type = ContentType.Binary
-                e.data = bytes()
-
-            if event.metadata:
-                e.metadata_content_type = ContentType.Json
-                e.metadata = json.dumps(event.metadata).encode('UTF-8')
-            else:
-                e.metadata_content_type = ContentType.Binary
-                e.metadata = bytes()
-
-        self.data = msg.SerializeToString()
-        super().__init__(credential)
-
-    async def handle_response(self, header, payload, writer):
-        result = messages_pb2.WriteEventsCompleted()
-        result.ParseFromString(payload)
-        self.is_complete = True
-        self.future.set_result(result)
-
-    def cancel(self):
-        self.future.cancel()
 
 
 class WriteEventsConversation(Conversation):
@@ -767,7 +670,7 @@ class WriteEventsConversation(Conversation):
         self.future.cancel()
 
 
-class ReadEvent(Operation):
+class ReadEventConversation(Conversation):
     """Command class for reading a single event.
 
     Args:
@@ -788,38 +691,41 @@ class ReadEvent(Operation):
             event_number: int,
             resolve_links: bool = True,
             require_master: bool = False,
-            correlation_id: UUID = None,
-            credentials=None,
-            loop=None
-    ):
+            conversation_id: UUID = None,
+            credentials=None
+    ) -> None:
 
-        self.correlation_id = correlation_id or uuid4()
-        self.future = Future(loop=loop)
-        self.flags = OperationFlags.Empty
-        self.command = TcpCommand.Read
+        super().__init__(conversation_id, credential=credentials)
         self.stream = stream
+        self.event_number = event_number
+        self.require_master = require_master
+        self.resolve_link_tos = resolve_links
 
+    def start(self) -> OutboundMessage:
         msg = messages_pb2.ReadEvent()
-        msg.event_number = event_number
-        msg.event_stream_id = stream
-        msg.require_master = require_master
-        msg.resolve_link_tos = resolve_links
+        msg.event_number = self.event_number
+        msg.event_stream_id = self.stream
+        msg.require_master = self.require_master
+        msg.resolve_link_tos = self.resolve_link_tos
 
-        self.data = msg.SerializeToString()
-        super().__init__(credentials)
+        data = msg.SerializeToString()
 
-    async def handle_response(self, header, payload, writer):
+        return OutboundMessage(
+            self.conversation_id, TcpCommand.Read, data, self.credential
+        )
+
+    def reply(self, response: InboundMessage):
         result = messages_pb2.ReadEventCompleted()
-        result.ParseFromString(payload)
+        result.ParseFromString(response.payload)
 
         self.is_complete = True
 
         if result.result == ReadEventResult.Success:
-            self.future.set_result(_make_event(result.event))
+            self.result.set_result(_make_event(result.event))
         elif result.result == ReadEventResult.NoStream:
             msg = "The stream '" + self.stream + "' was not found"
             exn = exceptions.StreamNotFoundException(msg, self.stream)
-            self.future.set_exception(exn)
+            self.result.set_exception(exn)
 
     def cancel(self):
         self.future.cancel()
