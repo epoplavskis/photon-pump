@@ -829,7 +829,6 @@ class ReadStreamEventsConversation(ReadStreamEventsBehaviour, Conversation):
             sent direct to the master node, otherwise False.
         correlation_id (optional): A unique identifer for this
             command.
-
     """
 
     def __init__(
@@ -906,18 +905,17 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
 
     """
 
+
     def __init__(
             self,
             stream: str,
-            from_event: int,
+            from_event: int = 0,
             batch_size: int = 100,
             resolve_links: bool = True,
             require_master: bool = False,
             direction: StreamDirection = StreamDirection.Forward,
             credentials=None,
-            conversation_id: UUID = None,
-            iterator: StreamingIterator = None,
-            loop=None
+            conversation_id: UUID = None
     ):
 
         Conversation.__init__(self, conversation_id, credentials)
@@ -925,8 +923,8 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
             self, ReadStreamResult, messages_pb2.ReadStreamEventsCompleted
         )
         self.batch_size = batch_size
+        self.waiting_for_page = 0
         self.stream = stream
-        self.iterator = iterator or StreamingIterator(batch_size * 2)
         self.resolve_links = resolve_links
         self.require_master = require_master
         self.direction = direction
@@ -956,17 +954,6 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
             self.conversation_id, command, data, self.credential
         )
 
-        msg = messages_pb2.ReadStreamEvents()
-        msg.event_stream_id = self.stream
-        msg.from_event_number = self.from_event
-        msg.max_count = self.batch_size
-        msg.require_master = self.require_master
-        msg.resolve_link_tos = self.resolve_links
-
-        data = msg.SerializeToString()
-
-        return OutboundMessage(self.conversation_id, self.command, data)
-
     def start(self):
         return self._fetch_page_message(self.from_event)
 
@@ -977,6 +964,7 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
             result.next_event_number
         ) if not result.is_end_of_stream else None
 
+        self.waiting_for_page += 1
         return Reply(
             ReplyAction.BeginIterator,
             StreamSlice(
@@ -985,31 +973,10 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
             ), next_message
         )
 
-    def cancel(self):
-        if self.result.done():
-            self.iterator.cancel()
-        else:
-            self.result.cancel()
-
-
-class HeartbeatResponse(Operation):
-    """Command class for responding to heartbeats.
-
-    Args:
-        correlation_id: The unique id of the HeartbeatRequest.
-    """
-    one_way = True
-
-    def __init__(self, correlation_id, loop=None):
-        self.flags = OperationFlags.Empty
-        self.command = TcpCommand.HeartbeatResponse
-        self.future = Future(loop=loop)
-        self.correlation_id = correlation_id or uuid4()
-        self.data = bytearray()
-        super().__init__()
-
-    def cancel(self):
-        self.future.cancel()
+    def error(self, exn: Exception) -> Reply:
+        if self.waiting_for_page > 0:
+            return Reply(ReplyAction.RaiseToIterator, exn, None)
+        return Reply(ReplyAction.CompleteError, exn, None)
 
 
 class VolatileSubscription:
