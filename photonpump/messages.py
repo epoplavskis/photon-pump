@@ -316,6 +316,9 @@ class Conversation:
 
         return None
 
+    def cancel(self):
+        self.result.cancel()
+
 
 class HeartbeatConversation(Conversation):
 
@@ -466,6 +469,28 @@ class Event:
     @property
     def original_event_id(self) -> UUID:
         return self.original_event.id
+
+
+class StreamSlice:
+
+    def __init__(
+            self,
+            events: Sequence[Event],
+            next_event_number: int,
+            last_event_number: int,
+            prepare_position: int = None,
+            commit_position: int = None,
+            is_end_of_stream: bool = False
+    ) -> None:
+        self.next_event_number = next_event_number
+        self.last_event_number = last_event_number
+        self.prepare_position = prepare_position
+        self.commit_position = commit_position
+        self.is_end_of_stream = is_end_of_stream
+        self.events = events
+
+    def __iter__(self):
+        return self.events.__iter__()
 
 
 def dump(*chunks: bytearray):
@@ -666,8 +691,8 @@ class WriteEventsConversation(Conversation):
         self.is_complete = True
         self.result.set_result(result)
 
-    def cancel(self):
-        self.future.cancel()
+
+ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 
 
 class ReadEventConversation(Conversation):
@@ -745,24 +770,21 @@ class ReadEventConversation(Conversation):
         elif result.result == ReadEventResult.AccessDenied:
             self.raise_exception(
                 exceptions.AccessDenied(
-                    self.conversation_id, type(self).__name__, result.error,
+                    self.conversation_id,
+                    type(self).__name__,
+                    result.error,
                     event_number=self.event_number,
                     stream=self.stream
                 )
             )
 
-    def cancel(self):
-        self.future.cancel()
-
-
-ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 
 ReadStreamResult = make_enum(
     messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT
 )
 
 
-class ReadStreamEvents(Operation):
+class ReadStreamEventsConversation(Conversation):
     """Command class for reading events from a stream.
 
     Args:
@@ -786,44 +808,74 @@ class ReadStreamEvents(Operation):
             require_master: bool = False,
             direction: StreamDirection = StreamDirection.Forward,
             credentials=None,
-            correlation_id: UUID = None,
-            loop=None
-    ):
+            conversation_id: UUID = None
+    ) -> None:
 
-        self.correlation_id = correlation_id or uuid4()
-        self.future = Future(loop=loop)
-        self.flags = OperationFlags.Empty
+        super().__init__(conversation_id, credential=credentials)
         self.stream = stream
+        self.direction = direction
+        self.from_event = from_event
+        self.max_count = max_count
+        self.require_master = require_master
+        self.resolve_link_tos = resolve_links
 
-        if direction == StreamDirection.Forward:
-            self.command = TcpCommand.ReadStreamEventsForward
+    def start(self):
+
+        if self.direction == StreamDirection.Forward:
+            command = TcpCommand.ReadStreamEventsForward
         else:
-            self.command = TcpCommand.ReadStreamEventsBackward
+            command = TcpCommand.ReadStreamEventsBackward
 
         msg = messages_pb2.ReadStreamEvents()
-        msg.event_stream_id = stream
-        msg.from_event_number = from_event
-        msg.max_count = max_count
-        msg.require_master = require_master
-        msg.resolve_link_tos = resolve_links
+        msg.event_stream_id = self.stream
+        msg.from_event_number = self.from_event
+        msg.max_count = self.max_count
+        msg.require_master = self.require_master
+        msg.resolve_link_tos = self.resolve_link_tos
 
-        self.data = msg.SerializeToString()
-        super().__init__(credentials)
+        data = msg.SerializeToString()
 
-    async def handle_response(self, header, payload, writer):
+        return OutboundMessage(
+            self.conversation_id, command, data, self.credential
+        )
+
+    def reply(self, response: InboundMessage):
         result = messages_pb2.ReadStreamEventsCompleted()
         self.is_complete = True
-        result.ParseFromString(payload)
+        result.ParseFromString(response.payload)
 
         if result.result == ReadStreamResult.Success:
-            self.future.set_result([_make_event(x) for x in result.events])
-        elif result.result == ReadEventResult.NoStream:
-            msg = "The stream '" + self.stream + "' was not found"
-            exn = exceptions.StreamNotFoundException(msg, self.stream)
-            self.future.set_exception(exn)
-
-    def cancel(self):
-        self.future.cancel()
+            events = [_make_event(x) for x in result.events]
+            self.result.set_result(
+                StreamSlice(
+                    events, result.next_event_number, result.last_event_number,
+                    None, result.last_commit_position,
+                    result.is_end_of_stream
+                )
+            )
+        elif result.result == ReadStreamResult.NoStream:
+            self.raise_exception(
+                exceptions.StreamNotFound(self.conversation_id, self.stream)
+            )
+        elif result.result == ReadStreamResult.StreamDeleted:
+            self.raise_exception(
+                exceptions.StreamDeleted(self.conversation_id, self.stream)
+            )
+        elif result.result == ReadStreamResult.Error:
+            self.raise_exception(
+                exceptions.ReadError(
+                    self.conversation_id, self.stream, result.error
+                )
+            )
+        elif result.result == ReadStreamResult.AccessDenied:
+            self.raise_exception(
+                exceptions.AccessDenied(
+                    self.conversation_id,
+                    type(self).__name__,
+                    result.error,
+                    stream=self.stream
+                )
+            )
 
 
 class IterStreamEvents(Operation):
