@@ -7,12 +7,11 @@ from uuid import UUID, uuid4
 
 from photonpump import messages_pb2 as proto
 from photonpump import exceptions
-from photonpump.messages import (ContentType, Credential, Event,
-                                 ExpectedVersion, InboundMessage, NewEvent,
-                                 NotHandledReason, OutboundMessage,
-                                 ReadEventResult, ReadStreamResult,
-                                 StreamDirection, StreamSlice,
-                                 SubscriptionResult, TcpCommand, _make_event)
+from photonpump.messages import (
+    ContentType, Credential, Event, ExpectedVersion, InboundMessage, NewEvent,
+    NotHandledReason, OutboundMessage, ReadEventResult, ReadStreamResult,
+    StreamDirection, StreamSlice, SubscriptionResult, TcpCommand, _make_event
+)
 
 
 class ReplyAction(IntEnum):
@@ -562,6 +561,7 @@ class CreateVolatileSubscription(Conversation):
         )
 
     def reply_from_init(self, response: InboundMessage):
+        self.expect_only(TcpCommand.SubscriptionConfirmation, response)
         result = proto.SubscriptionConfirmation()
         result.ParseFromString(response.payload)
 
@@ -576,6 +576,7 @@ class CreateVolatileSubscription(Conversation):
         )
 
     def reply_from_live(self, response: InboundMessage):
+        self.expect_only(TcpCommand.StreamEventAppeared, response)
         result = proto.StreamEventAppeared()
         result.ParseFromString(response.payload)
 
@@ -583,16 +584,17 @@ class CreateVolatileSubscription(Conversation):
             ReplyAction.YieldToSubscription, _make_event(result.event), None
         )
 
-    def drop_subscription(self, response: InboundMessage) -> OutboundMessage:
+    def drop_subscription(self, response: InboundMessage) -> Reply:
         body = proto.SubscriptionDropped()
         body.ParseFromString(response.payload)
 
         if self.state == CreateVolatileSubscription.State.init:
             return self.error(
-                exceptions.SubscriptionCreationFailure(body.reason)
+                exceptions.SubscriptionCreationFailed(
+                    self.conversation_id, body.reason
+                )
             )
-        else:
-            return Reply(ReplyAction.FinishSubscription, None, None)
+        return Reply(ReplyAction.FinishSubscription, None, None)
 
     def reply(self, response: InboundMessage):
 
@@ -684,9 +686,39 @@ class CreatePersistentSubscription(Conversation):
                 exceptions.AccessDenied(
                     self.conversation_id,
                     type(self).__name__, result.reason
-            ))
+                )
+            )
 
         return self.error(
             exceptions.SubscriptionCreationFailed(
                 self.conversation_id, result.reason
-            ))
+            )
+        )
+
+
+class ConnectPersistentSubscription(Conversation):
+
+    def __init__(
+            self,
+            name,
+            stream,
+            max_in_flight=10,
+            credentials=None,
+            conversation_id=None
+    ) -> None:
+        super().__init__(conversation_id, credentials)
+        self.stream = stream
+        self.max_in_flight = max_in_flight
+        self.name = name
+
+    def start(self):
+        msg = proto.ConnectToPersistentSubscription()
+        msg.subscription_id = self.name
+        msg.event_stream_id = self.stream
+        msg.allowed_in_flight_messages = self.max_in_flight
+
+        return OutboundMessage(self.conversation_id,
+            TcpCommand.ConnectToPersistentSubscription,
+            msg.SerializeToString())
+
+

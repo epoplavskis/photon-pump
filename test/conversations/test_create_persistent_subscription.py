@@ -1,6 +1,7 @@
 from uuid import uuid4
 
-from photonpump import messages_pb2 as proto, exceptions
+from photonpump import messages_pb2 as proto
+from photonpump import exceptions
 from photonpump.conversations import CreatePersistentSubscription, ReplyAction
 from photonpump.messages import InboundMessage, SubscriptionResult, TcpCommand
 
@@ -63,6 +64,7 @@ def test_persistent_subscription_already_exists():
     assert reply.next_message is None
     assert isinstance(reply.result, exceptions.SubscriptionCreationFailed)
 
+
 def test_persistent_subscription_access_denied():
 
     convo = CreatePersistentSubscription(
@@ -75,5 +77,3 @@ def test_persistent_subscription_access_denied():
     exn = reply.result
 
     assert isinstance(exn, exceptions.AccessDenied)
-
-
