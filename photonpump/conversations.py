@@ -532,7 +532,7 @@ class CreateVolatileSubscription(Conversation):
 
         return OutboundMessage(
             self.conversation_id, TcpCommand.SubscribeToStream,
-            msg.SerializeToString()
+            msg.SerializeToString(), self.credential
         )
 
     def reply_from_init(self, response: InboundMessage):
@@ -643,7 +643,7 @@ class CreatePersistentSubscription(Conversation):
 
         return OutboundMessage(
             self.conversation_id, TcpCommand.CreatePersistentSubscription,
-            msg.SerializeToString()
+            msg.SerializeToString(), self.credential
         )
 
     def reply(self, response: InboundMessage) -> Reply:
@@ -703,7 +703,7 @@ class ConnectPersistentSubscription(Conversation):
 
         return OutboundMessage(
             self.conversation_id, TcpCommand.ConnectToPersistentSubscription,
-            msg.SerializeToString()
+            msg.SerializeToString(), self.credential
         )
 
     def reply_from_init(self, response: InboundMessage):

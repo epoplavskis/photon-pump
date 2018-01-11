@@ -147,15 +147,31 @@ class OutboundMessage:
             conversation_id: UUID,
             command: TcpCommand,
             payload: Any,
-            creds: Credential = None
+            creds: Credential = None,
+            one_way: bool = False
     ) -> None:
         self.conversation_id = conversation_id
         self.command = command
         self.payload = payload
         self.creds = creds
+        print(self.creds, "Got some fucking creds, yo")
 
-        self.length = HEADER_LENGTH
-        self.is_authenticated = False
+        self.data_length = len(payload)
+        self.length = HEADER_LENGTH + self.data_length
+        if self.creds:
+            self.length += creds.length
+        self.one_way = one_way
+
+    @property
+    def header_bytes(self):
+        data = bytearray(SIZE_UINT_32 + 2)
+        struct.pack_into(
+            '<IBB', data, 0, self.length, self.command.value, 1 if self.creds else 0
+        )
+        data.extend(self.conversation_id.bytes_le)
+        if self.creds:
+            data.extend(self.creds.bytes)
+        return data
 
 
 class MessageReader:
@@ -430,7 +446,6 @@ ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 ReadStreamResult = make_enum(
     messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT
 )
-
 
 SubscriptionResult = make_enum(
     messages_pb2.
