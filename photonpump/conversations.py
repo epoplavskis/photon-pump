@@ -7,11 +7,12 @@ from uuid import UUID, uuid4
 
 from photonpump import messages_pb2 as proto
 from photonpump import exceptions
-from photonpump.messages import (
-    ContentType, Credential, Event, ExpectedVersion, InboundMessage, NewEvent,
-    OutboundMessage, ReadEventResult, ReadStreamResult, StreamDirection,
-    StreamSlice, TcpCommand, _make_event, NotHandledReason
-)
+from photonpump.messages import (ContentType, Credential, Event,
+                                 ExpectedVersion, InboundMessage, NewEvent,
+                                 NotHandledReason, OutboundMessage,
+                                 ReadEventResult, ReadStreamResult,
+                                 StreamDirection, StreamSlice,
+                                 SubscriptionResult, TcpCommand, _make_event)
 
 
 class ReplyAction(IntEnum):
@@ -52,6 +53,10 @@ class Conversation:
 
     def error(self, exn: Exception):
         return Reply(ReplyAction.CompleteError, exn, None)
+
+    def expect_only(self, command: TcpCommand, response: InboundMessage):
+        if response.command != command:
+            self.error(exceptions.UnexpectedCommand(command, response.command))
 
     def conversation_error(self, exn_type, response) -> Reply:
         error = response.payload.decode('UTF-8')
@@ -541,6 +546,9 @@ class CreateVolatileSubscription(Conversation):
         self.state = CreateVolatileSubscription.State.init
 
     def error(self, exn):
+        if self.state == CreateVolatileSubscription.State.init:
+            return Reply(ReplyAction.CompleteError, exn, None)
+
         return Reply(ReplyAction.RaiseToSubscription, exn, None)
 
     def start(self):
@@ -575,10 +583,110 @@ class CreateVolatileSubscription(Conversation):
             ReplyAction.YieldToSubscription, _make_event(result.event), None
         )
 
+    def drop_subscription(self, response: InboundMessage) -> OutboundMessage:
+        body = proto.SubscriptionDropped()
+        body.ParseFromString(response.payload)
+
+        if self.state == CreateVolatileSubscription.State.init:
+            return self.error(
+                exceptions.SubscriptionCreationFailure(body.reason)
+            )
+        else:
+            return Reply(ReplyAction.FinishSubscription, None, None)
+
     def reply(self, response: InboundMessage):
+
+        if response.command == TcpCommand.SubscriptionDropped:
+            return self.drop_subscription(response)
 
         if self.state == CreateVolatileSubscription.State.init:
             return self.reply_from_init(response)
 
         if self.state == CreateVolatileSubscription.State.live:
             return self.reply_from_live(response)
+
+
+class CreatePersistentSubscription(Conversation):
+
+    def __init__(
+            self,
+            name,
+            stream,
+            resolve_links=True,
+            start_from=-1,
+            timeout_ms=8192,
+            record_statistics=False,
+            live_buffer_size=128,
+            read_batch_size=128,
+            buffer_size=128,
+            max_retry_count=3,
+            prefer_round_robin=True,
+            checkpoint_after_ms=1024,
+            checkpoint_max_count=1024,
+            checkpoint_min_count=10,
+            subscriber_max_count=10,
+            credentials=None,
+            conversation_id=None
+    ) -> None:
+        super().__init__(conversation_id, credentials)
+        self.stream = stream
+        self.name = name
+        self.resolve_links = resolve_links
+        self.start_from = start_from
+        self.timeout_ms = timeout_ms
+        self.record_statistics = record_statistics
+        self.live_buffer_size = live_buffer_size
+        self.read_batch_size = read_batch_size
+        self.buffer_size = buffer_size
+        self.max_retry_count = max_retry_count
+        self.prefer_round_robin = prefer_round_robin
+        self.checkpoint_after_time = checkpoint_after_ms
+        self.checkpoint_max_count = checkpoint_max_count
+        self.checkpoint_min_count = checkpoint_min_count
+        self.subscriber_max_count = subscriber_max_count
+
+    def start(self) -> OutboundMessage:
+        msg = proto.CreatePersistentSubscription()
+        msg.subscription_group_name = self.name
+        msg.event_stream_id = self.stream
+        msg.start_from = self.start_from
+        msg.resolve_link_tos = self.resolve_links
+        msg.message_timeout_milliseconds = self.timeout_ms
+        msg.record_statistics = self.record_statistics
+        msg.live_buffer_size = self.live_buffer_size
+        msg.read_batch_size = self.read_batch_size
+        msg.buffer_size = self.buffer_size
+        msg.max_retry_count = self.max_retry_count
+        msg.prefer_round_robin = self.prefer_round_robin
+        msg.checkpoint_after_time = self.checkpoint_after_time
+        msg.checkpoint_max_count = self.checkpoint_max_count
+        msg.checkpoint_min_count = self.checkpoint_min_count
+        msg.subscriber_max_count = self.subscriber_max_count
+
+        return OutboundMessage(
+            self.conversation_id, TcpCommand.CreatePersistentSubscription,
+            msg.SerializeToString()
+        )
+
+    def reply(self, response: InboundMessage) -> Reply:
+        self.expect_only(
+            TcpCommand.CreatePersistentSubscriptionCompleted, response
+        )
+
+        result = proto.CreatePersistentSubscriptionCompleted()
+        result.ParseFromString(response.payload)
+
+        if result.result == SubscriptionResult.Success:
+            return Reply(ReplyAction.CompleteScalar, None, None)
+
+        if result.result == SubscriptionResult.AccessDenied:
+            return self.error(
+                exceptions.AccessDenied(
+                    self.conversation_id,
+                    type(self).__name__, result.reason
+            ))
+
+        return self.error(
+            exceptions.SubscriptionCreationFailed(
+                self.conversation_id, result.reason
+            ))

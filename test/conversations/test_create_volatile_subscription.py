@@ -104,3 +104,11 @@ def test_subscription_dropped():
 
     reply = drop_subscription(convo, SubscriptionDropReason.Unsubscribed)
     assert reply.action == ReplyAction.FinishSubscription
+
+
+def test_subscription_dropped_before_confirmation():
+
+    convo = CreateVolatileSubscription('my-stream')
+
+    reply = drop_subscription(convo, SubscriptionDropReason.Unsubscribed)
+    assert reply.action == ReplyAction.CompleteError

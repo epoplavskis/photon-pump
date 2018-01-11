@@ -116,3 +116,9 @@ class PayloadUnreadable(ConversationException):
     def __init__(self, conversation_id, payload, exn):
         self.payload = payload
         super().__init__(conversation_id, "The response could not be read", exn)
+
+
+
+class SubscriptionCreationFailed(ConversationException):
+    pass
+
