@@ -27,7 +27,9 @@ class ReplyAction(IntEnum):
     BeginVolatileSubscription = 6
     YieldToSubscription = 7
     FinishSubscription = 8
-    RaiseToSubscription = 8
+    RaiseToSubscription = 9
+
+    BeginPersistentSubscription = 10
 
 
 class Reply(NamedTuple):
@@ -483,7 +485,6 @@ class PersistentSubscription:
 
     def __init__(
             self,
-            conn,
             name,
             stream,
             correlation_id,
@@ -498,7 +499,6 @@ class PersistentSubscription:
         self.last_event_number = initial_event_number
         self.stream = stream
         self.auto_ack = auto_ack
-        self.conn = conn
 
     async def enqueue(self, event):
         self.last_event_number = event.original_event.event_number
@@ -594,6 +594,7 @@ class CreateVolatileSubscription(Conversation):
                     self.conversation_id, body.reason
                 )
             )
+
         return Reply(ReplyAction.FinishSubscription, None, None)
 
     def reply(self, response: InboundMessage):
@@ -698,27 +699,85 @@ class CreatePersistentSubscription(Conversation):
 
 class ConnectPersistentSubscription(Conversation):
 
+    class State(IntEnum):
+        init = 0
+        catch_up = 1
+        live = 2
+
     def __init__(
             self,
             name,
             stream,
             max_in_flight=10,
             credentials=None,
-            conversation_id=None
+            conversation_id=None,
+            auto_ack=False
     ) -> None:
         super().__init__(conversation_id, credentials)
         self.stream = stream
         self.max_in_flight = max_in_flight
         self.name = name
+        self.state = ConnectPersistentSubscription.State.init
+        self.auto_ack = auto_ack
 
-    def start(self):
+    def start(self) -> OutboundMessage:
         msg = proto.ConnectToPersistentSubscription()
         msg.subscription_id = self.name
         msg.event_stream_id = self.stream
         msg.allowed_in_flight_messages = self.max_in_flight
 
-        return OutboundMessage(self.conversation_id,
-            TcpCommand.ConnectToPersistentSubscription,
-            msg.SerializeToString())
+        return OutboundMessage(
+            self.conversation_id, TcpCommand.ConnectToPersistentSubscription,
+            msg.SerializeToString()
+        )
 
+    def reply_from_init(self, response: InboundMessage):
+        self.expect_only(
+            TcpCommand.PersistentSubscriptionConfirmation, response
+        )
+        result = proto.PersistentSubscriptionConfirmation()
+        result.ParseFromString(response.payload)
 
+        self.state = ConnectPersistentSubscription.State.live
+
+        return Reply(
+            ReplyAction.BeginPersistentSubscription,
+            PersistentSubscription(
+                result.subscription_id, self.stream, self.conversation_id,
+                result.last_commit_position, result.last_event_number,
+                self.max_in_flight, self.auto_ack
+            ), None
+        )
+
+    def reply_from_live(self, response: InboundMessage):
+        self.expect_only(TcpCommand.StreamEventAppeared, response)
+        result = proto.StreamEventAppeared()
+        result.ParseFromString(response.payload)
+
+        return Reply(
+            ReplyAction.YieldToSubscription, _make_event(result.event), None
+        )
+
+    def drop_subscription(self, response: InboundMessage) -> Reply:
+        body = proto.SubscriptionDropped()
+        body.ParseFromString(response.payload)
+
+        if self.state == CreateVolatileSubscription.State.init:
+            return self.error(
+                exceptions.SubscriptionCreationFailed(
+                    self.conversation_id, body.reason
+                )
+            )
+
+        return Reply(ReplyAction.FinishSubscription, None, None)
+
+    def reply(self, response: InboundMessage):
+
+        if response.command == TcpCommand.SubscriptionDropped:
+            return self.drop_subscription(response)
+
+        if self.state == ConnectPersistentSubscription.State.init:
+            return self.reply_from_init(response)
+
+        if self.state == ConnectPersistentSubscription.State.live:
+            return self.reply_from_live(response)
