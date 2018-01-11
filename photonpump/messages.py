@@ -92,6 +92,9 @@ class OperationFlags(IntEnum):
 
 OperationResult = make_enum(messages_pb2._OPERATIONRESULT)
 NotHandledReason = make_enum(messages_pb2._NOTHANDLED_NOTHANDLEDREASON)
+SubscriptionDropReason = make_enum(
+    messages_pb2._SUBSCRIPTIONDROPPED_SUBSCRIPTIONDROPREASON
+)
 
 
 class ReplyAction(IntEnum):
@@ -103,6 +106,11 @@ class ReplyAction(IntEnum):
     YieldToIterator = 3
     CompleteIterator = 4
     RaiseToIterator = 5
+
+    BeginVolatileSubscription = 6
+    YieldToSubscription = 7
+    FinishSubscription = 8
+    RaiseToSubscription = 8
 
 
 class Credential:
@@ -289,11 +297,14 @@ class Conversation:
     def reply(self, response: InboundMessage) -> Reply:
         pass
 
+    def error(self, exn: Exception):
+        return Reply(ReplyAction.CompleteError, exn, None)
+
     def conversation_error(self, exn_type, response) -> Reply:
         error = response.payload.decode('UTF-8')
         exn = exn_type(self.conversation_id, error)
 
-        return Reply(ReplyAction.CompleteError, exn, None)
+        return self.error(exn)
 
     def unhandled_message(self, response):
         body = messages_pb2.NotHandled()
@@ -308,7 +319,7 @@ class Conversation:
         else:
             exn = exceptions.NotHandled(self.conversation_id, body.reason)
 
-        return Reply(ReplyAction.CompleteError, exn, None)
+        return self.error(exn)
 
     def respond_to(self, response: InboundMessage) -> Reply:
         try:
@@ -322,12 +333,11 @@ class Conversation:
                 return self.unhandled_message(response)
             else:
                 return self.reply(response)
-        except DecodeError as e:
-            return Reply(
-                ReplyAction.CompleteError,
+        except Exception as e:
+            return self.error(
                 exceptions.PayloadUnreadable(
                     self.conversation_id, response.payload, e
-                ), None
+                )
             )
 
         return None
@@ -905,7 +915,6 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
 
     """
 
-
     def __init__(
             self,
             stream: str,
@@ -965,6 +974,7 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
         ) if not result.is_end_of_stream else None
 
         self.waiting_for_page += 1
+
         return Reply(
             ReplyAction.BeginIterator,
             StreamSlice(
@@ -976,6 +986,7 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
     def error(self, exn: Exception) -> Reply:
         if self.waiting_for_page > 0:
             return Reply(ReplyAction.RaiseToIterator, exn, None)
+
         return Reply(ReplyAction.CompleteError, exn, None)
 
 
@@ -1038,36 +1049,74 @@ class PersistentSubscription:
         self.events.cancel()
 
 
-class CreateVolatileSubscription(Operation):
+class CreateVolatileSubscription(Conversation):
     """Command class for creating a non-persistent subscription.
 
     Args:
         stream: The name of the stream to watch for new events
     """
 
+    class State(IntEnum):
+        init = 0
+        catch_up = 1
+        live = 2
+
     def __init__(
             self,
             stream: str,
             resolve_links: bool = True,
-            iterator: StreamingIterator = None,
             buffer_size: int = 1,
             credentials: Credential = None,
-            correlation_id: UUID = None,
-            loop=None
+            conversation_id: UUID = None
     ) -> None:
-        msg = messages_pb2.SubscribeToStream()
-        msg.event_stream_id = stream
-        msg.resolve_link_tos = resolve_links
+        super().__init__(conversation_id, credentials)
         self.stream = stream
-        self.command = TcpCommand.SubscribeToStream
-        self.flags = OperationFlags.Empty
-        self.future: Future = Future(loop=loop)
-        self.future.set_result(None)
-        self.data = msg.SerializeToString()
-        self.correlation_id = correlation_id or uuid4()
-        self.is_complete = False
         self.buffer_size = buffer_size
-        super().__init__(credentials)
+        self.resolve_links = resolve_links
+        self.state = CreateVolatileSubscription.State.init
+
+    def error(self, exn):
+        return Reply(ReplyAction.RaiseToSubscription, exn, None)
+
+    def start(self):
+        msg = messages_pb2.SubscribeToStream()
+        msg.event_stream_id = self.stream
+        msg.resolve_link_tos = self.resolve_links
+
+        return OutboundMessage(
+            self.conversation_id, TcpCommand.SubscribeToStream,
+            msg.SerializeToString()
+        )
+
+    def reply_from_init(self, response: InboundMessage):
+        result = messages_pb2.SubscriptionConfirmation()
+        result.ParseFromString(response.payload)
+
+        self.state = CreateVolatileSubscription.State.live
+
+        return Reply(
+            ReplyAction.BeginVolatileSubscription,
+            VolatileSubscription(
+                self.stream, result.last_commit_position,
+                result.last_event_number, self.buffer_size
+            ), None
+        )
+
+    def reply_from_live(self, response: InboundMessage):
+        result = messages_pb2.StreamEventAppeared()
+        result.ParseFromString(response.payload)
+
+        return Reply(
+            ReplyAction.YieldToSubscription, _make_event(result.event), None
+        )
+
+    def reply(self, response: InboundMessage):
+
+        if self.state == CreateVolatileSubscription.State.init:
+            return self.reply_from_init(response)
+
+        if self.state == CreateVolatileSubscription.State.live:
+            return self.reply_from_live(response)
 
     async def handle_response(self, header, payload, writer):
         if header.cmd == TcpCommand.SubscriptionConfirmation.value:
