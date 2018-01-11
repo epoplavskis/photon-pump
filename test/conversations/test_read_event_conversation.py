@@ -18,9 +18,6 @@ def test_read_single_event():
     assert body.resolve_link_tos is True
     assert body.require_master is False
 
-    assert not convo.is_complete
-    assert not convo.result.done()
-
 
 def test_read_single_event_success():
 
@@ -43,38 +40,41 @@ def test_read_single_event_success():
     }
     """.encode('UTF-8')
 
-    convo.respond_to(
+    reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
             response.SerializeToString()
         )
     )
 
-    assert convo.is_complete
-    result = convo.result.result()
+    assert reply.action == msg.ReplyAction.CompleteScalar
+    assert isinstance(reply.result, msg.Event)
+    assert reply.result.event.stream == 'stream-123'
+    assert reply.result.event.id == event_id
+    assert reply.result.event.type == 'event-type'
+    assert reply.result.event.event_number == 32
 
-    assert isinstance(result, msg.Event)
-    assert result.event.stream == 'stream-123'
-    assert result.event.id == event_id
-    assert result.event.type == 'event-type'
-    assert result.event.event_number == 32
+    assert reply.result.link is None
 
-    assert result.link is None
+
+def error_result(error_code):
+    data = bytearray(b'\x08\x00\x12\x00')
+    data[1] = error_code
+    return data
 
 
 def test_event_not_found():
 
     convo = msg.ReadEventConversation('my-stream', 23)
-    convo.respond_to(
+    reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
-            b'\x08\x01\x12\x00'
+            error_result(msg.ReadEventResult.NotFound)
         )
     )
 
-    assert convo.is_complete
-    exn = convo.result.exception()
-
+    assert reply.action == msg.ReplyAction.CompleteError
+    exn = reply.result
     assert isinstance(exn, exceptions.EventNotFound)
     assert exn.stream == 'my-stream'
     assert exn.event_number == 23
@@ -83,15 +83,15 @@ def test_event_not_found():
 def test_stream_not_found():
 
     convo = msg.ReadEventConversation('my-stream', 23)
-    convo.respond_to(
+    reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
-            b'\x08\x02\x12\x00'
+            error_result(msg.ReadEventResult.NoStream)
         )
     )
 
-    assert convo.is_complete
-    exn = convo.result.exception()
+    assert reply.action == msg.ReplyAction.CompleteError
+    exn = reply.result
 
     assert isinstance(exn, exceptions.StreamNotFound)
     assert exn.stream == 'my-stream'
@@ -99,15 +99,15 @@ def test_stream_not_found():
 
 def test_stream_deleted():
     convo = msg.ReadEventConversation('my-stream', 23)
-    convo.respond_to(
+    reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
-            b'\x08\x03\x12\x00'
+            error_result(msg.ReadEventResult.StreamDeleted)
         )
     )
 
-    assert convo.is_complete
-    exn = convo.result.exception()
+    assert reply.action == msg.ReplyAction.CompleteError
+    exn = reply.result
 
     assert isinstance(exn, exceptions.StreamDeleted)
     assert exn.stream == 'my-stream'
@@ -115,15 +115,15 @@ def test_stream_deleted():
 
 def test_read_error():
     convo = msg.ReadEventConversation('my-stream', 23)
-    convo.respond_to(
+    reply =convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
-            b'\x08\x04\x12\x00'
+            error_result(msg.ReadEventResult.Error)
         )
     )
 
-    assert convo.is_complete
-    exn = convo.result.exception()
+    assert reply.action == msg.ReplyAction.CompleteError
+    exn = reply.result
 
     assert isinstance(exn, exceptions.ReadError)
     assert exn.stream == 'my-stream'
@@ -131,15 +131,15 @@ def test_read_error():
 
 def test_access_denied():
     convo = msg.ReadEventConversation('my-stream', 23)
-    convo.respond_to(
+    reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
-            b'\x08\x05\x12\x00'
+            error_result(msg.ReadEventResult.AccessDenied)
         )
     )
 
-    assert convo.is_complete
-    exn = convo.result.exception()
+    assert reply.action == msg.ReplyAction.CompleteError
+    exn = reply.result
 
     assert isinstance(exn, exceptions.AccessDenied)
     assert exn.conversation_type == 'ReadEventConversation'

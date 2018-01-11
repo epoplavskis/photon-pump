@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from photonpump import messages as msg, exceptions
 from photonpump import messages_pb2 as proto
+from photonpump.messages import ReplyAction
 
 
 def test_read_stream_request():
@@ -19,9 +20,6 @@ def test_read_stream_request():
     assert body.require_master is False
     assert body.max_count == 100
 
-    assert not convo.is_complete
-    assert not convo.result.done()
-
 
 def test_read_stream_backward():
 
@@ -37,9 +35,6 @@ def test_read_stream_backward():
     assert body.resolve_link_tos is True
     assert body.require_master is False
     assert body.max_count == 10
-
-    assert not convo.is_complete
-    assert not convo.result.done()
 
 
 def test_read_stream_success():
@@ -77,19 +72,17 @@ def test_read_stream_success():
 
     response.events.extend([event_1, event_2])
 
-    convo.respond_to(
+    reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
             response.SerializeToString()
         )
     )
 
-    assert convo.is_complete
-    result = convo.result.result()
+    assert reply.action == ReplyAction.CompleteScalar
+    assert isinstance(reply.result, msg.StreamSlice)
 
-    assert isinstance(result, msg.StreamSlice)
-
-    [event_1, event_2] = result.events
+    [event_1, event_2] = reply.result.events
     assert event_1.event.stream == 'stream-123'
     assert event_1.event.id == event_1_id
     assert event_1.event.type == 'event-type'
@@ -99,6 +92,7 @@ def test_read_stream_success():
     assert event_2.event.id == event_2_id
     assert event_2.event.type == 'event-2-type'
     assert event_2.event.event_number == 33
+    assert reply.next_message is None
 
 
 def test_stream_not_found():
@@ -112,19 +106,19 @@ def test_stream_not_found():
     response.last_commit_position = 0
     response.error = "Couldn't find me face"
 
-    convo.respond_to(
+    reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
             response.SerializeToString()
         )
     )
 
-    assert convo.is_complete
-    exn = convo.result.exception()
-
+    exn = reply.result
+    assert reply.action == ReplyAction.CompleteError
     assert isinstance(exn, exceptions.StreamNotFound)
     assert exn.stream == 'my-stream'
     assert exn.conversation_id == convo.conversation_id
+    assert reply.next_message is None
 
 
 def test_stream_deleted():
@@ -137,19 +131,19 @@ def test_stream_deleted():
     response.last_event_number = 0
     response.last_commit_position = 0
 
-    convo.respond_to(
+    reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
             response.SerializeToString()
         )
     )
 
-    assert convo.is_complete
-    exn = convo.result.exception()
-
+    exn = reply.result
+    assert reply.action == ReplyAction.CompleteError
     assert isinstance(exn, exceptions.StreamDeleted)
     assert exn.stream == 'my-stream'
     assert exn.conversation_id == convo.conversation_id
+    assert reply.next_message is None
 
 
 def test_read_error():
@@ -163,19 +157,19 @@ def test_read_error():
     response.last_commit_position = 0
     response.error = "Something really weird just happened"
 
-    convo.respond_to(
+    reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
             response.SerializeToString()
         )
     )
 
-    assert convo.is_complete
-    exn = convo.result.exception()
-
+    assert reply.action == ReplyAction.CompleteError
+    exn = reply.result
     assert isinstance(exn, exceptions.ReadError)
     assert exn.stream == 'my-stream'
     assert exn.conversation_id == convo.conversation_id
+    assert reply.next_message is None
 
 
 def test_access_denied():
@@ -188,16 +182,16 @@ def test_access_denied():
     response.last_event_number = 0
     response.last_commit_position = 0
 
-    convo.respond_to(
+    reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
             response.SerializeToString()
         )
     )
 
-    assert convo.is_complete
-    exn = convo.result.exception()
-
+    assert reply.action == ReplyAction.CompleteError
+    exn = reply.result
     assert isinstance(exn, exceptions.AccessDenied)
     assert exn.conversation_id == convo.conversation_id
     assert exn.conversation_type == 'ReadStreamEventsConversation'
+    assert reply.next_message is None

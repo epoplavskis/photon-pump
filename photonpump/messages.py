@@ -4,7 +4,7 @@ import json
 import logging
 import math
 import struct
-from asyncio import Future, Queue
+from asyncio import Future, Queue, run_coroutine_threadsafe
 from collections import namedtuple
 from enum import IntEnum
 from typing import Any, Dict, NamedTuple, Sequence, Union
@@ -94,6 +94,17 @@ OperationResult = make_enum(messages_pb2._OPERATIONRESULT)
 NotHandledReason = make_enum(messages_pb2._NOTHANDLED_NOTHANDLEDREASON)
 
 
+class ReplyAction(IntEnum):
+
+    CompleteScalar = 0
+    CompleteError = 1
+
+    BeginIterator = 2
+    YieldToIterator = 3
+    CompleteIterator = 4
+    RaiseToIterator = 5
+
+
 class Credential:
 
     def __init__(self, username, password):
@@ -158,6 +169,13 @@ class OutboundMessage:
 
         self.length = HEADER_LENGTH
         self.is_authenticated = False
+
+
+class Reply(NamedTuple):
+
+    action: ReplyAction
+    result: Any
+    next_message: OutboundMessage
 
 
 class MessageReader:
@@ -268,50 +286,48 @@ class Conversation:
         self.is_complete = False
         self.credential = credential
 
-    def reply(self, response: InboundMessage):
+    def reply(self, response: InboundMessage) -> Reply:
         pass
 
-    def raise_exception(self, exn):
-        self.is_complete = True
-        self.result.set_exception(exn)
-
-    def raise_conversation_error(self, exn_type, response):
+    def conversation_error(self, exn_type, response) -> Reply:
         error = response.payload.decode('UTF-8')
         exn = exn_type(self.conversation_id, error)
-        self.raise_exception(exn)
 
-    def raise_unhandled_message(self, response):
+        return Reply(ReplyAction.CompleteError, exn, None)
+
+    def unhandled_message(self, response):
         body = messages_pb2.NotHandled()
         body.ParseFromString(response.payload)
 
         if body.reason == NotHandledReason.NotReady:
-            self.raise_exception(exceptions.NotReady(self.conversation_id))
+            exn = exceptions.NotReady(self.conversation_id)
         elif body.reason == NotHandledReason.TooBusy:
-            self.raise_exception(exceptions.TooBusy(self.conversation_id))
+            exn = exceptions.TooBusy(self.conversation_id)
         elif body.reason == NotHandledReason.NotMaster:
-            self.raise_exception(exceptions.NotMaster(self.conversation_id))
+            exn = exceptions.NotMaster(self.conversation_id)
         else:
-            self.raise_exception(
-                exceptions.NotHandled(self.conversation_id, body.reason)
-            )
+            exn = exceptions.NotHandled(self.conversation_id, body.reason)
 
-    def respond_to(self, response: InboundMessage):
+        return Reply(ReplyAction.CompleteError, exn, None)
+
+    def respond_to(self, response: InboundMessage) -> Reply:
         try:
             if response.command is TcpCommand.BadRequest:
-                self.raise_conversation_error(exceptions.BadRequest, response)
+                return self.conversation_error(exceptions.BadRequest, response)
             elif response.command is TcpCommand.NotAuthenticated:
-                self.raise_conversation_error(
+                return self.conversation_error(
                     exceptions.NotAuthenticated, response
                 )
             elif response.command is TcpCommand.NotHandled:
-                self.raise_unhandled_message(response)
+                return self.unhandled_message(response)
             else:
                 return self.reply(response)
         except DecodeError as e:
-            self.raise_exception(
+            return Reply(
+                ReplyAction.CompleteError,
                 exceptions.PayloadUnreadable(
                     self.conversation_id, response.payload, e
-                )
+                ), None
             )
 
         return None
@@ -326,8 +342,6 @@ class HeartbeatConversation(Conversation):
         super().__init__(conversation_id)
 
     def start(self):
-        self.result.set_result(None)
-        self.is_complete = True
 
         return OutboundMessage(
             self.conversation_id, TcpCommand.HeartbeatResponse, b''
@@ -340,8 +354,7 @@ class PingConversation(Conversation):
         return OutboundMessage(self.conversation_id, TcpCommand.Ping, b'')
 
     def reply(self, _: InboundMessage):
-        self.result.set_result(None)
-        self.is_complete = True
+        return Reply(ReplyAction.CompleteScalar, None, None)
 
 
 class ExpectedVersion(IntEnum):
@@ -694,8 +707,61 @@ class WriteEventsConversation(Conversation):
 
 ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 
+ReadStreamResult = make_enum(
+    messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT
+)
 
-class ReadEventConversation(Conversation):
+
+class ReadStreamEventsBehaviour:
+
+    def __init__(self, result_type, response_cls):
+        self.result_type = result_type
+        self.response_cls = response_cls
+
+    def success(self, result):
+        pass
+
+    def error(self, exn: Exception):
+        pass
+
+    def reply(self, response: InboundMessage):
+        result = self.response_cls()
+        result.ParseFromString(response.payload)
+
+        if result.result == self.result_type.Success:
+            return self.success(result)
+        elif result.result == self.result_type.NoStream:
+            return self.error(
+                exceptions.StreamNotFound(self.conversation_id, self.stream)
+            )
+        elif result.result == self.result_type.StreamDeleted:
+            return self.error(
+                exceptions.StreamDeleted(self.conversation_id, self.stream)
+            )
+        elif result.result == self.result_type.Error:
+            return self.error(
+                exceptions.ReadError(
+                    self.conversation_id, self.stream, result.error
+                )
+            )
+        elif result.result == self.result_type.AccessDenied:
+            return self.error(
+                exceptions.AccessDenied(
+                    self.conversation_id,
+                    type(self).__name__,
+                    result.error,
+                    stream=self.stream
+                )
+            )
+        elif self.result_type == ReadEventResult and result.result == self.result_type.NotFound:
+            return self.error(
+                exceptions.EventNotFound(
+                    self.conversation_id, self.stream, self.event_number
+                )
+            )
+
+
+class ReadEventConversation(ReadStreamEventsBehaviour, Conversation):
     """Command class for reading a single event.
 
     Args:
@@ -720,7 +786,10 @@ class ReadEventConversation(Conversation):
             credentials=None
     ) -> None:
 
-        super().__init__(conversation_id, credential=credentials)
+        Conversation.__init__(self, conversation_id, credential=credentials)
+        ReadStreamEventsBehaviour.__init__(
+            self, ReadEventResult, messages_pb2.ReadEventCompleted
+        )
         self.stream = stream
         self.event_number = event_number
         self.require_master = require_master
@@ -739,52 +808,16 @@ class ReadEventConversation(Conversation):
             self.conversation_id, TcpCommand.Read, data, self.credential
         )
 
-    def reply(self, response: InboundMessage):
-        result = messages_pb2.ReadEventCompleted()
-        result.ParseFromString(response.payload)
+    def success(self, response):
+        return Reply(
+            ReplyAction.CompleteScalar, _make_event(response.event), None
+        )
 
-        self.is_complete = True
-
-        if result.result == ReadEventResult.Success:
-            self.result.set_result(_make_event(result.event))
-        elif result.result == ReadEventResult.NoStream:
-            self.raise_exception(
-                exceptions.StreamNotFound(self.conversation_id, self.stream)
-            )
-        elif result.result == ReadEventResult.NotFound:
-            self.raise_exception(
-                exceptions.EventNotFound(
-                    self.conversation_id, self.stream, self.event_number
-                )
-            )
-        elif result.result == ReadEventResult.StreamDeleted:
-            self.raise_exception(
-                exceptions.StreamDeleted(self.conversation_id, self.stream)
-            )
-        elif result.result == ReadEventResult.Error:
-            self.raise_exception(
-                exceptions.ReadError(
-                    self.conversation_id, self.stream, result.error
-                )
-            )
-        elif result.result == ReadEventResult.AccessDenied:
-            self.raise_exception(
-                exceptions.AccessDenied(
-                    self.conversation_id,
-                    type(self).__name__,
-                    result.error,
-                    event_number=self.event_number,
-                    stream=self.stream
-                )
-            )
+    def error(self, exn):
+        return Reply(ReplyAction.CompleteError, exn, None)
 
 
-ReadStreamResult = make_enum(
-    messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT
-)
-
-
-class ReadStreamEventsConversation(Conversation):
+class ReadStreamEventsConversation(ReadStreamEventsBehaviour, Conversation):
     """Command class for reading events from a stream.
 
     Args:
@@ -811,7 +844,10 @@ class ReadStreamEventsConversation(Conversation):
             conversation_id: UUID = None
     ) -> None:
 
-        super().__init__(conversation_id, credential=credentials)
+        Conversation.__init__(self, conversation_id, credential=credentials)
+        ReadStreamEventsBehaviour.__init__(
+            self, ReadStreamResult, messages_pb2.ReadStreamEventsCompleted
+        )
         self.stream = stream
         self.direction = direction
         self.from_event = from_event
@@ -819,8 +855,7 @@ class ReadStreamEventsConversation(Conversation):
         self.require_master = require_master
         self.resolve_link_tos = resolve_links
 
-    def start(self):
-
+    def _fetch_page_message(self, from_event):
         if self.direction == StreamDirection.Forward:
             command = TcpCommand.ReadStreamEventsForward
         else:
@@ -828,7 +863,7 @@ class ReadStreamEventsConversation(Conversation):
 
         msg = messages_pb2.ReadStreamEvents()
         msg.event_stream_id = self.stream
-        msg.from_event_number = self.from_event
+        msg.from_event_number = from_event
         msg.max_count = self.max_count
         msg.require_master = self.require_master
         msg.resolve_link_tos = self.resolve_link_tos
@@ -839,45 +874,25 @@ class ReadStreamEventsConversation(Conversation):
             self.conversation_id, command, data, self.credential
         )
 
-    def reply(self, response: InboundMessage):
-        result = messages_pb2.ReadStreamEventsCompleted()
-        self.is_complete = True
-        result.ParseFromString(response.payload)
+    def start(self):
+        return self._fetch_page_message(self.from_event)
 
-        if result.result == ReadStreamResult.Success:
-            events = [_make_event(x) for x in result.events]
-            self.result.set_result(
-                StreamSlice(
-                    events, result.next_event_number, result.last_event_number,
-                    None, result.last_commit_position, result.is_end_of_stream
-                )
-            )
-        elif result.result == ReadStreamResult.NoStream:
-            self.raise_exception(
-                exceptions.StreamNotFound(self.conversation_id, self.stream)
-            )
-        elif result.result == ReadStreamResult.StreamDeleted:
-            self.raise_exception(
-                exceptions.StreamDeleted(self.conversation_id, self.stream)
-            )
-        elif result.result == ReadStreamResult.Error:
-            self.raise_exception(
-                exceptions.ReadError(
-                    self.conversation_id, self.stream, result.error
-                )
-            )
-        elif result.result == ReadStreamResult.AccessDenied:
-            self.raise_exception(
-                exceptions.AccessDenied(
-                    self.conversation_id,
-                    type(self).__name__,
-                    result.error,
-                    stream=self.stream
-                )
-            )
+    def success(self, result: messages_pb2.ReadStreamEventsCompleted):
+        events = [_make_event(x) for x in result.events]
+
+        return Reply(
+            ReplyAction.CompleteScalar,
+            StreamSlice(
+                events, result.next_event_number, result.last_event_number,
+                None, result.last_commit_position, result.is_end_of_stream
+            ), None
+        )
+
+    def error(self, exn):
+        return Reply(ReplyAction.CompleteError, exn, None)
 
 
-class IterStreamEvents(Operation):
+class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
     """Command class for iterating events from a stream.
 
     Args:
@@ -900,67 +915,81 @@ class IterStreamEvents(Operation):
             require_master: bool = False,
             direction: StreamDirection = StreamDirection.Forward,
             credentials=None,
-            correlation_id: UUID = None,
+            conversation_id: UUID = None,
             iterator: StreamingIterator = None,
             loop=None
     ):
 
-        self.correlation_id = correlation_id or uuid4()
+        Conversation.__init__(self, conversation_id, credentials)
+        ReadStreamEventsBehaviour.__init__(
+            self, ReadStreamResult, messages_pb2.ReadStreamEventsCompleted
+        )
         self.batch_size = batch_size
         self.stream = stream
         self.iterator = iterator or StreamingIterator(batch_size * 2)
         self.resolve_links = resolve_links
         self.require_master = require_master
         self.direction = direction
+        self.from_event = from_event
 
         if direction == StreamDirection.Forward:
             self.command = TcpCommand.ReadStreamEventsForward
         else:
             self.command = TcpCommand.ReadStreamEventsBackward
 
-        msg = messages_pb2.ReadStreamEvents()
-        msg.event_stream_id = stream
-        msg.from_event_number = from_event
-        msg.max_count = batch_size
-        msg.require_master = require_master
-        msg.resolve_link_tos = resolve_links
-
-        self.data = msg.SerializeToString()
-        super().__init__(credentials)
-
-    async def handle_response(self, header, payload, writer):
-        result = messages_pb2.ReadStreamEventsCompleted()
-        self.is_complete = True
-        result.ParseFromString(payload)
-
-        if result.result == ReadStreamResult.Success:
-            await self.iterator.enqueue_items(
-                [_make_event(x) for x in result.events]
-            )
-
-            if result.is_end_of_stream:
-                self.iterator.finished = True
-            else:
-                await writer.enqueue(
-                    IterStreamEvents(
-                        self.stream,
-                        batch_size=self.batch_size,
-                        from_event=result.next_event_number,
-                        resolve_links=self.resolve_links,
-                        require_master=self.require_master,
-                        direction=self.direction,
-                        iterator=self.iterator,
-                        correlation_id=uuid4()
-                    )
-                )
+    def _fetch_page_message(self, from_event):
+        if self.direction == StreamDirection.Forward:
+            command = TcpCommand.ReadStreamEventsForward
         else:
-            assert result.result == ReadStreamResult.NoStream
-            msg = "The stream '" + self.stream + "' was not found"
-            exn = exceptions.StreamNotFoundException(msg, self.stream)
-            await self.iterator.athrow(exn)
+            command = TcpCommand.ReadStreamEventsBackward
+
+        msg = messages_pb2.ReadStreamEvents()
+        msg.event_stream_id = self.stream
+        msg.from_event_number = from_event
+        msg.max_count = self.batch_size
+        msg.require_master = self.require_master
+        msg.resolve_link_tos = self.resolve_links
+
+        data = msg.SerializeToString()
+
+        return OutboundMessage(
+            self.conversation_id, command, data, self.credential
+        )
+
+        msg = messages_pb2.ReadStreamEvents()
+        msg.event_stream_id = self.stream
+        msg.from_event_number = self.from_event
+        msg.max_count = self.batch_size
+        msg.require_master = self.require_master
+        msg.resolve_link_tos = self.resolve_links
+
+        data = msg.SerializeToString()
+
+        return OutboundMessage(self.conversation_id, self.command, data)
+
+    def start(self):
+        return self._fetch_page_message(self.from_event)
+
+    def success(self, result: messages_pb2.ReadStreamEventsCompleted):
+        events = [_make_event(x) for x in result.events]
+
+        next_message = self._fetch_page_message(
+            result.next_event_number
+        ) if not result.is_end_of_stream else None
+
+        return Reply(
+            ReplyAction.BeginIterator,
+            StreamSlice(
+                events, result.next_event_number, result.last_event_number,
+                None, result.last_commit_position, result.is_end_of_stream
+            ), next_message
+        )
 
     def cancel(self):
-        self.iterator.cancel()
+        if self.result.done():
+            self.iterator.cancel()
+        else:
+            self.result.cancel()
 
 
 class HeartbeatResponse(Operation):
