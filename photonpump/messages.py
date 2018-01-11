@@ -802,7 +802,7 @@ class ReadStreamEventsConversation(Conversation):
     def __init__(
             self,
             stream: str,
-            from_event: int,
+            from_event: int = 0,
             max_count: int = 100,
             resolve_links: bool = True,
             require_master: bool = False,
@@ -849,8 +849,7 @@ class ReadStreamEventsConversation(Conversation):
             self.result.set_result(
                 StreamSlice(
                     events, result.next_event_number, result.last_event_number,
-                    None, result.last_commit_position,
-                    result.is_end_of_stream
+                    None, result.last_commit_position, result.is_end_of_stream
                 )
             )
         elif result.result == ReadStreamResult.NoStream:

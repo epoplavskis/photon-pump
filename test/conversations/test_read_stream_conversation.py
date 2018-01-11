@@ -101,31 +101,21 @@ def test_read_stream_success():
     assert event_2.event.event_number == 33
 
 
-def test_event_not_found():
-
-    convo = msg.ReadEventConversation('my-stream', 23)
-    convo.respond_to(
-        msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadEventCompleted,
-            b'\x08\x01\x12\x00'
-        )
-    )
-
-    assert convo.is_complete
-    exn = convo.result.exception()
-
-    assert isinstance(exn, exceptions.EventNotFound)
-    assert exn.stream == 'my-stream'
-    assert exn.event_number == 23
-
-
 def test_stream_not_found():
 
-    convo = msg.ReadEventConversation('my-stream', 23)
+    convo = msg.ReadStreamEventsConversation('my-stream')
+    response = proto.ReadStreamEventsCompleted()
+    response.result = msg.ReadStreamResult.NoStream
+    response.is_end_of_stream = False
+    response.next_event_number = 0
+    response.last_event_number = 0
+    response.last_commit_position = 0
+    response.error = "Couldn't find me face"
+
     convo.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadEventCompleted,
-            b'\x08\x02\x12\x00'
+            uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response.SerializeToString()
         )
     )
 
@@ -134,14 +124,23 @@ def test_stream_not_found():
 
     assert isinstance(exn, exceptions.StreamNotFound)
     assert exn.stream == 'my-stream'
+    assert exn.conversation_id == convo.conversation_id
 
 
 def test_stream_deleted():
-    convo = msg.ReadEventConversation('my-stream', 23)
+
+    convo = msg.ReadStreamEventsConversation('my-stream')
+    response = proto.ReadStreamEventsCompleted()
+    response.result = msg.ReadStreamResult.StreamDeleted
+    response.is_end_of_stream = False
+    response.next_event_number = 0
+    response.last_event_number = 0
+    response.last_commit_position = 0
+
     convo.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadEventCompleted,
-            b'\x08\x03\x12\x00'
+            uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response.SerializeToString()
         )
     )
 
@@ -150,14 +149,24 @@ def test_stream_deleted():
 
     assert isinstance(exn, exceptions.StreamDeleted)
     assert exn.stream == 'my-stream'
+    assert exn.conversation_id == convo.conversation_id
 
 
 def test_read_error():
-    convo = msg.ReadEventConversation('my-stream', 23)
+
+    convo = msg.ReadStreamEventsConversation('my-stream')
+    response = proto.ReadStreamEventsCompleted()
+    response.result = msg.ReadStreamResult.Error
+    response.is_end_of_stream = False
+    response.next_event_number = 0
+    response.last_event_number = 0
+    response.last_commit_position = 0
+    response.error = "Something really weird just happened"
+
     convo.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadEventCompleted,
-            b'\x08\x04\x12\x00'
+            uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response.SerializeToString()
         )
     )
 
@@ -166,14 +175,23 @@ def test_read_error():
 
     assert isinstance(exn, exceptions.ReadError)
     assert exn.stream == 'my-stream'
+    assert exn.conversation_id == convo.conversation_id
 
 
 def test_access_denied():
-    convo = msg.ReadEventConversation('my-stream', 23)
+
+    convo = msg.ReadStreamEventsConversation('my-stream')
+    response = proto.ReadStreamEventsCompleted()
+    response.result = msg.ReadStreamResult.AccessDenied
+    response.is_end_of_stream = False
+    response.next_event_number = 0
+    response.last_event_number = 0
+    response.last_commit_position = 0
+
     convo.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadEventCompleted,
-            b'\x08\x05\x12\x00'
+            uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response.SerializeToString()
         )
     )
 
@@ -181,5 +199,5 @@ def test_access_denied():
     exn = convo.result.exception()
 
     assert isinstance(exn, exceptions.AccessDenied)
-    assert exn.conversation_type == 'ReadEventConversation'
-
+    assert exn.conversation_id == convo.conversation_id
+    assert exn.conversation_type == 'ReadStreamEventsConversation'
