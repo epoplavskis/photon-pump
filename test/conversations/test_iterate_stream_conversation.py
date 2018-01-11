@@ -1,13 +1,14 @@
 from uuid import uuid4
 
-from photonpump import messages as msg, exceptions
+from photonpump import messages as msg
 from photonpump import messages_pb2 as proto
-from photonpump.conversations import ReplyAction, ReadStreamEventsConversation
+from photonpump import exceptions
+from photonpump.conversations import IterStreamEvents, ReplyAction
 
 
 def test_read_stream_request():
 
-    convo = ReadStreamEventsConversation('my-stream', 23)
+    convo = IterStreamEvents('my-stream', 23)
     request = convo.start()
 
     body = proto.ReadStreamEvents()
@@ -23,7 +24,9 @@ def test_read_stream_request():
 
 def test_read_stream_backward():
 
-    convo = ReadStreamEventsConversation('my-stream', 50, direction=msg.StreamDirection.Backward, max_count=10)
+    convo = IterStreamEvents(
+        'my-stream', 50, direction=msg.StreamDirection.Backward, batch_size=10
+    )
     request = convo.start()
 
     body = proto.ReadStreamEvents()
@@ -37,12 +40,12 @@ def test_read_stream_backward():
     assert body.max_count == 10
 
 
-def test_read_stream_success():
+def test_end_of_stream():
 
     event_1_id = uuid4()
     event_2_id = uuid4()
 
-    convo = ReadStreamEventsConversation('my-stream', 0)
+    convo = IterStreamEvents('my-stream', 0)
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadEventResult.Success
     response.next_event_number = 10
@@ -79,7 +82,7 @@ def test_read_stream_success():
         )
     )
 
-    assert reply.action == ReplyAction.CompleteScalar
+    assert reply.action == ReplyAction.BeginIterator
     assert isinstance(reply.result, msg.StreamSlice)
 
     [event_1, event_2] = reply.result.events
@@ -95,16 +98,56 @@ def test_read_stream_success():
     assert reply.next_message is None
 
 
+def test_stream_paging():
+
+    event_id = uuid4()
+
+    convo = IterStreamEvents('my-stream', 0)
+    response = proto.ReadStreamEventsCompleted()
+    response.result = msg.ReadEventResult.Success
+    response.next_event_number = 10
+    response.last_event_number = 9
+    response.is_end_of_stream = False
+    response.last_commit_position = 8
+
+    event = proto.ResolvedIndexedEvent()
+    event.event.event_stream_id = "stream-123"
+    event.event.event_number = 32
+    event.event.event_id = event_id.bytes_le
+    event.event.event_type = 'event-type'
+    event.event.data_content_type = msg.ContentType.Json
+    event.event.metadata_content_type = msg.ContentType.Binary
+    event.event.data = """
+
+    {
+        'color': 'red',
+        'winner': true
+    }
+    """.encode('UTF-8')
+
+    reply = convo.respond_to(
+        msg.InboundMessage(
+            uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response.SerializeToString()
+        )
+    )
+
+    assert reply.action == ReplyAction.BeginIterator
+    body = proto.ReadStreamEvents()
+    body.ParseFromString(reply.next_message.payload)
+
+    assert body.from_event_number == 10
+
+
 def test_stream_not_found():
 
-    convo = ReadStreamEventsConversation('my-stream')
+    convo = IterStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadStreamResult.NoStream
     response.is_end_of_stream = False
     response.next_event_number = 0
     response.last_event_number = 0
     response.last_commit_position = 0
-    response.error = "Couldn't find me face"
 
     reply = convo.respond_to(
         msg.InboundMessage(
@@ -121,66 +164,24 @@ def test_stream_not_found():
     assert reply.next_message is None
 
 
-def test_stream_deleted():
+def test_error_mid_stream():
 
-    convo = ReadStreamEventsConversation('my-stream')
+    convo = IterStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
-    response.result = msg.ReadStreamResult.StreamDeleted
+    response.result = msg.ReadStreamResult.Success
     response.is_end_of_stream = False
     response.next_event_number = 0
     response.last_event_number = 0
     response.last_commit_position = 0
 
-    reply = convo.respond_to(
+    convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
             response.SerializeToString()
         )
     )
 
-    exn = reply.result
-    assert reply.action == ReplyAction.CompleteError
-    assert isinstance(exn, exceptions.StreamDeleted)
-    assert exn.stream == 'my-stream'
-    assert exn.conversation_id == convo.conversation_id
-    assert reply.next_message is None
-
-
-def test_read_error():
-
-    convo = ReadStreamEventsConversation('my-stream')
-    response = proto.ReadStreamEventsCompleted()
-    response.result = msg.ReadStreamResult.Error
-    response.is_end_of_stream = False
-    response.next_event_number = 0
-    response.last_event_number = 0
-    response.last_commit_position = 0
-    response.error = "Something really weird just happened"
-
-    reply = convo.respond_to(
-        msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
-            response.SerializeToString()
-        )
-    )
-
-    assert reply.action == ReplyAction.CompleteError
-    exn = reply.result
-    assert isinstance(exn, exceptions.ReadError)
-    assert exn.stream == 'my-stream'
-    assert exn.conversation_id == convo.conversation_id
-    assert reply.next_message is None
-
-
-def test_access_denied():
-
-    convo = ReadStreamEventsConversation('my-stream')
-    response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadStreamResult.AccessDenied
-    response.is_end_of_stream = False
-    response.next_event_number = 0
-    response.last_event_number = 0
-    response.last_commit_position = 0
 
     reply = convo.respond_to(
         msg.InboundMessage(
@@ -189,9 +190,9 @@ def test_access_denied():
         )
     )
 
-    assert reply.action == ReplyAction.CompleteError
+    assert reply.action == ReplyAction.RaiseToIterator
     exn = reply.result
     assert isinstance(exn, exceptions.AccessDenied)
     assert exn.conversation_id == convo.conversation_id
-    assert exn.conversation_type == 'ReadStreamEventsConversation'
+    assert exn.conversation_type == 'IterStreamEvents'
     assert reply.next_message is None

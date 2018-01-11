@@ -1,15 +1,13 @@
 from uuid import uuid4
 
-from photonpump.messages import (
-    HEADER_LENGTH, HeartbeatConversation, InboundMessage, PingConversation,
-    TcpCommand, ReplyAction
-)
+from photonpump.conversations import Heartbeat, Ping, ReplyAction
+from photonpump.messages import HEADER_LENGTH, TcpCommand, InboundMessage
 
 
 def test_start_heartbeat_conversation():
 
     id = uuid4()
-    conversation = HeartbeatConversation(id)
+    conversation = Heartbeat(id)
 
     response = conversation.start()
 
@@ -21,7 +19,7 @@ def test_start_heartbeat_conversation():
 
 def test_ping_conversation():
 
-    conversation = PingConversation()
+    conversation = Ping()
     request = conversation.start()
 
     assert request.length == HEADER_LENGTH
@@ -32,7 +30,7 @@ def test_ping_conversation():
 
 def test_ping_response():
 
-    conversation = PingConversation()
+    conversation = Ping()
     conversation.start()
 
     reply = conversation.respond_to(

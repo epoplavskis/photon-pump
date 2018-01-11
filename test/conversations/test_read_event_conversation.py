@@ -2,11 +2,12 @@ from uuid import uuid4
 
 from photonpump import messages as msg, exceptions
 from photonpump import messages_pb2 as proto
+from photonpump.conversations import ReadEvent, ReplyAction
 
 
 def test_read_single_event():
 
-    convo = msg.ReadEventConversation('my-stream', 23)
+    convo = ReadEvent('my-stream', 23)
     request = convo.start()
 
     body = proto.ReadEvent()
@@ -23,7 +24,7 @@ def test_read_single_event_success():
 
     event_id = uuid4()
 
-    convo = msg.ReadEventConversation('my-stream', 23)
+    convo = ReadEvent('my-stream', 23)
     response = proto.ReadEventCompleted()
     response.result = msg.ReadEventResult.Success
 
@@ -47,7 +48,7 @@ def test_read_single_event_success():
         )
     )
 
-    assert reply.action == msg.ReplyAction.CompleteScalar
+    assert reply.action == ReplyAction.CompleteScalar
     assert isinstance(reply.result, msg.Event)
     assert reply.result.event.stream == 'stream-123'
     assert reply.result.event.id == event_id
@@ -65,7 +66,7 @@ def error_result(error_code):
 
 def test_event_not_found():
 
-    convo = msg.ReadEventConversation('my-stream', 23)
+    convo = ReadEvent('my-stream', 23)
     reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
@@ -73,7 +74,7 @@ def test_event_not_found():
         )
     )
 
-    assert reply.action == msg.ReplyAction.CompleteError
+    assert reply.action == ReplyAction.CompleteError
     exn = reply.result
     assert isinstance(exn, exceptions.EventNotFound)
     assert exn.stream == 'my-stream'
@@ -82,7 +83,7 @@ def test_event_not_found():
 
 def test_stream_not_found():
 
-    convo = msg.ReadEventConversation('my-stream', 23)
+    convo = ReadEvent('my-stream', 23)
     reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
@@ -90,7 +91,7 @@ def test_stream_not_found():
         )
     )
 
-    assert reply.action == msg.ReplyAction.CompleteError
+    assert reply.action == ReplyAction.CompleteError
     exn = reply.result
 
     assert isinstance(exn, exceptions.StreamNotFound)
@@ -98,7 +99,7 @@ def test_stream_not_found():
 
 
 def test_stream_deleted():
-    convo = msg.ReadEventConversation('my-stream', 23)
+    convo = ReadEvent('my-stream', 23)
     reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
@@ -106,7 +107,7 @@ def test_stream_deleted():
         )
     )
 
-    assert reply.action == msg.ReplyAction.CompleteError
+    assert reply.action == ReplyAction.CompleteError
     exn = reply.result
 
     assert isinstance(exn, exceptions.StreamDeleted)
@@ -114,7 +115,7 @@ def test_stream_deleted():
 
 
 def test_read_error():
-    convo = msg.ReadEventConversation('my-stream', 23)
+    convo = ReadEvent('my-stream', 23)
     reply =convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
@@ -122,7 +123,7 @@ def test_read_error():
         )
     )
 
-    assert reply.action == msg.ReplyAction.CompleteError
+    assert reply.action == ReplyAction.CompleteError
     exn = reply.result
 
     assert isinstance(exn, exceptions.ReadError)
@@ -130,7 +131,7 @@ def test_read_error():
 
 
 def test_access_denied():
-    convo = msg.ReadEventConversation('my-stream', 23)
+    convo = ReadEvent('my-stream', 23)
     reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
@@ -138,9 +139,9 @@ def test_access_denied():
         )
     )
 
-    assert reply.action == msg.ReplyAction.CompleteError
+    assert reply.action == ReplyAction.CompleteError
     exn = reply.result
 
     assert isinstance(exn, exceptions.AccessDenied)
-    assert exn.conversation_type == 'ReadEventConversation'
+    assert exn.conversation_type == 'ReadEvent'
 
