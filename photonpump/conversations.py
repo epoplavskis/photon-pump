@@ -57,7 +57,7 @@ class Conversation:
 
     def expect_only(self, command: TcpCommand, response: InboundMessage):
         if response.command != command:
-            self.error(exceptions.UnexpectedCommand(command, response.command))
+            raise exceptions.UnexpectedCommand(command, response.command)
 
     def conversation_error(self, exn_type, response) -> Reply:
         error = response.payload.decode('UTF-8')
@@ -472,14 +472,6 @@ class VolatileSubscription:
         self.last_event_number = initial_event_number
         self.stream = stream
 
-    async def enqueue(self, commit_position, event):
-        self.last_commit_position = commit_position
-        self.last_event_number = event.original_event.event_number
-        await self.events.enqueue(event)
-
-    def cancel(self):
-        self.events.cancel()
-
 
 class PersistentSubscription:
 
@@ -499,23 +491,6 @@ class PersistentSubscription:
         self.last_event_number = initial_event_number
         self.stream = stream
         self.auto_ack = auto_ack
-
-    async def enqueue(self, event):
-        self.last_event_number = event.original_event.event_number
-        await self.events.enqueue(event)
-
-        if self.auto_ack:
-            await self.conn.ack(event)
-
-    async def ack(self, message: Event):
-        await self.conn.ack(
-            self.name,
-            message.original_event_id,
-            correlation_id=self.correlation_id
-        )
-
-    def cancel(self):
-        self.events.cancel()
 
 
 class CreateVolatileSubscription(Conversation):
