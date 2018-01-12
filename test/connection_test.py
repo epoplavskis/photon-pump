@@ -36,8 +36,7 @@ async def test_ping(event_loop):
     conn = Connection(loop=event_loop)
     await conn.connect()
 
-    pong = await conn.ping()
-    assert pong
+    await conn.ping()
 
     conn.close()
 
@@ -47,5 +46,4 @@ async def test_ping_context_mgr(event_loop):
 
     async with connect(loop=event_loop) as conn:
         id = uuid.uuid4()
-        pong = await conn.ping(correlation_id=id)
-        assert pong.correlation_id == id
+        pong = await conn.ping(conversation_id=id)

@@ -1,8 +1,9 @@
+import logging
 import uuid
 
 import pytest
 
-from photonpump import messages, connect, StreamNotFoundException
+from photonpump import connect, exceptions, messages
 
 from .fixtures import given_a_stream_with_three_events
 
@@ -12,20 +13,32 @@ async def test_single_event_roundtrip(event_loop):
 
     stream_name = str(uuid.uuid4())
 
-    async with connect(loop=event_loop) as c:
-        await c.publish_event('thing_happened', stream_name, body={
-            'thing': 1,
-            'happening': True
-        })
+    try:
+        async with connect(loop=event_loop) as c:
+            print("1")
+            await c.publish_event(
+                'thing_happened',
+                stream_name,
+                body={
+                    'thing': 1,
+                    'happening': True
+                }
+            )
+            print("1")
 
-        result = await c.get_event(stream_name, 0)
+            result = await c.get_event(stream_name, 0)
 
-        assert isinstance(result, messages.Event)
-        assert result.type == 'thing_happened'
+            print("1")
+            assert isinstance(result, messages.Event)
+            assert result.event.type == 'thing_happened'
 
-        data = result.json()
-        assert data['thing'] == 1
-        assert data['happening'] is True
+            print("1")
+            data = result.event.json()
+            assert data['thing'] == 1
+            assert data['happening'] is True
+    except Exception as e:
+        print(e)
+        assert False
 
 
 @pytest.mark.asyncio
@@ -42,7 +55,7 @@ async def test_missing_stream(event_loop):
         except Exception as e:
             exc = e
 
-        assert isinstance(exc, StreamNotFoundException)
+        assert isinstance(exc, exceptions.StreamNotFound)
         assert exc.stream == stream_name
 
 
@@ -57,10 +70,10 @@ async def test_read_multiple(event_loop):
 
         result = await c.get(stream_name)
 
-        assert isinstance(result, list)
+        assert isinstance(result, messages.StreamSlice)
         assert len(result) == 3
 
-        event = result[1]
+        event = result[1].event
 
         assert event.type == 'pony_jumped'
 
@@ -83,7 +96,7 @@ async def test_read_with_max_count(event_loop):
         assert isinstance(result, list)
         assert len(result) == 1
 
-        event = result[0]
+        event = result[0].event
 
         assert event.type == 'pony_jumped'
 
@@ -105,7 +118,7 @@ async def test_read_with_max_count_and_from_event(event_loop):
         assert isinstance(result, list)
         assert len(result) == 1
 
-        event = result[0]
+        event = result[0].event
 
         assert event.type == 'pony_jumped'
 
@@ -125,14 +138,15 @@ async def test_streaming_read(event_loop):
         events_read = 0
 
         async for event in c.iter(stream_name, batch_size=1):
+            logging.info("Handling event!")
             events_read += 1
-            assert event.type == 'pony_jumped'
+            assert event.event.type == 'pony_jumped'
 
         assert events_read == 3
 
+
 @pytest.mark.asyncio
 async def test_async_comprehension(event_loop):
-
 
     async def embiggen(e):
         data = e.json()
@@ -145,15 +159,20 @@ async def test_async_comprehension(event_loop):
 
         await given_a_stream_with_three_events(c, stream_name)
 
-        jumps = (e async for e in c.iter(stream_name, batch_size=2) if e.type =='pony_jumped')
+        jumps = (
+            e.event async for e in c.iter(stream_name, batch_size=2)
+            if e.event.type == 'pony_jumped'
+        )
         big_jumps = (embiggen(e) async for e in jumps)
 
         events_read = 0
 
         async for event in big_jumps:
+            print(event)
             events_read += 1
 
         assert events_read == 3
+
 
 @pytest.mark.asyncio
 async def test_iter_from_missing_stream(event_loop):
@@ -163,4 +182,4 @@ async def test_iter_from_missing_stream(event_loop):
             events = [e async for e in c.iter('my-stream-that-isnt-a-stream')]
             assert False
         except Exception as e:
-            assert isinstance(e, StreamNotFoundException)
+            assert isinstance(e, exceptions.StreamNotFound)

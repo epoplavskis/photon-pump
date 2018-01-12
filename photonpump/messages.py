@@ -1,15 +1,19 @@
+import array
 import json
 import logging
+import math
 import struct
-from asyncio import Future, Queue
 from collections import namedtuple
 from enum import IntEnum
-from typing import Any, Dict, Sequence, Union, NamedTuple
+from typing import Any, Dict, NamedTuple, Sequence
 from uuid import UUID, uuid4
 
-from . import exceptions, messages_pb2
+from . import messages_pb2
 
 HEADER_LENGTH = 1 + 1 + 16
+SIZE_UINT_32 = 4
+_LENGTH = struct.Struct('<I')
+_HEAD = struct.Struct('<BBIIII')
 
 
 def make_enum(descriptor):
@@ -45,6 +49,26 @@ class TcpCommand(IntEnum):
     StreamEventAppeared = 0xC2
     SubscriptionDropped = 0xC4
 
+    ConnectToPersistentSubscription = 0xC5
+    PersistentSubscriptionConfirmation = 0xC6
+    PersistentSubscriptionStreamEventAppeared = 0xC7
+    CreatePersistentSubscription = 0xC8
+    CreatePersistentSubscriptionCompleted = 0xC9
+    DeletePersistentSubscription = 0xCA
+    DeletePersistentSubscriptionCompleted = 0xCB
+    PersistentSubscriptionAckEvents = 0xCC
+    PersistentSubscriptionNakEvents = 0xCD
+    UpdatePersistentSubscription = 0xCE
+    UpdatePersistentSubscriptionCompleted = 0xCF
+
+    BadRequest = 0xf0
+    NotHandled = 0xF1
+    Authenticate = 0xF2
+    Authenticated = 0xF3
+    NotAuthenticated = 0xF4
+    IdentifyClient = 0xF5
+    ClientIdentified = 0xF6
+
 
 class StreamDirection(IntEnum):
     Forward = 0
@@ -59,6 +83,118 @@ class ContentType(IntEnum):
 class OperationFlags(IntEnum):
     Empty = 0x00
     Authenticated = 0x01
+
+
+OperationResult = make_enum(messages_pb2._OPERATIONRESULT)
+NotHandledReason = make_enum(messages_pb2._NOTHANDLED_NOTHANDLEDREASON)
+SubscriptionDropReason = make_enum(
+    messages_pb2._SUBSCRIPTIONDROPPED_SUBSCRIPTIONDROPREASON
+)
+
+
+class Credential:
+
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+
+        username_bytes = username.encode('UTF-8')
+        password_bytes = password.encode('UTF-8')
+
+        self.length = 2 + len(username_bytes) + len(password_bytes)
+        self.bytes = bytearray()
+
+        self.bytes.extend(len(username_bytes).to_bytes(1, byteorder='big'))
+        self.bytes.extend(username_bytes)
+        self.bytes.extend(len(password_bytes).to_bytes(1, byteorder='big'))
+        self.bytes.extend(password_bytes)
+
+    @classmethod
+    def from_bytes(cls, data):
+        """
+        I am so sorry.
+        """
+        len_username = int.from_bytes(data[0:2], byteorder='big')
+        offset_username = 2 + len_username
+        username = data[2:offset_username].decode('UTF-8')
+        offset_password = 2 + offset_username
+        len_password = int.from_bytes(
+            data[offset_username:offset_password], byteorder='big'
+        )
+        password = data[offset_password:offset_password + len_password
+                       ].decode('UTF-8')
+
+        return cls(username, password)
+
+
+class InboundMessage:
+
+    def __init__(
+            self, conversation_id: UUID, command: TcpCommand,
+            payload: bytes = None
+    ) -> None:
+        self.conversation_id = conversation_id
+        self.command = command
+        self.payload = payload or b''
+        self.data_length = len(payload)
+        self.length = HEADER_LENGTH + self.data_length
+
+    @property
+    def header_bytes(self):
+        data = bytearray(SIZE_UINT_32 + 2)
+        struct.pack_into('<IBB', data, 0, self.length, self.command, 0)
+        data.extend(self.conversation_id.bytes_le)
+
+        return data
+
+    def __repr__(self):
+        return self.__str__() + "\n" +dump(self.header_bytes, self.payload)
+
+    def __str__(self):
+        return "%s (%s) of %s flags=%d" % (
+            TcpCommand(self.command).name, self.conversation_id,
+            sizeof_fmt(self.length), 0
+        )
+
+
+class OutboundMessage:
+
+    def __init__(
+            self,
+            conversation_id: UUID,
+            command: TcpCommand,
+            payload: Any,
+            creds: Credential = None,
+            one_way: bool = False
+    ) -> None:
+        self.conversation_id = conversation_id
+        self.command = command
+        self.payload = payload
+        self.creds = creds
+
+        self.data_length = len(payload)
+        self.length = HEADER_LENGTH + self.data_length
+
+        if self.creds:
+            self.length += creds.length
+        self.one_way = one_way
+
+    @property
+    def header_bytes(self):
+        data = bytearray(SIZE_UINT_32 + 2)
+        struct.pack_into(
+            '<IBB', data, 0, self.length, self.command.value, 1
+            if self.creds else 0
+        )
+        data.extend(self.conversation_id.bytes_le)
+
+        if self.creds:
+            data.extend(self.creds.bytes)
+
+        return data
+
+    def __repr__(self):
+        return dump(self.header_bytes, self.payload)
 
 
 class ExpectedVersion(IntEnum):
@@ -82,8 +218,15 @@ class ExpectedVersion(IntEnum):
 
 JsonDict = Dict[str, Any]
 Header = namedtuple(
-    'photonpump_result_header', ['size', 'cmd', 'flags', 'correlation_id']
+    'photonpump_result_header',
+    ['size', 'cmd', 'flags', 'correlation_id', 'username', 'password']
 )
+
+
+def parse_header(length: bytearray, data: bytearray) -> Header:
+    (size, ) = _LENGTH.unpack(length)
+
+    return Header(size, data[0], data[1], UUID(bytes_le=data[2:18]), None, None)
 
 
 def sizeof_fmt(num, suffix='B'):
@@ -103,6 +246,7 @@ def print_header(header):
 
 
 Header.__repr__ = print_header
+Header.__new__.__defaults__ = (None, None)
 
 NewEventData = namedtuple(
     'photonpump_event', ['id', 'type', 'data', 'metadata']
@@ -114,125 +258,91 @@ EventRecord = namedtuple(
 )
 
 
-class StreamingIterator:
-
-    def __init__(self, size):
-        self.items = Queue(maxsize=size)
-        self.finished = False
-        self.fut = None
-
-    async def __aiter__(self):
-        return self
-
-    async def enqueue_items(self, items):
-        for item in items:
-            await self.items.put(item)
-
-    async def enqueue(self, item):
-        await self.items.put(item)
-
-    async def __anext__(self):
-        if self.finished and self.items.empty():
-            raise StopAsyncIteration()
-        try:
-            next = await self.items.get()
-        except Exception as e:
-            raise StopAsyncIteration()
-
-        if isinstance(next, StopIteration):
-            raise StopAsyncIteration()
-
-        if isinstance(next, Exception):
-            raise next
-
-        return next
-
-    async def athrow(self, e):
-        await self.items.put(e)
-
-    async def asend(self, m):
-        await self.items.put(m)
-
-    def cancel(self):
-        self.finished = True
-        self.asend(StopIteration())
+def _json(self):
+    return json.loads(self.data.decode('UTF-8'))
 
 
-class Event(EventRecord):
-
-    def json(self):
-        return json.loads(self.data.decode('UTF-8'))
+EventRecord.json = _json
 
 
-class Operation:
-    """The base class for requests to Eventstore.
+class Event:
 
-    Implementors have two responsibilities: they must serialize a byte-stream
-    request in the :meth:`~photonpump.messages.Operation.send` method, and
-    they must deserialize and handle the response in the
-    :meth:`~photonpump.messages.Operation.handle_response` method.
-    """
+    def __init__(self, event: EventRecord, link: EventRecord) -> None:
+        self.event = event
+        self.link = link
 
-    def send(self, writer):
-        """
-        Write the byte-stream of this request to an instance of StreamWriter
-        """
-        header = self.make_header()
-        writer.write(header)
-        writer.write(self.data)
+    @property
+    def original_event(self) -> EventRecord:
+        return self.link or self
 
-    def make_header(self):
-        """Build the byte-array representing the operation's header."""
-        buf = bytearray()
-        data_length = len(self.data)
-        buf.extend(
-            struct.pack(
-                '<IBB', HEADER_LENGTH + data_length, self.command, self.flags
-            )
-        )
-        buf.extend(self.correlation_id.bytes)
-
-        return buf
-
-    async def handle_response(self, header, payload, writer):
-        """Handle the response from Eventstore.
-
-        Implementors can choose whether to return a single result,
-
-        return an async generator, or send a new Operation to the
-        :class:`photonpump.Connection`.
-        """
-        self.is_complete = True
-
-    def __repr__(self):
-        return "Operation %s (%s)" % (
-            self.__class__.__name__, self.correlation_id
-        )
+    @property
+    def original_event_id(self) -> UUID:
+        return self.original_event.id
 
 
-Pong = namedtuple('photonpump_result_Pong', ['correlation_id'])
+class StreamSlice(list):
+
+    def __init__(
+            self,
+            events: Sequence[Event],
+            next_event_number: int,
+            last_event_number: int,
+            prepare_position: int = None,
+            commit_position: int = None,
+            is_end_of_stream: bool = False
+    ) -> None:
+        super().__init__(events)
+        self.next_event_number = next_event_number
+        self.last_event_number = last_event_number
+        self.prepare_position = prepare_position
+        self.commit_position = commit_position
+        self.is_end_of_stream = is_end_of_stream
+        self.events = events
 
 
-class Ping(Operation):
-    """Command class for server pings.
+def dump(*chunks: bytearray):
+    data = bytearray()
 
-    Args:
-        correlation_id (optional): A unique identifer for this command.
-    """
+    for chunk in chunks:
+        data.extend(chunk)
 
-    def __init__(self, correlation_id: UUID = None, loop=None):
-        self.flags = OperationFlags.Empty
-        self.command = TcpCommand.Ping
-        self.future = Future(loop=loop)
-        self.correlation_id = correlation_id or uuid4()
-        self.data = bytearray()
+    length = len(data)
+    rows = length / 16
 
-    def cancel(self):
-        self.future.cancel()
+    dump = []
 
-    async def handle_response(self, header, payload, writer) -> Pong:
-        self.is_complete = True
-        self.future.set_result(Pong(header.correlation_id))
+    for i in range(0, math.ceil(rows)):
+        offset = i * 16
+        row = data[offset:offset + 16]
+        hex = "{0: <47}".format(" ".join("{:02x}".format(x) for x in row))
+        dump.append("%06d: %s | %a" % (offset, hex, bytes(row)))
+
+    return "\n".join(dump)
+
+
+def _make_event(record: messages_pb2.ResolvedEvent):
+
+    link = EventRecord(
+        record.link.event_stream_id,
+        UUID(bytes_le=record.link.event_id),
+        record.link.event_number,
+        record.link.event_type,
+        record.link.data,
+        record.link.metadata,
+        record.link.created_epoch
+    ) if record.HasField('link') else None
+
+    event = EventRecord(
+        record.event.event_stream_id,
+        UUID(bytes_le=record.event.event_id),
+        record.event.event_number,
+        record.event.event_type,
+        record.event.data,
+        record.event.metadata,
+        record.event.created_epoch
+    )
+
+    return Event(event, link)
 
 
 def NewEvent(
@@ -255,410 +365,18 @@ def NewEvent(
     return NewEventData(id, type, data, metadata)
 
 
-class WriteEvents(Operation):
-    """Command class for writing a sequence of events to a single
-        stream.
-
-    Args:
-        stream: The name of the stream to write to.
-        events: A sequence of events to write.
-        expected_version (optional): The expected version of the
-            target stream used for concurrency control.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
-        correlation_id (optional): A unique identifer for this
-            command.
-
-    """
-
-    def __init__(
-            self,
-            stream: str,
-            events: Sequence[NewEventData],
-            expected_version: Union[ExpectedVersion, int] = ExpectedVersion.Any,
-            require_master: bool = False,
-            correlation_id: UUID = None,
-            loop=None
-    ):
-        self.correlation_id = correlation_id or uuid4()
-        self.future = Future(loop=loop)
-        self.flags = OperationFlags.Empty
-        self.command = TcpCommand.WriteEvents
-
-        msg = messages_pb2.WriteEvents()
-        msg.event_stream_id = stream
-        msg.require_master = require_master
-        msg.expected_version = expected_version
-
-        for event in events:
-            e = msg.events.add()
-            e.event_id = event.id.bytes
-            e.event_type = event.type
-
-            if isinstance(event.data, str):
-                e.data_content_type = ContentType.Json
-                e.data = event.data.encode('UTF-8')
-            elif event.data:
-                e.data_content_type = ContentType.Json
-                e.data = json.dumps(event.data).encode('UTF-8')
-            else:
-                e.data_content_type = ContentType.Binary
-                e.data = bytes()
-
-            if event.metadata:
-                e.metadata_content_type = ContentType.Json
-                e.metadata = json.dumps(event.metadata).encode('UTF-8')
-            else:
-                e.metadata_content_type = ContentType.Binary
-                e.metadata = bytes()
-
-        self.data = msg.SerializeToString()
-
-    async def handle_response(self, header, payload, writer):
-        result = messages_pb2.WriteEventsCompleted()
-        result.ParseFromString(payload)
-        self.is_complete = True
-        self.future.set_result(result)
-
-    def cancel(self):
-        self.future.cancel()
-
-
-class ReadEvent(Operation):
-    """Command class for reading a single event.
-
-    Args:
-        stream: The name of the stream containing the event.
-        event_number: The sequence number of the event to read.
-        resolve_links (optional): True if eventstore should
-            automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
-        correlation_id (optional): A unique identifer for this
-            command.
-
-    """
-
-    def __init__(
-            self,
-            stream: str,
-            event_number: int,
-            resolve_links: bool = True,
-            require_master: bool = False,
-            credentials=None,
-            correlation_id: UUID = None,
-            loop=None
-    ):
-
-        self.correlation_id = correlation_id or uuid4()
-        self.future = Future(loop=loop)
-        self.flags = OperationFlags.Empty
-        self.command = TcpCommand.Read
-        self.stream = stream
-
-        msg = messages_pb2.ReadEvent()
-        msg.event_number = event_number
-        msg.event_stream_id = stream
-        msg.require_master = require_master
-        msg.resolve_link_tos = resolve_links
-
-        self.data = msg.SerializeToString()
-
-    async def handle_response(self, header, payload, writer):
-        result = messages_pb2.ReadEventCompleted()
-        result.ParseFromString(payload)
-        event = result.event.event
-
-        self.is_complete = True
-        if result.result == ReadEventResult.Success:
-            self.future.set_result(
-                Event(
-                    event.event_stream_id,
-                    UUID(bytes_le=event.event_id),
-                    event.event_number,
-                    event.event_type,
-                    event.data,
-                    event.metadata,
-                    event.created_epoch
-                )
-            )
-        elif result.result == ReadEventResult.NoStream:
-            msg = "The stream '" + self.stream + "' was not found"
-            exn = exceptions.StreamNotFoundException(msg, self.stream)
-            self.future.set_exception(exn)
-
-    def cancel(self):
-        self.future.cancel()
-
-
 ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 
 ReadStreamResult = make_enum(
     messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT
 )
 
-
-class ReadStreamEvents(Operation):
-    """Command class for reading events from a stream.
-
-    Args:
-        stream: The name of the stream containing the event.
-        event_number: The sequence number of the event to read.
-        resolve_links (optional): True if eventstore should
-            automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
-        correlation_id (optional): A unique identifer for this
-            command.
-
-    """
-
-    def __init__(
-            self,
-            stream: str,
-            from_event: int,
-            max_count: int = 100,
-            resolve_links: bool = True,
-            require_master: bool = False,
-            direction: StreamDirection = StreamDirection.Forward,
-            credentials=None,
-            correlation_id: UUID = None,
-            loop=None
-    ):
-
-        self.correlation_id = correlation_id or uuid4()
-        self.future = Future(loop=loop)
-        self.flags = OperationFlags.Empty
-        self.stream = stream
-
-        if direction == StreamDirection.Forward:
-            self.command = TcpCommand.ReadStreamEventsForward
-        else:
-            self.command = TcpCommand.ReadStreamEventsBackward
-
-        msg = messages_pb2.ReadStreamEvents()
-        msg.event_stream_id = stream
-        msg.from_event_number = from_event
-        msg.max_count = max_count
-        msg.require_master = require_master
-        msg.resolve_link_tos = resolve_links
-
-        self.data = msg.SerializeToString()
-
-    async def handle_response(self, header, payload, writer):
-        result = messages_pb2.ReadStreamEventsCompleted()
-        self.is_complete = True
-        result.ParseFromString(payload)
-
-        if result.result == ReadStreamResult.Success:
-            self.future.set_result(
-                [
-                    Event(
-                        x.event.event_stream_id,
-                        UUID(bytes_le=x.event.event_id),
-                        x.event.event_number,
-                        x.event.event_type,
-                        x.event.data,
-                        x.event.metadata,
-                        x.event.created_epoch
-                    ) for x in result.events
-                ]
-            )
-        elif result.result == ReadEventResult.NoStream:
-            msg = "The stream '" + self.stream + "' was not found"
-            exn = exceptions.StreamNotFoundException(msg, self.stream)
-            self.future.set_exception(exn)
-
-    def cancel(self):
-        self.future.cancel()
+SubscriptionResult = make_enum(
+    messages_pb2.
+    _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED_CREATEPERSISTENTSUBSCRIPTIONRESULT
+)
 
 
-class IterStreamEvents(Operation):
-    """Command class for iterating events from a stream.
-
-    Args:
-        stream: The name of the stream containing the event.
-        resolve_links (optional): True if eventstore should
-            automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
-        correlation_id (optional): A unique identifer for this
-            command.
-
-    """
-
-    def __init__(
-            self,
-            stream: str,
-            from_event: int,
-            batch_size: int = 100,
-            resolve_links: bool = True,
-            require_master: bool = False,
-            direction: StreamDirection = StreamDirection.Forward,
-            credentials=None,
-            correlation_id: UUID = None,
-            iterator: StreamingIterator = None,
-            loop=None
-    ):
-
-        self.correlation_id = correlation_id or uuid4()
-        self.batch_size = batch_size
-        self.flags = OperationFlags.Empty
-        self.stream = stream
-        self.iterator = iterator or StreamingIterator(batch_size * 2)
-        self.resolve_links = resolve_links
-        self.require_master = require_master
-        self.direction = direction
-
-        if direction == StreamDirection.Forward:
-            self.command = TcpCommand.ReadStreamEventsForward
-        else:
-            self.command = TcpCommand.ReadStreamEventsBackward
-
-        msg = messages_pb2.ReadStreamEvents()
-        msg.event_stream_id = stream
-        msg.from_event_number = from_event
-        msg.max_count = batch_size
-        msg.require_master = require_master
-        msg.resolve_link_tos = resolve_links
-
-        self.data = msg.SerializeToString()
-
-    async def handle_response(self, header, payload, writer):
-        result = messages_pb2.ReadStreamEventsCompleted()
-        self.is_complete = True
-        result.ParseFromString(payload)
-
-        if result.result == ReadStreamResult.Success:
-            await self.iterator.enqueue_items(
-                [
-                    Event(
-                        x.event_stream_id,
-                        UUID(bytes_le=x.event_id),
-                        x.event_number,
-                        x.event_type,
-                        x.data,
-                        x.metadata,
-                        x.created_epoch
-                    ) for x in (e.event for e in result.events)
-                ]
-            )
-
-            if result.is_end_of_stream:
-                self.iterator.finished = True
-            else:
-                await writer.enqueue(
-                    IterStreamEvents(
-                        self.stream,
-                        batch_size=self.batch_size,
-                        from_event=result.next_event_number,
-                        resolve_links=self.resolve_links,
-                        require_master=self.require_master,
-                        direction=self.direction,
-                        iterator=self.iterator,
-                        correlation_id=uuid4()
-                    )
-                )
-        else:
-            assert result.result == ReadStreamResult.NoStream
-            msg = "The stream '" + self.stream + "' was not found"
-            exn = exceptions.StreamNotFoundException(msg, self.stream)
-            await self.iterator.athrow(exn)
-
-    def cancel(self):
-        self.iterator.cancel()
-
-
-class HeartbeatResponse(Operation):
-    """Command class for responding to heartbeats.
-
-    Args:
-        correlation_id: The unique id of the HeartbeatRequest.
-    """
-
-    def __init__(self, correlation_id, loop=None):
-        self.flags = OperationFlags.Empty
-        self.command = TcpCommand.HeartbeatResponse
-        self.future = Future(loop=loop)
-        self.correlation_id = correlation_id or uuid4()
-        self.data = bytearray()
-
-    def cancel(self):
-        self.future.cancel()
-
-
-class VolatileSubscription(NamedTuple):
-
-    stream: str
-    last_commit_position: int
-    last_event_number: int
-    iterator: StreamingIterator
-
-class CreateVolatileSubscription(Operation):
-    """Command class for creating a non-persistent subscription.
-
-    Args:
-        stream: The name of the stream to watch for new events
-    """
-
-    def __init__(
-            self,
-            stream: str,
-            resolve_links: bool = True,
-            correlation_id: UUID = None,
-            iterator: StreamingIterator = None,
-            batch_size: int = 1024,
-            loop=None
-    ) -> None:
-        msg = messages_pb2.SubscribeToStream()
-        msg.event_stream_id = stream
-        msg.resolve_link_tos = resolve_links
-        self.stream = stream
-        self.command = TcpCommand.SubscribeToStream
-        self.flags = OperationFlags.Empty
-        self.future = Future(loop=loop)
-        self.data = msg.SerializeToString()
-        self.correlation_id = correlation_id or uuid4()
-        self.iterator = iterator or StreamingIterator(batch_size * 2)
-        self.is_complete = False
-
-    async def handle_response(self, header, payload, writer):
-        if header.cmd == TcpCommand.SubscriptionConfirmation.value:
-            result = messages_pb2.SubscriptionConfirmation()
-            result.ParseFromString(payload)
-            self.future.set_result(
-                VolatileSubscription(
-                    self.stream,
-                    result.last_commit_position,
-                    result.last_event_number,
-                    self.iterator))
-
-        elif header.cmd == TcpCommand.StreamEventAppeared:
-            result = messages_pb2.StreamEventAppeared()
-            try:
-                result.ParseFromString(payload)
-                self.iterator.enqueue(Event(
-                    result.event.event_stream_id,
-                    UUID(bytes_le=result.event.event_id),
-                    result.event.event_number,
-                    result.event.event_type,
-                    result.event.data,
-                    result.event.metadata,
-                    result.event.created_epoch
-                ))
-            except Exception as e:
-                logging.debug(e)
-                logging.debug(payload)
-                logging.debug(header)
-
-        elif header.cmd == TcpCommand.SubscriptionDropped:
-            result = messages_pb2.SubscriptionDropped()
-            try:
-                result.ParseFromString(payload)
-            except Exception as e:
-                logging.debug(e)
-                logging.debug(payload)
-                logging.debug(header)
-
-    def cancel(self):
-        self.future.cancel()
+class SubscriptionCreatedResponse(NamedTuple):
+    result: SubscriptionResult
+    reason: str
