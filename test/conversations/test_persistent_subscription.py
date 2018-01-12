@@ -83,10 +83,8 @@ def test_stream_event_appeared():
     confirm_subscription(convo)
 
     event_id = uuid4()
-    response = proto.StreamEventAppeared()
+    response = proto.PersistentSubscriptionStreamEventAppeared()
 
-    response.event.commit_position = 0
-    response.event.prepare_position = 1
     response.event.event.event_stream_id = "stream-123"
     response.event.event.event_number = 32
     response.event.event.event_id = event_id.bytes_le
@@ -102,7 +100,7 @@ def test_stream_event_appeared():
 
     reply = convo.respond_to(
         InboundMessage(
-            uuid4(), TcpCommand.StreamEventAppeared,
+            uuid4(), TcpCommand.PersistentSubscriptionStreamEventAppeared,
             response.SerializeToString()
         )
     )
