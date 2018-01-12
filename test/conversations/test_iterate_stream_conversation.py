@@ -82,10 +82,12 @@ def test_end_of_stream():
         )
     )
 
-    assert reply.action == ReplyAction.BeginIterator
-    assert isinstance(reply.result, msg.StreamSlice)
+    assert reply.action == ReplyAction.CompleteIterator
+    # Todo: Use a slice here so that we can give information
+    # to the iterator about its position in the stream?
+    #assert isinstance(reply.result, msg.StreamSlice)
 
-    [event_1, event_2] = reply.result.events
+    [event_1, event_2] = reply.result
     assert event_1.event.stream == 'stream-123'
     assert event_1.event.id == event_1_id
     assert event_1.event.type == 'event-type'

@@ -66,16 +66,15 @@ def test_one_event_response():
     payload.first_event_number = 73
     payload.last_event_number = 73
 
-    next_msg = conversation.respond_to(
+    reply = conversation.respond_to(
         msg.InboundMessage(
             conversation_id, msg.TcpCommand.WriteEventsCompleted,
             payload.SerializeToString()
         )
     )
 
-    assert next_msg is None
-    assert conversation.is_complete
-    result = conversation.result.result()
+    assert reply.next_message is None
+    result = reply.result
 
     assert result.first_event_number == 73
     assert result.last_event_number == 73
