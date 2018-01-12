@@ -14,7 +14,6 @@ def test_start_heartbeat_conversation():
     assert response.length == HEADER_LENGTH
     assert response.payload == b''
     assert response.command == TcpCommand.HeartbeatResponse
-    assert response.is_authenticated is False
 
 
 def test_ping_conversation():
@@ -24,7 +23,6 @@ def test_ping_conversation():
 
     assert request.length == HEADER_LENGTH
     assert request.command == TcpCommand.Ping
-    assert request.is_authenticated is False
     assert request.payload == b''
 
 
@@ -38,5 +36,5 @@ def test_ping_response():
     )
 
     assert reply.action == ReplyAction.CompleteScalar
-    assert reply.result is None
+    assert reply.result is True
     assert reply.next_message is None

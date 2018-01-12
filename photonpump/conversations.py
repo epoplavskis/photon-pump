@@ -5,6 +5,8 @@ from enum import IntEnum
 from typing import Any, NamedTuple, Sequence, Union
 from uuid import UUID, uuid4
 
+from google.protobuf.text_format import MessageToString
+
 from photonpump import messages_pb2 as proto
 from photonpump import exceptions
 from photonpump.messages import (
@@ -48,6 +50,9 @@ class Conversation:
         self.result: Future = Future()
         self.is_complete = False
         self.credential = credential
+
+    def __str__(self):
+        return "<Conversation %s (%s)>" % (type(self), self.conversation_id)
 
     def reply(self, response: InboundMessage) -> Reply:
         pass
@@ -119,10 +124,10 @@ class Ping(Conversation):
         return OutboundMessage(self.conversation_id, TcpCommand.Ping, b'')
 
     def reply(self, _: InboundMessage):
-        return Reply(ReplyAction.CompleteScalar, None, None)
+        return Reply(ReplyAction.CompleteScalar, True, None)
 
 
-class WriteEventsConversation(Conversation):
+class WriteEvents(Conversation):
     """Command class for writing a sequence of events to a single
         stream.
 
@@ -149,6 +154,7 @@ class WriteEventsConversation(Conversation):
             loop=None
     ):
         super().__init__(conversation_id, credential)
+        self._logger = logging.get_named_logger(WriteEvents)
         self.stream = stream
         self.require_master = require_master
         self.events = events
@@ -189,10 +195,13 @@ class WriteEventsConversation(Conversation):
         )
 
     def reply(self, response: InboundMessage):
+        self.expect_only(TcpCommand.WriteEventsCompleted, response)
         result = proto.WriteEventsCompleted()
         result.ParseFromString(response.payload)
-        self.is_complete = True
-        self.result.set_result(result)
+
+        self._logger.trace("Returning result %s", result)
+
+        return Reply(ReplyAction.CompleteScalar, result, None)
 
 
 class ReadStreamEventsBehaviour:
@@ -300,7 +309,7 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
         return Reply(ReplyAction.CompleteError, exn, None)
 
 
-class ReadStreamEventsConversation(ReadStreamEventsBehaviour, Conversation):
+class ReadStreamEvents(ReadStreamEventsBehaviour, Conversation):
     """Command class for reading events from a stream.
 
     Args:
@@ -405,12 +414,13 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
         )
         self.batch_size = batch_size
-        self.waiting_for_page = 0
+        self.has_first_page = False
         self.stream = stream
         self.resolve_links = resolve_links
         self.require_master = require_master
         self.direction = direction
         self.from_event = from_event
+        self._logger = logging.get_named_logger(IterStreamEvents)
 
         if direction == StreamDirection.Forward:
             self.command = TcpCommand.ReadStreamEventsForward
@@ -418,6 +428,11 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
             self.command = TcpCommand.ReadStreamEventsBackward
 
     def _fetch_page_message(self, from_event):
+        self._logger.debug(
+            "Requesting page of %d events from number %d", self.batch_size,
+            self.from_event
+        )
+
         if self.direction == StreamDirection.Forward:
             command = TcpCommand.ReadStreamEventsForward
         else:
@@ -440,24 +455,40 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
         return self._fetch_page_message(self.from_event)
 
     def success(self, result: proto.ReadStreamEventsCompleted):
+        self._logger.debug(MessageToString(result))
         events = [_make_event(x) for x in result.events]
+
+        if result.is_end_of_stream:
+            return Reply(ReplyAction.CompleteIterator, events, None)
 
         next_message = self._fetch_page_message(
             result.next_event_number
-        ) if not result.is_end_of_stream else None
+        )
 
-        self.waiting_for_page += 1
+        if self.has_first_page:
+            return Reply(
+                ReplyAction.YieldToIterator,
+                StreamSlice(
+                    events, result.next_event_number, result.last_event_number,
+                    None, result.last_commit_position, result.is_end_of_stream
+                ), next_message
+            )
+
+        self.has_first_page = True
 
         return Reply(
-            ReplyAction.BeginIterator,
-            StreamSlice(
-                events, result.next_event_number, result.last_event_number,
-                None, result.last_commit_position, result.is_end_of_stream
+            ReplyAction.BeginIterator, (
+                self.batch_size,
+                StreamSlice(
+                    events, result.next_event_number,
+                    result.last_event_number, None,
+                    result.last_commit_position, result.is_end_of_stream
+                )
             ), next_message
         )
 
     def error(self, exn: Exception) -> Reply:
-        if self.waiting_for_page > 0:
+        if self.has_first_page:
             return Reply(ReplyAction.RaiseToIterator, exn, None)
 
         return Reply(ReplyAction.CompleteError, exn, None)

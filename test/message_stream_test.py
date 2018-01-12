@@ -1,7 +1,12 @@
 import binascii
 import uuid
+from asyncio import Queue
 
-from photonpump.messages import MessageReader, TcpCommand
+import pytest
+
+from photonpump import messages_pb2 as proto
+from photonpump.messages import TcpCommand
+from photonpump.connection import MessageReader
 
 
 def read_hex(s):
@@ -52,15 +57,49 @@ d7 e8 ec d5 ea 08 50 d2 ab 9a d9 8d 2c
 """
 )
 
+ReadEventResult = read_hex("""
+9c 00 00 00 b1 00 f3 b9 4a 36 6c fe 6d 43 a3 65
+be ad 2e 1c e3 6b 08 00 12 85 01 0a 82 01 0a 24
+64 37 39 32 34 64 37 35 2d 38 32 62 66 2d 34 37
+36 34 2d 39 35 39 64 2d 31 30 36 31 32 62 61 32
+39 38 37 33 10 00 1a 10 7d 27 65 7b 68 16 45 44
+bf 1a 5d eb 90 eb dc d6 22 0e 74 68 69 6e 67 5f
+68 61 70 70 65 6e 65 64 28 01 30 01 3a 1f 7b 22
+74 68 69 6e 67 22 3a 20 31 2c 20 22 68 61 70 70
+65 6e 69 6e 67 22 3a 20 74 72 75 65 7d 42 00 48
+fc 9d cd d8 94 b9 d6 ea 08 50 a4 e6 a4 d6 8e 2c
+""")
 
-def test_read_heartbeat_request_single_call():
+@pytest.mark.asyncio
+async def test_read_event():
+    messages = Queue()
 
-    messages = []
+    reader = MessageReader(messages)
+    await reader.process(ReadEventResult)
 
-    reader = MessageReader(messages.append)
-    reader.process(heartbeat_data)
+    received = await messages.get()
 
-    [received] = messages
+    assert received.command == TcpCommand.ReadEventCompleted
+    assert received.length == 156
+
+    body = proto.ReadEventCompleted()
+    body.ParseFromString(received.payload)
+
+    event = body.event.event
+    assert event.event_number == 0
+    assert event.event_type =='thing_happened'
+
+
+
+@pytest.mark.asyncio
+async def test_read_heartbeat_request_single_call():
+
+    messages = Queue()
+
+    reader = MessageReader(messages)
+    await reader.process(heartbeat_data)
+
+    received = await messages.get()
 
     assert received.payload == b''
     assert received.command == TcpCommand.HeartbeatRequest
@@ -68,17 +107,18 @@ def test_read_heartbeat_request_single_call():
     assert received.conversation_id == heartbeat_id
 
 
-def test_read_header_multiple_calls():
-    messages = []
+@pytest.mark.asyncio
+async def test_read_header_multiple_calls():
+    messages = Queue()
 
-    reader = MessageReader(messages.append)
-    reader.process(heartbeat_data[0:2])
-    reader.process(heartbeat_data[2:7])
-    reader.process([])
-    reader.process(heartbeat_data[7:14])
-    reader.process(heartbeat_data[14:])
+    reader = MessageReader(messages)
+    await reader.process(heartbeat_data[0:2])
+    await reader.process(heartbeat_data[2:7])
+    await reader.process([])
+    await reader.process(heartbeat_data[7:14])
+    await reader.process(heartbeat_data[14:])
 
-    [received] = messages
+    received = await messages.get()
 
     assert received.payload == b''
     assert received.command == TcpCommand.HeartbeatRequest
@@ -86,28 +126,30 @@ def test_read_header_multiple_calls():
     assert received.conversation_id == heartbeat_id
 
 
-def test_a_message_with_a_payload():
+@pytest.mark.asyncio
+async def test_a_message_with_a_payload():
+    messages = Queue()
 
-    messages = []
+    reader = MessageReader(messages)
+    await reader.process(persistent_stream_event_appeared)
 
-    reader = MessageReader(messages.append)
-    reader.process(persistent_stream_event_appeared)
-
-    [received] = messages
+    received = await messages.get()
     assert received.conversation_id == uuid.UUID(
         'f192d72f-7abd-4ae4-ae05-f206873c749d'
     )
     assert received.command == TcpCommand.PersistentSubscriptionStreamEventAppeared
 
 
-def test_two_messages_one_call():
+@pytest.mark.asyncio
+async def test_two_messages_one_call():
 
-    messages = []
+    messages = Queue()
 
-    reader = MessageReader(messages.append)
-    reader.process(heartbeat_data + persistent_stream_event_appeared)
+    reader = MessageReader(messages)
+    await reader.process(heartbeat_data + persistent_stream_event_appeared)
 
-    [heartbeat, event] = messages
+    heartbeat = await messages.get()
+    event = await messages.get()
 
     assert heartbeat.conversation_id == heartbeat_id
     assert event.conversation_id == uuid.UUID(
@@ -115,39 +157,47 @@ def test_two_messages_one_call():
     )
 
 
-def test_three_messages_two_calls():
-    messages = []
+@pytest.mark.asyncio
+async def test_three_messages_two_calls():
+    messages = Queue()
 
-    reader = MessageReader(messages.append)
+    reader = MessageReader(messages)
     data = heartbeat_data + persistent_stream_event_appeared + heartbeat_data
 
-    reader.process(data[0:250])
-    assert len(messages) == 1
-    reader.process(data[250:])
-    assert len(messages) == 3
+    await reader.process(data[0:250])
+    assert messages.qsize() == 1
 
-    [heartbeat, event, heartbeat] = messages
+    await reader.process(data[250:])
+    assert messages.qsize() == 3
 
-    assert heartbeat.conversation_id == heartbeat_id
+    heartbeat_1 = await messages.get()
+    event = await messages.get()
+
+    assert heartbeat_1.conversation_id == heartbeat_id
     assert event.conversation_id == uuid.UUID(
         'f192d72f-7abd-4ae4-ae05-f206873c749d'
     )
 
 
-def test_two_messages_three_calls():
-    messages = []
+@pytest.mark.asyncio
+async def test_two_messages_three_calls():
+    messages = Queue()
 
-    reader = MessageReader(messages.append)
+    reader = MessageReader(messages)
     data = heartbeat_data + persistent_stream_event_appeared
 
-    reader.process(data[0:125])
-    assert len(messages) == 1
-    reader.process(data[125:])
-    assert len(messages) == 2
+    await reader.process(data[0:125])
+    assert messages.qsize() == 1
 
-    [heartbeat, event] = messages
+    await reader.process(data[125:])
+    assert messages.qsize() == 2
+
+    heartbeat = await messages.get()
+    event = await messages.get()
 
     assert heartbeat.conversation_id == heartbeat_id
     assert event.conversation_id == uuid.UUID(
         'f192d72f-7abd-4ae4-ae05-f206873c749d'
     )
+
+

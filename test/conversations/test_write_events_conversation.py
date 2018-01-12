@@ -4,7 +4,7 @@ from uuid import uuid4
 import photonpump.exceptions as exn
 import photonpump.messages as msg
 import photonpump.messages_pb2 as proto
-from photonpump.conversations import WriteEventsConversation
+from photonpump.conversations import WriteEvents
 
 
 def test_write_one_event():
@@ -16,7 +16,7 @@ def test_write_one_event():
     data = {'pony_name': 'Burning Sulphur', 'distance': 6}
     event_data = msg.NewEventData(event_id, event_type, data, None)
 
-    conversation = WriteEventsConversation(
+    conversation = WriteEvents(
         "my-stream", [event_data], conversation_id=conversation_id
     )
 
@@ -55,7 +55,7 @@ def test_one_event_response():
     data = {'pony_name': 'Burning Sulphur', 'distance': 6}
     event_data = msg.NewEventData(event_id, event_type, data, None)
 
-    conversation = WriteEventsConversation(
+    conversation = WriteEvents(
         "my-stream", [event_data], conversation_id=conversation_id
     )
 

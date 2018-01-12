@@ -3,7 +3,7 @@ from uuid import uuid4
 import photonpump.exceptions as exn
 import photonpump.messages as msg
 import photonpump.messages_pb2 as proto
-from photonpump.conversations import Ping, ReplyAction,WriteEventsConversation
+from photonpump.conversations import Ping, ReplyAction,WriteEvents
 
 
 def test_bad_request():
@@ -16,7 +16,7 @@ def test_bad_request():
     data = {'pony_name': 'Burning Sulphur', 'distance': 6}
     event_data = msg.NewEventData(event_id, event_type, data, None)
 
-    conversation = WriteEventsConversation(
+    conversation = WriteEvents(
         "my-stream", [event_data], conversation_id=conversation_id
     )
 
@@ -43,7 +43,7 @@ def test_not_authenticated():
     data = {'pony_name': 'Burning Sulphur', 'distance': 6}
     event_data = msg.NewEventData(event_id, event_type, data, None)
 
-    conversation = WriteEventsConversation(
+    conversation = WriteEvents(
         "my-stream", [event_data], conversation_id=conversation_id
     )
 

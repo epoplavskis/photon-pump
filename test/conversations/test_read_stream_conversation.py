@@ -2,12 +2,12 @@ from uuid import uuid4
 
 from photonpump import messages as msg, exceptions
 from photonpump import messages_pb2 as proto
-from photonpump.conversations import ReplyAction, ReadStreamEventsConversation
+from photonpump.conversations import ReplyAction, ReadStreamEvents
 
 
 def test_read_stream_request():
 
-    convo = ReadStreamEventsConversation('my-stream', 23)
+    convo = ReadStreamEvents('my-stream', 23)
     request = convo.start()
 
     body = proto.ReadStreamEvents()
@@ -23,7 +23,7 @@ def test_read_stream_request():
 
 def test_read_stream_backward():
 
-    convo = ReadStreamEventsConversation('my-stream', 50, direction=msg.StreamDirection.Backward, max_count=10)
+    convo = ReadStreamEvents('my-stream', 50, direction=msg.StreamDirection.Backward, max_count=10)
     request = convo.start()
 
     body = proto.ReadStreamEvents()
@@ -42,7 +42,7 @@ def test_read_stream_success():
     event_1_id = uuid4()
     event_2_id = uuid4()
 
-    convo = ReadStreamEventsConversation('my-stream', 0)
+    convo = ReadStreamEvents('my-stream', 0)
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadEventResult.Success
     response.next_event_number = 10
@@ -97,7 +97,7 @@ def test_read_stream_success():
 
 def test_stream_not_found():
 
-    convo = ReadStreamEventsConversation('my-stream')
+    convo = ReadStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadStreamResult.NoStream
     response.is_end_of_stream = False
@@ -123,7 +123,7 @@ def test_stream_not_found():
 
 def test_stream_deleted():
 
-    convo = ReadStreamEventsConversation('my-stream')
+    convo = ReadStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadStreamResult.StreamDeleted
     response.is_end_of_stream = False
@@ -148,7 +148,7 @@ def test_stream_deleted():
 
 def test_read_error():
 
-    convo = ReadStreamEventsConversation('my-stream')
+    convo = ReadStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadStreamResult.Error
     response.is_end_of_stream = False
@@ -174,7 +174,7 @@ def test_read_error():
 
 def test_access_denied():
 
-    convo = ReadStreamEventsConversation('my-stream')
+    convo = ReadStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadStreamResult.AccessDenied
     response.is_end_of_stream = False
@@ -193,5 +193,5 @@ def test_access_denied():
     exn = reply.result
     assert isinstance(exn, exceptions.AccessDenied)
     assert exn.conversation_id == convo.conversation_id
-    assert exn.conversation_type == 'ReadStreamEventsConversation'
+    assert exn.conversation_type == 'ReadStreamEvents'
     assert reply.next_message is None

@@ -139,6 +139,23 @@ class InboundMessage:
         self.data_length = len(payload)
         self.length = HEADER_LENGTH + self.data_length
 
+    @property
+    def header_bytes(self):
+        data = bytearray(SIZE_UINT_32 + 2)
+        struct.pack_into('<IBB', data, 0, self.length, self.command, 0)
+        data.extend(self.conversation_id.bytes_le)
+
+        return data
+
+    def __repr__(self):
+        return self.__str__() + "\n" +dump(self.header_bytes, self.payload)
+
+    def __str__(self):
+        return "%s (%s) of %s flags=%d" % (
+            TcpCommand(self.command).name, self.conversation_id,
+            sizeof_fmt(self.length), 0
+        )
+
 
 class OutboundMessage:
 
@@ -154,10 +171,10 @@ class OutboundMessage:
         self.command = command
         self.payload = payload
         self.creds = creds
-        print(self.creds, "Got some fucking creds, yo")
 
         self.data_length = len(payload)
         self.length = HEADER_LENGTH + self.data_length
+
         if self.creds:
             self.length += creds.length
         self.one_way = one_way
@@ -166,110 +183,18 @@ class OutboundMessage:
     def header_bytes(self):
         data = bytearray(SIZE_UINT_32 + 2)
         struct.pack_into(
-            '<IBB', data, 0, self.length, self.command.value, 1 if self.creds else 0
+            '<IBB', data, 0, self.length, self.command.value, 1
+            if self.creds else 0
         )
         data.extend(self.conversation_id.bytes_le)
+
         if self.creds:
             data.extend(self.creds.bytes)
+
         return data
 
-
-class MessageReader:
-
-    MESSAGE_MIN_SIZE = SIZE_UINT_32 + HEADER_LENGTH
-
-    def __init__(self, on_message_received):
-        self.on_message_received = on_message_received
-        self.header_bytes = array.array('B', [0] * (self.MESSAGE_MIN_SIZE))
-        self.header_bytes_required = (self.MESSAGE_MIN_SIZE)
-        self.length = 0
-        self.message_offset = 0
-        self.conversation_id = None
-        self.message = None
-
-    def process(self, chunk: bytes):
-        chunk_offset = 0
-        chunk_len = len(chunk)
-
-        print("new chunk")
-        print(
-            "chunk_offset=%d chunk_len=%d length=%d" %
-            (chunk_offset, chunk_len, self.length)
-        )
-
-        while chunk_offset < chunk_len:
-            while self.header_bytes_required and chunk_offset < chunk_len:
-                self.header_bytes[self.MESSAGE_MIN_SIZE
-                                  - self.header_bytes_required
-                                 ] = chunk[chunk_offset]
-                chunk_offset += 1
-                self.header_bytes_required -= 1
-
-                if not self.header_bytes_required:
-                    (self.length, self.cmd, self.flags) = struct.unpack(
-                        '<IBB', self.header_bytes[0:6]
-                    )
-
-                    self.conversation_id = UUID(
-                        bytes_le=(self.header_bytes[6:22].tobytes())
-                    )
-
-                    print("new header")
-                    print(
-                        "chunk_offset=%d chunk_len=%d length=%d" %
-                        (chunk_offset, chunk_len, self.length)
-                    )
-                self.message_offset = HEADER_LENGTH
-
-            message_bytes_required = self.length - self.message_offset
-            print(message_bytes_required)
-
-            if message_bytes_required > 0:
-                print("needs moar bytes!")
-                print(
-                    "chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d"
-                    % (
-                        chunk_offset, chunk_len, self.length,
-                        message_bytes_required
-                    )
-                )
-
-                if not self.message:
-                    self.message = bytearray(message_bytes_required)
-
-                end_span = min(chunk_len, message_bytes_required + chunk_offset)
-                bytes_read = end_span - chunk_offset
-                self.message.extend(chunk[chunk_offset:end_span])
-                message_bytes_required -= bytes_read
-                self.message_offset += bytes_read
-                chunk_offset = end_span
-                print("needs moar bytes?")
-                print(
-                    "chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d"
-                    % (
-                        chunk_offset, chunk_len, self.length,
-                        message_bytes_required
-                    )
-                )
-
-            if not message_bytes_required:
-                print("raising message")
-                self.on_message_received(
-                    InboundMessage(self.conversation_id, self.cmd, bytearray())
-                )
-                self.length = -1
-                self.message_offset = 0
-                self.conversation_id = None
-                self.cmd = -1
-                self.header_bytes_required = self.MESSAGE_MIN_SIZE
-                self.message = None
-                print(
-                    "chunk_offset=%d chunk_len=%d length=%d message_bytes_required=%d"
-                    % (
-                        chunk_offset, chunk_len, self.length,
-                        message_bytes_required
-                    )
-                )
+    def __repr__(self):
+        return dump(self.header_bytes, self.payload)
 
 
 class ExpectedVersion(IntEnum):
@@ -355,7 +280,7 @@ class Event:
         return self.original_event.id
 
 
-class StreamSlice:
+class StreamSlice(list):
 
     def __init__(
             self,
@@ -366,15 +291,13 @@ class StreamSlice:
             commit_position: int = None,
             is_end_of_stream: bool = False
     ) -> None:
+        super().__init__(events)
         self.next_event_number = next_event_number
         self.last_event_number = last_event_number
         self.prepare_position = prepare_position
         self.commit_position = commit_position
         self.is_end_of_stream = is_end_of_stream
         self.events = events
-
-    def __iter__(self):
-        return self.events.__iter__()
 
 
 def dump(*chunks: bytearray):
@@ -393,7 +316,8 @@ def dump(*chunks: bytearray):
         row = data[offset:offset + 16]
         hex = "{0: <47}".format(" ".join("{:02x}".format(x) for x in row))
         dump.append("%06d: %s | %a" % (offset, hex, bytes(row)))
-    logging.debug("\n".join(dump))
+
+    return "\n".join(dump)
 
 
 def _make_event(record: messages_pb2.ResolvedEvent):
