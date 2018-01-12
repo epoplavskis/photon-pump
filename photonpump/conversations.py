@@ -461,9 +461,7 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
         if result.is_end_of_stream:
             return Reply(ReplyAction.CompleteIterator, events, None)
 
-        next_message = self._fetch_page_message(
-            result.next_event_number
-        )
+        next_message = self._fetch_page_message(result.next_event_number)
 
         if self.has_first_page:
             return Reply(
@@ -480,9 +478,8 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
             ReplyAction.BeginIterator, (
                 self.batch_size,
                 StreamSlice(
-                    events, result.next_event_number,
-                    result.last_event_number, None,
-                    result.last_commit_position, result.is_end_of_stream
+                    events, result.next_event_number, result.last_event_number,
+                    None, result.last_commit_position, result.is_end_of_stream
                 )
             ), next_message
         )
@@ -518,10 +515,16 @@ class PersistentSubscription:
     ):
         self.initial_commit_position = initial_commit
         self.name = name
-        self.correlation_id = correlation_id
+        self.conversation_id = correlation_id
         self.last_event_number = initial_event_number
         self.stream = stream
+        self.buffer_size = buffer_size
         self.auto_ack = auto_ack
+
+    def __str__(self):
+        return "Subscription in group %s to %s at event number %d" % (
+            self.name, self.stream, self.last_event_number
+        )
 
 
 class CreateVolatileSubscription(Conversation):
@@ -756,7 +759,9 @@ class ConnectPersistentSubscription(Conversation):
         )
 
     def reply_from_live(self, response: InboundMessage):
-        self.expect_only(TcpCommand.StreamEventAppeared, response)
+        self.expect_only(
+            TcpCommand.PersistentSubscriptionStreamEventAppeared, response
+        )
         result = proto.StreamEventAppeared()
         result.ParseFromString(response.payload)
 

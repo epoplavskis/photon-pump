@@ -8,6 +8,7 @@ from typing import Sequence
 
 from . import conversations as convo
 from . import messages as msg
+from . import messages_pb2 as proto
 
 __version__ = '0.1.0'
 
@@ -77,7 +78,10 @@ class MessageReader:
                 self.message_offset = HEADER_LENGTH
 
             message_bytes_required = self.length - self.message_offset
-            self._logger.insane("%d bytes of message remaining before copy", message_bytes_required)
+            self._logger.insane(
+                "%d bytes of message remaining before copy",
+                message_bytes_required
+            )
 
             if message_bytes_required > 0:
                 if not self.message_buffer:
@@ -91,7 +95,11 @@ class MessageReader:
                 self.message_offset += bytes_read
                 chunk_offset = end_span
 
-            self._logger.insane("%d bytes of message remaining after copy", message_bytes_required)
+            self._logger.insane(
+                "%d bytes of message remaining after copy",
+                message_bytes_required
+            )
+
             if not message_bytes_required:
                 message = msg.InboundMessage(
                     self.conversation_id, self.cmd, self.message_buffer or b''
@@ -203,32 +211,26 @@ class StreamingIterator:
         return self
 
     async def enqueue_items(self, items):
-        logging.info("Enqueueing things")
+
         for item in items:
-            logging.info("Enqueueing thing %s",  item)
             await self.items.put(item)
-            logging.info("Enqueddudueud")
 
     async def enqueue(self, item):
         await self.items.put(item)
 
     async def __anext__(self):
-        logging.info("Fetching next from iterator")
+
         if self.finished and self.items.empty():
-            logging.info("Time to stop!")
             raise StopAsyncIteration()
         try:
             _next = await self.items.get()
         except Exception as e:
-            logging.info("Time to stop 2!")
             raise StopAsyncIteration()
 
         if isinstance(_next, StopIteration):
-            logging.info("Time to stop 3!")
             raise StopAsyncIteration()
 
         if isinstance(_next, Exception):
-            logging.info("Time to stop 4!")
             raise _next
 
         return _next
@@ -242,6 +244,30 @@ class StreamingIterator:
     def cancel(self):
         self.finished = True
         self.asend(StopIteration())
+
+
+class PersistentSubscription(convo.PersistentSubscription):
+
+    def __init__(self, subscription, iterator, conn):
+        super().__init__(
+            subscription.name, subscription.stream,
+            subscription.conversation_id, subscription.initial_commit_position,
+            subscription.last_event_number, subscription.buffer_size,
+            subscription.auto_ack
+        )
+        self.connection = conn
+        self.events = iterator
+
+    async def ack(self, event):
+        payload = proto.PersistentSubscriptionAckEvents()
+        payload.subscription_id = self.name
+        payload.processed_event_ids.append(event.original_event_id.bytes_le)
+        message = msg.OutboundMessage(
+            self.conversation_id,
+            msg.TcpCommand.PersistentSubscriptionAckEvents,
+            payload.SerializeToString(),
+            )
+        await self.connection.enqueue_message(message)
 
 
 class EventstoreProtocol(asyncio.streams.FlowControlMixin):
@@ -347,12 +373,16 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
     async def connect(self):
         await self._connectHandler.connect()
 
+    async def enqueue_message(self, message: msg.OutboundMessage):
+        await self._queue.put(message)
+
     async def _write_outbound_messages(self):
         if self.next:
             self._writer.write(self.next.header_bytes)
             self._writer.write(self.next.payload)
 
         while self._is_connected:
+            self._logger.debug("Sending message %s", self.next)
             self.next = await self._queue.get()
             try:
                 self._writer.write(self.next.header_bytes)
@@ -373,7 +403,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         while True:
             data = await self._reader.read(8192)
             self._logger.trace(
-                    "Received %d bytes from remote server:\n%s", len(data),
+                "Received %d bytes from remote server:\n%s", len(data),
                 msg.dump(data)
             )
             await self._message_reader.process(data)
@@ -390,6 +420,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
                 continue
 
             log.debug("Received message %s", message)
+
             if message.command == msg.TcpCommand.HeartbeatRequest.value:
                 await self.enqueue_conversation(
                     convo.Heartbeat(message.conversation_id)
@@ -413,7 +444,6 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             reply = conversation.respond_to(message)
             log.debug("Reply is %s", reply)
 
-
             if reply.action == convo.ReplyAction.CompleteScalar:
                 result.set_result(reply.result)
                 del self._pending_operations[message.conversation_id]
@@ -423,7 +453,9 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
                 del self._pending_operations[message.conversation_id]
 
             elif reply.action == convo.ReplyAction.BeginIterator:
-                log.debug("Creating new streaming iterator for %s", conversation)
+                log.debug(
+                    "Creating new streaming iterator for %s", conversation
+                )
                 size, events = reply.result
                 it = StreamingIterator(size * 2)
                 result.set_result(it)
@@ -431,15 +463,18 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
                 log.debug("Enqueued %d events", len(events))
 
             elif reply.action == convo.ReplyAction.YieldToIterator:
-                log.debug("Yielding new events into iterator for %s", conversation)
+                log.debug(
+                    "Yielding new events into iterator for %s", conversation
+                )
                 iterator = result.result()
                 log.debug(iterator)
                 log.debug(reply.result)
                 await iterator.enqueue_items(reply.result)
-                log.debug("Yep, did that!")
 
             elif reply.action == convo.ReplyAction.CompleteIterator:
-                log.debug("Yielding final events into iterator for %s", conversation)
+                log.debug(
+                    "Yielding final events into iterator for %s", conversation
+                )
                 iterator = result.result()
                 log.debug(iterator)
                 log.debug(reply.result)
@@ -447,6 +482,27 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
                 await iterator.asend(StopAsyncIteration())
                 del self._pending_operations[message.conversation_id]
 
+            elif reply.action == convo.ReplyAction.BeginPersistentSubscription:
+                log.debug(
+                    "Starting new iterator for persistent subscription %s",
+                    conversation
+                )
+                try:
+                    sub = PersistentSubscription(
+                        reply.result, StreamingIterator(reply.result.buffer_size),
+                        self
+                    )
+                    log.debug("foo")
+                    result.set_result(sub)
+                except Exception as e:
+                    log.error(e, exc_info=True)
+
+            elif reply.action == convo.ReplyAction.YieldToSubscription:
+                log.debug("Pushing new event for subscription %s", conversation)
+                log.debug(result)
+                sub = await result
+                log.debug(sub)
+                await sub.events.enqueue(reply.result)
 
             if reply.next_message is not None:
                 await self._queue.put(reply.next_message)
@@ -592,6 +648,7 @@ class Connection:
             direction=direction
         )
         result = await self.protocol.enqueue_conversation(cmd)
+
         return await result
 
     async def iter(
@@ -606,10 +663,7 @@ class Connection:
     ):
         correlation_id = correlation_id
         cmd = convo.IterStreamEvents(
-            stream,
-            from_event,
-            batch_size,
-            resolve_links
+            stream, from_event, batch_size, resolve_links
         )
         result = await self.protocol.enqueue_conversation(cmd)
         iterator = await result
