@@ -189,6 +189,7 @@ class OutboundMessage:
         data.extend(self.conversation_id.bytes_le)
 
         if self.creds:
+            print("Extending!")
             data.extend(self.creds.bytes)
 
         return data

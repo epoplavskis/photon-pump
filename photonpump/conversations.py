@@ -114,14 +114,15 @@ class Heartbeat(Conversation):
 
     def start(self):
         return OutboundMessage(
-            self.conversation_id, TcpCommand.HeartbeatResponse, b''
+            self.conversation_id, TcpCommand.HeartbeatResponse, b'',
+            self.credential
         )
 
 
 class Ping(Conversation):
 
     def start(self):
-        return OutboundMessage(self.conversation_id, TcpCommand.Ping, b'')
+        return OutboundMessage(self.conversation_id, TcpCommand.Ping, b'', self.credential)
 
     def reply(self, _: InboundMessage):
         return Reply(ReplyAction.CompleteScalar, True, None)
@@ -620,25 +621,30 @@ class CreateVolatileSubscription(Conversation):
 
 class CreatePersistentSubscription(Conversation):
 
+    ROUND_ROBIN = 'RoundRobin'
+    DISPATCH_TO_SINGLE = 'DisptchToSingle'
+    PINNED = 'Pinned'
+
     def __init__(
             self,
             name,
             stream,
             resolve_links=True,
             start_from=-1,
-            timeout_ms=8192,
+            timeout_ms=30000,
             record_statistics=False,
-            live_buffer_size=128,
-            read_batch_size=128,
-            buffer_size=128,
-            max_retry_count=3,
+            live_buffer_size=500,
+            read_batch_size=500,
+            buffer_size=1000,
+            max_retry_count=10,
             prefer_round_robin=True,
-            checkpoint_after_ms=1024,
+            checkpoint_after_ms=2000,
             checkpoint_max_count=1024,
             checkpoint_min_count=10,
             subscriber_max_count=10,
             credentials=None,
-            conversation_id=None
+            conversation_id=None,
+            consumer_strategy=ROUND_ROBIN
     ) -> None:
         super().__init__(conversation_id, credentials)
         self.stream = stream
@@ -656,6 +662,7 @@ class CreatePersistentSubscription(Conversation):
         self.checkpoint_max_count = checkpoint_max_count
         self.checkpoint_min_count = checkpoint_min_count
         self.subscriber_max_count = subscriber_max_count
+        self.consumer_strategy = consumer_strategy
 
     def start(self) -> OutboundMessage:
         msg = proto.CreatePersistentSubscription()
@@ -674,6 +681,7 @@ class CreatePersistentSubscription(Conversation):
         msg.checkpoint_max_count = self.checkpoint_max_count
         msg.checkpoint_min_count = self.checkpoint_min_count
         msg.subscriber_max_count = self.subscriber_max_count
+        msg.named_consumer_strategy = self.consumer_strategy
 
         return OutboundMessage(
             self.conversation_id, TcpCommand.CreatePersistentSubscription,
