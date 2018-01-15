@@ -266,7 +266,7 @@ class PersistentSubscription(convo.PersistentSubscription):
             self.conversation_id,
             msg.TcpCommand.PersistentSubscriptionAckEvents,
             payload.SerializeToString(),
-            )
+        )
         await self.connection.enqueue_message(message)
 
 
@@ -489,8 +489,8 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
                 )
                 try:
                     sub = PersistentSubscription(
-                        reply.result, StreamingIterator(reply.result.buffer_size),
-                        self
+                        reply.result,
+                        StreamingIterator(reply.result.buffer_size), self
                     )
                     log.debug("foo")
                     result.set_result(sub)
@@ -668,7 +668,6 @@ class Connection:
         result = await self.protocol.enqueue_conversation(cmd)
         iterator = await result
         async for event in iterator:
-            print("POTATO")
             yield event
 
     async def subscribe_volatile(self, stream: str):
@@ -677,9 +676,46 @@ class Connection:
 
         return await cmd.future
 
-    async def create_subscription(self, stream: str, name: str):
+    async def create_subscription(
+            self,
+            stream: str,
+            name: str,
+            resolve_links: bool = True,
+            start_from: int = -1,
+            timeout_ms: int = 30000,
+            record_statistics: bool = False,
+            live_buffer_size: int = 500,
+            read_batch_size: int = 500,
+            buffer_size: int = 1000,
+            max_retry_count: int = 10,
+            prefer_round_robin: bool = False,
+            checkpoint_after_ms: int = 2000,
+            checkpoint_max_count: int = 1000,
+            checkpoint_min_count: int = 10,
+            subscriber_max_count: int = 10,
+            credentials: msg.Credential = None,
+            conversation_id: uuid.UUID = None,
+            consumer_strategy: str = msg.ROUND_ROBIN
+    ):
         cmd = convo.CreatePersistentSubscription(
-            stream, name, credentials=self.credential
+            stream,
+            name,
+            resolve_links=resolve_links,
+            start_from=start_from,
+            timeout_ms=timeout_ms,
+            record_statistics=record_statistics,
+            live_buffer_size=live_buffer_size,
+            read_batch_size=read_batch_size,
+            buffer_size=buffer_size,
+            max_retry_count=max_retry_count,
+            prefer_round_robin=prefer_round_robin,
+            checkpoint_after_ms=checkpoint_after_ms,
+            checkpoint_max_count=checkpoint_max_count,
+            checkpoint_min_count=checkpoint_min_count,
+            subscriber_max_count=subscriber_max_count,
+            credentials=credentials or self.credential,
+            conversation_id=conversation_id,
+            consumer_strategy=consumer_strategy
         )
 
         return await self.protocol.enqueue_conversation(cmd)

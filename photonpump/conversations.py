@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from google.protobuf.text_format import MessageToString
 
+from photonpump import messages as messages
 from photonpump import messages_pb2 as proto
 from photonpump import exceptions
 from photonpump.messages import (
@@ -621,10 +622,6 @@ class CreateVolatileSubscription(Conversation):
 
 class CreatePersistentSubscription(Conversation):
 
-    ROUND_ROBIN = 'RoundRobin'
-    DISPATCH_TO_SINGLE = 'DisptchToSingle'
-    PINNED = 'Pinned'
-
     def __init__(
             self,
             name,
@@ -644,7 +641,7 @@ class CreatePersistentSubscription(Conversation):
             subscriber_max_count=10,
             credentials=None,
             conversation_id=None,
-            consumer_strategy=ROUND_ROBIN
+            consumer_strategy=messages.ROUND_ROBIN
     ) -> None:
         super().__init__(conversation_id, credentials)
         self.stream = stream

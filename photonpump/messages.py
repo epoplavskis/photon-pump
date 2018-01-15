@@ -1,6 +1,4 @@
-import array
 import json
-import logging
 import math
 import struct
 from collections import namedtuple
@@ -14,6 +12,11 @@ HEADER_LENGTH = 1 + 1 + 16
 SIZE_UINT_32 = 4
 _LENGTH = struct.Struct('<I')
 _HEAD = struct.Struct('<BBIIII')
+
+
+ROUND_ROBIN = 'RoundRobin'
+DISPATCH_TO_SINGLE = 'DisptchToSingle'
+PINNED = 'Pinned'
 
 
 def make_enum(descriptor):
