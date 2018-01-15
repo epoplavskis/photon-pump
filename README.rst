@@ -63,13 +63,13 @@ Todo
 - [ ] Support for cluster + DNS discovery
 - [ ] Reconnection and retry logic.
 - [ ] Catch up subscription - probably as `conn.stream('my-stream', forever=True)`
-- [ ] Persistent Subscriptions
+- [X] Persistent Subscriptions
 - [ ] Event-based alternative to async generators, eg ::
 
         conn.on_event.append(lambda e: print(e))
         conn.watch('my-stream')
 
-- [ ] Handle error cases properly.
+- [-] Handle error cases properly.
 - [X] Travis!
 - [X] Read the Docs!
-- [ ] Add logging
+- [-] Add logging

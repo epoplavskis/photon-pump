@@ -74,4 +74,4 @@ async def test_a_large_event(event_loop):
         assert write_result.first_event_number == 0
         read_result = await c.get(stream_name, 0)
         print(read_result)
-        assert read_result[0].type == 'big_json'
+        assert read_result[0].event.type == 'big_json'
