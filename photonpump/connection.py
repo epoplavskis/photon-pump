@@ -584,18 +584,15 @@ class Connection:
             expected_version=-2,
             require_master=False
     ):
-        try:
-            event = msg.NewEvent(type, id, body, metadata)
-            cmd = convo.WriteEvents(
-                stream, [event],
-                expected_version=expected_version,
-                require_master=require_master
-            )
-            result = await self.protocol.enqueue_conversation(cmd)
+        event = msg.NewEvent(type, id, body, metadata)
+        cmd = convo.WriteEvents(
+            stream, [event],
+            expected_version=expected_version,
+            require_master=require_master
+        )
+        result = await self.protocol.enqueue_conversation(cmd)
 
-            return await result
-        except Exception as e:
-            print(e)
+        return await result
 
     async def publish(
             self,
@@ -678,8 +675,8 @@ class Connection:
 
     async def create_subscription(
             self,
-            stream: str,
             name: str,
+            stream: str,
             resolve_links: bool = True,
             start_from: int = -1,
             timeout_ms: int = 30000,
@@ -698,8 +695,8 @@ class Connection:
             consumer_strategy: str = msg.ROUND_ROBIN
     ):
         cmd = convo.CreatePersistentSubscription(
-            stream,
             name,
+            stream,
             resolve_links=resolve_links,
             start_from=start_from,
             timeout_ms=timeout_ms,
