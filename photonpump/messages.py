@@ -1,3 +1,4 @@
+import datetime
 import json
 import math
 import struct
@@ -332,7 +333,7 @@ def _make_event(record: messages_pb2.ResolvedEvent):
         record.link.event_type,
         record.link.data,
         record.link.metadata,
-        record.link.created_epoch
+        datetime.datetime.fromtimestamp(record.link.created_epoch / 1e3)
     ) if record.HasField('link') else None
 
     event = EventRecord(
@@ -342,7 +343,7 @@ def _make_event(record: messages_pb2.ResolvedEvent):
         record.event.event_type,
         record.event.data,
         record.event.metadata,
-        record.event.created_epoch
+        datetime.datetime.fromtimestamp(record.event.created_epoch / 1e3)
     )
 
     return Event(event, link)
