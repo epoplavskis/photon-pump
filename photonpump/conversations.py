@@ -169,6 +169,7 @@ class WriteEvents(Conversation):
         msg.expected_version = self.expected_version
 
         for event in self.events:
+            print(event.id)
             e = msg.events.add()
             e.event_id = event.id.bytes_le
             e.event_type = event.type

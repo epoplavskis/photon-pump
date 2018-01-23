@@ -579,12 +579,12 @@ class Connection:
             type,
             stream,
             body=None,
-            id=uuid.uuid4(),
+            id=None,
             metadata=None,
             expected_version=-2,
             require_master=False
     ):
-        event = msg.NewEvent(type, id, body, metadata)
+        event = msg.NewEvent(type, id or uuid.uuid4(), body, metadata)
         cmd = convo.WriteEvents(
             stream, [event],
             expected_version=expected_version,
