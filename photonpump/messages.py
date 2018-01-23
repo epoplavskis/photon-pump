@@ -350,7 +350,7 @@ def _make_event(record: messages_pb2.ResolvedEvent):
 
 def NewEvent(
         type: str,
-        id: UUID = uuid4(),
+        id: UUID = None,
         data: JsonDict = None,
         metadata: JsonDict = None
 ) -> NewEventData:
@@ -365,7 +365,7 @@ def NewEvent(
             These must be json serializable.
     """
 
-    return NewEventData(id, type, data, metadata)
+    return NewEventData(id or uuid4(), type, data, metadata)
 
 
 ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
