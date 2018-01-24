@@ -51,6 +51,7 @@ class Conversation:
         self.result: Future = Future()
         self.is_complete = False
         self.credential = credential
+        self._logger = logging.get_named_logger(Conversation)
 
     def __str__(self):
         return "<Conversation %s (%s)>" % (type(self), self.conversation_id)
@@ -99,6 +100,7 @@ class Conversation:
             else:
                 return self.reply(response)
         except Exception as exn:
+            self._logger.error('Failed to read server response', exc_info=True)
             return self.error(
                 exceptions.PayloadUnreadable(
                     self.conversation_id, response.payload, exn
@@ -123,7 +125,9 @@ class Heartbeat(Conversation):
 class Ping(Conversation):
 
     def start(self):
-        return OutboundMessage(self.conversation_id, TcpCommand.Ping, b'', self.credential)
+        return OutboundMessage(
+            self.conversation_id, TcpCommand.Ping, b'', self.credential
+        )
 
     def reply(self, _: InboundMessage):
         return Reply(ReplyAction.CompleteScalar, True, None)

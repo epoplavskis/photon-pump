@@ -328,7 +328,7 @@ def _make_event(record: messages_pb2.ResolvedEvent):
 
     link = EventRecord(
         record.link.event_stream_id,
-        UUID(bytes_le=record.link.event_id),
+        UUID(bytes_le=bytes(record.link.event_id)),
         record.link.event_number,
         record.link.event_type,
         record.link.data,
@@ -338,7 +338,7 @@ def _make_event(record: messages_pb2.ResolvedEvent):
 
     event = EventRecord(
         record.event.event_stream_id,
-        UUID(bytes_le=record.event.event_id),
+        UUID(bytes_le=bytes(record.event.event_id)),
         record.event.event_number,
         record.event.event_type,
         record.event.data,
