@@ -715,7 +715,8 @@ class Connection:
             consumer_strategy=consumer_strategy
         )
 
-        return await self.protocol.enqueue_conversation(cmd)
+        future = await self.protocol.enqueue_conversation(cmd)
+        return await future
 
     async def connect_subscription(self, subscription: str, stream: str):
         cmd = convo.ConnectPersistentSubscription(
