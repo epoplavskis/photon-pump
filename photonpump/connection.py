@@ -291,6 +291,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         self._reader = None
         self._connectHandler = ConnectionHandler(self._loop, self._logger, self)
         self._connectHandler.run(self._host, self._port)
+        self._reconnection_convos = []
 
     def connection_made(self, transport):
         self._transport = transport
@@ -344,9 +345,12 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             self.close()
 
             if not self.is_connecting:
-                asyncio.ensure_future(self.connect(), loop=self._loop)
+                asyncio.ensure_future(self.reconnect(), loop=self._loop)
 
-    async def enqueue_conversation(self, conversation: convo.Conversation):
+    async def enqueue_conversation(
+        self,
+        conversation: convo.Conversation,
+        retry_on_reconnect=False):
         """Enqueue an operation.
 
         The operation will be added to the `pending` dict, and
@@ -355,6 +359,9 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         Args:
             message: The operation to send.
         """
+
+        if retry_on_reconnect:
+            self._reconnection_convos.append(conversation)
 
         message = conversation.start()
         future = None
@@ -372,6 +379,12 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
     async def connect(self):
         await self._connectHandler.connect()
+
+    async def reconnect(self):
+        await self._connectHandler.connect()
+        for cmd in self._reconnection_convos:
+            self.enqueue_conversation(cmd)
+
 
     async def enqueue_message(self, message: msg.OutboundMessage):
         await self._queue.put(message)
@@ -722,7 +735,7 @@ class Connection:
         cmd = convo.ConnectPersistentSubscription(
             subscription, stream, credentials=self.credential
         )
-        future = await self.protocol.enqueue_conversation(cmd)
+        future = await self.protocol.enqueue_conversation(cmd, True)
 
         return await future
 
