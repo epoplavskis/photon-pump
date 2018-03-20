@@ -354,12 +354,13 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             self.close()
 
             if not self.is_connecting:
-                asyncio.ensure_future(self.reconnect(), loop=self._loop)
+                asyncio.ensure_future(self.connect(), loop=self._loop)
 
     async def enqueue_conversation(
         self,
         conversation: convo.Conversation,
-        retry_on_reconnect=False):
+        retry_on_reconnect=False
+    ):
         """Enqueue an operation.
 
         The operation will be added to the `pending` dict, and
@@ -391,12 +392,6 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
     async def connect(self):
         await self._connectHandler.connect()
-
-    async def reconnect(self):
-        await self._connectHandler.connect()
-        for cmd in self._reconnection_convos:
-            self.enqueue_conversation(cmd)
-
 
     async def enqueue_message(self, message: msg.OutboundMessage):
         await self._queue.put(message)

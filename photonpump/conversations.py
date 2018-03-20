@@ -1,6 +1,6 @@
 import json
 import logging
-from asyncio import Future, sleep
+from asyncio import Future
 from enum import IntEnum
 from typing import Any, NamedTuple, Sequence, Union
 from uuid import UUID, uuid4
@@ -696,6 +696,7 @@ class CreatePersistentSubscription(Conversation):
         )
 
         result = proto.CreatePersistentSubscriptionCompleted()
+        result.ParseFromString(response.payload)
 
         if result.result == SubscriptionResult.Success:
             return Reply(ReplyAction.CompleteScalar, None, None)
