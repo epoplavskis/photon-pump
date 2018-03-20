@@ -75,6 +75,17 @@ def test_dropped_on_connect():
     assert reply.action == ReplyAction.CompleteError
 
 
+def test_persistent_subscription_reconnection():
+    convo = ConnectPersistentSubscription(
+        'my-subscription', 'my-stream', max_in_flight=57
+    )
+
+    confirm_subscription(convo)
+    reply = confirm_subscription(convo)
+
+    assert reply.action == ReplyAction.ContinueSubscription
+
+
 def test_stream_event_appeared():
     convo = ConnectPersistentSubscription(
         'my-subscription', 'my-stream', max_in_flight=57

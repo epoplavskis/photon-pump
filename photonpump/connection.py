@@ -26,7 +26,7 @@ class Event(list):
             f(*args, **kwargs)
 
     def __repr__(self):
-        return "Event(%s)" % list.__repr__(self)
+        return 'Event(%s)' % list.__repr__(self)
 
 
 class MessageReader:
@@ -60,7 +60,7 @@ class MessageReader:
 
                 if not self.header_bytes_required:
                     self._logger.insane(
-                        "Read %d bytes for header", self.MESSAGE_MIN_SIZE
+                        'Read %d bytes for header', self.MESSAGE_MIN_SIZE
                     )
                     (self.length, self.cmd, self.flags) = self.HEAD_PACK.unpack(
                         self.header_bytes[0:6]
@@ -70,7 +70,7 @@ class MessageReader:
                         bytes_le=(self.header_bytes[6:22].tobytes())
                     )
                     self._logger.insane(
-                        "length=%d, command=%d flags=%d conversation_id=%s from header bytes=%a",
+                        'length=%d, command=%d flags=%d conversation_id=%s from header bytes=%a',
                         self.length, self.cmd, self.flags, self.conversation_id,
                         self.header_bytes
                     )
@@ -79,7 +79,7 @@ class MessageReader:
 
             message_bytes_required = self.length - self.message_offset
             self._logger.insane(
-                "%d bytes of message remaining before copy",
+                '%d bytes of message remaining before copy',
                 message_bytes_required
             )
 
@@ -90,13 +90,13 @@ class MessageReader:
                 end_span = min(chunk_len, message_bytes_required + chunk_offset)
                 bytes_read = end_span - chunk_offset
                 self.message_buffer.extend(chunk[chunk_offset:end_span])
-                self._logger.insane("Message buffer is %s", self.message_buffer)
+                self._logger.insane('Message buffer is %s', self.message_buffer)
                 message_bytes_required -= bytes_read
                 self.message_offset += bytes_read
                 chunk_offset = end_span
 
             self._logger.insane(
-                "%d bytes of message remaining after copy",
+                '%d bytes of message remaining after copy',
                 message_bytes_required
             )
 
@@ -104,7 +104,7 @@ class MessageReader:
                 message = msg.InboundMessage(
                     self.conversation_id, self.cmd, self.message_buffer or b''
                 )
-                self._logger.trace("Received message %r", message)
+                self._logger.trace('Received message %r', message)
                 await self.queue.put(message)
                 self.length = -1
                 self.message_offset = 0
@@ -140,7 +140,7 @@ class ConnectionHandler:
         await self.queue.put(ConnectionHandler.RECONNECT)
 
     def hangup(self):
-        self._logger.debug("Connection hanging up")
+        self._logger.debug('Connection hanging up')
 
         if self.transport:
             self.transport.write_eof()
@@ -161,7 +161,7 @@ class ConnectionHandler:
             msg = await self.queue.get()
 
             if msg == ConnectionHandler.OK:
-                self._logger.debug("Eventstore connection is OK")
+                self._logger.debug('Eventstore connection is OK')
                 self._current_attempts = 0
             elif msg == ConnectionHandler.CONNECT:
                 await self._attempt_connect(host, port)
@@ -179,13 +179,13 @@ class ConnectionHandler:
     async def _attempt_connect(self, host, port):
         self._current_attempts += 1
         self._logger.info(
-            "Attempting connection to %s:%d attempt %d of %d", host, port,
+            'Attempting connection to %s:%d attempt %d of %d', host, port,
             self._current_attempts, self._max_attempts
         )
 
         if self._last_message == ConnectionHandler.CONNECT:
             sleep_time = random.uniform(0, self._current_attempts)
-            self._logger.debug("Sleeping for %d secs", sleep_time)
+            self._logger.debug('Sleeping for %d secs', sleep_time)
             await asyncio.sleep(sleep_time)
         try:
             self._last_message = ConnectionHandler.CONNECT
@@ -321,7 +321,6 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         )
 
         for cmd in self._reconnection_convos:
-            cmd.state = 0
             self._logger.info(
                 'PhotonPump is reconnecting to subscription {}'.format(cmd.name)
             )
@@ -342,7 +341,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             asyncio.ensure_future(self.connect(), loop=self._loop)
 
     def data_received(self, data):
-        """ Process data received from Eventstore.  """
+        ''' Process data received from Eventstore.  '''
         self._reader.feed_data(data)
 
     def connection_lost(self, exc):
@@ -350,7 +349,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             self._reader.feed_eof()
 
         else:
-            self._logger.error("Lost connection to Eventstore %s" % exc)
+            self._logger.error('Lost connection to Eventstore %s' % exc)
             self.close()
 
             if not self.is_connecting:
@@ -361,14 +360,14 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         conversation: convo.Conversation,
         retry_on_reconnect=False
     ):
-        """Enqueue an operation.
+        '''Enqueue an operation.
 
         The operation will be added to the `pending` dict, and
             pushed onto the queue for sending.
 
         Args:
             message: The operation to send.
-        """
+        '''
 
         if retry_on_reconnect:
             self._reconnection_convos.append(conversation)
@@ -402,14 +401,14 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             self._writer.write(self.next.payload)
 
         while self._is_connected:
-            self._logger.debug("Sending message %s", self.next)
+            self._logger.debug('Sending message %s', self.next)
             self.next = await self._queue.get()
             try:
                 self._writer.write(self.next.header_bytes)
                 self._writer.write(self.next.payload)
             except Exception as e:
                 self._logger.error(
-                    "Failed to send message %s", e, exc_info=True
+                    'Failed to send message %s', e, exc_info=True
                 )
             try:
                 await self._writer.drain()
@@ -417,29 +416,29 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
                 self._logger.error(e)
 
     async def _read_inbound_messages(self):
-        """Loop forever reading messages and invoking
-           the operation that caused them"""
+        '''Loop forever reading messages and invoking
+           the operation that caused them'''
 
         while True:
             data = await self._reader.read(8192)
             self._logger.trace(
-                "Received %d bytes from remote server:\n%s", len(data),
+                'Received %d bytes from remote server:\n%s', len(data),
                 msg.dump(data)
             )
             await self._message_reader.process(data)
 
     async def _process_responses(self):
-        log = logging.get_named_logger(EventstoreProtocol, "dispatcher")
+        log = logging.get_named_logger(EventstoreProtocol, 'dispatcher')
 
         while True:
             message = await self._pending_responses.get()
 
             if not message:
-                log.trace("No message received")
+                log.trace('No message received')
 
                 continue
 
-            log.debug("Received message %s", message)
+            log.debug('Received message %s', message)
 
             if message.command == msg.TcpCommand.HeartbeatRequest.value:
                 await self.enqueue_conversation(
@@ -453,16 +452,16 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             )
 
             if conversation is None:
-                log.error("No conversations can handle message %s", message)
+                log.error('No conversations can handle message %s', message)
 
                 continue
             log.debug(
-                "Received response to conversation %s: %s", conversation,
+                'Received response to conversation %s: %s', conversation,
                 message
             )
 
             reply = conversation.respond_to(message)
-            log.debug("Reply is %s", reply)
+            log.debug('Reply is %s', reply)
 
             if reply.action == convo.ReplyAction.CompleteScalar:
                 result.set_result(reply.result)
@@ -474,17 +473,17 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
             elif reply.action == convo.ReplyAction.BeginIterator:
                 log.debug(
-                    "Creating new streaming iterator for %s", conversation
+                    'Creating new streaming iterator for %s', conversation
                 )
                 size, events = reply.result
                 it = StreamingIterator(size * 2)
                 result.set_result(it)
                 await it.enqueue_items(events)
-                log.debug("Enqueued %d events", len(events))
+                log.debug('Enqueued %d events', len(events))
 
             elif reply.action == convo.ReplyAction.YieldToIterator:
                 log.debug(
-                    "Yielding new events into iterator for %s", conversation
+                    'Yielding new events into iterator for %s', conversation
                 )
                 iterator = result.result()
                 log.debug(iterator)
@@ -493,7 +492,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
             elif reply.action == convo.ReplyAction.CompleteIterator:
                 log.debug(
-                    "Yielding final events into iterator for %s", conversation
+                    'Yielding final events into iterator for %s', conversation
                 )
                 iterator = result.result()
                 log.debug(iterator)
@@ -504,7 +503,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
             elif reply.action == convo.ReplyAction.BeginPersistentSubscription:
                 log.debug(
-                    "Starting new iterator for persistent subscription %s",
+                    'Starting new iterator for persistent subscription %s',
                     conversation
                 )
                 try:
@@ -512,13 +511,16 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
                         reply.result,
                         StreamingIterator(reply.result.buffer_size), self
                     )
-                    log.debug("foo")
+                    log.debug('foo')
                     result.set_result(sub)
                 except Exception as e:
                     log.error(e, exc_info=True)
 
+            elif reply.action == convo.ReplyAction.ContinueSubscription:
+                log.debug('Received new confirmation for subscription %s', conversation )
+
             elif reply.action == convo.ReplyAction.YieldToSubscription:
-                log.debug("Pushing new event for subscription %s", conversation)
+                log.debug('Pushing new event for subscription %s', conversation)
                 log.debug(result)
                 sub = await result
                 log.debug(sub)
@@ -528,8 +530,8 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
                 await self._queue.put(reply.next_message)
 
     def close(self, hangup=False):
-        """Close the underlying StreamWriter and cancel pending Operations."""
-        self._logger.info("Closing connection")
+        '''Close the underlying StreamWriter and cancel pending Operations.'''
+        self._logger.info('Closing connection')
         self.running = False
 
         if hangup:
@@ -549,12 +551,12 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
 
 class Connection:
-    """Top level object for interacting with Eventstore.
+    '''Top level object for interacting with Eventstore.
 
     The connection is the entry point to working with Photon Pump.
     It exposes high level methods that wrap the
     :class:`~photonpump.messages.Operation` types from photonpump.messages.
-    """
+    '''
 
     def __init__(
             self,

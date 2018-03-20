@@ -33,6 +33,7 @@ class ReplyAction(IntEnum):
     RaiseToSubscription = 9
 
     BeginPersistentSubscription = 10
+    ContinueSubscription = 11
 
 
 class Reply(NamedTuple):
@@ -769,6 +770,11 @@ class ConnectPersistentSubscription(Conversation):
         )
 
     def reply_from_live(self, response: InboundMessage):
+        if response.command == TcpCommand.PersistentSubscriptionConfirmation:
+            return Reply(
+                ReplyAction.ContinueSubscription, None, None
+            )
+
         self.expect_only(
             TcpCommand.PersistentSubscriptionStreamEventAppeared, response
         )
@@ -797,7 +803,7 @@ class ConnectPersistentSubscription(Conversation):
         if response.command == TcpCommand.SubscriptionDropped:
             return self.drop_subscription(response)
 
-        if response.command == TcpCommand.PersistentSubscriptionConfirmation:
+        if self.state == ConnectPersistentSubscription.State.init:
             return self.reply_from_init(response)
 
         if self.state == ConnectPersistentSubscription.State.live:
