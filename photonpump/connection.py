@@ -320,6 +320,15 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             self._process_responses(), loop=self._loop
         )
 
+        for cmd in self._reconnection_convos:
+            cmd.state = 0
+            self._logger.info(
+                'PhotonPump is reconnecting to subscription {}'.format(cmd.name)
+            )
+            asyncio.ensure_future(
+                self.enqueue_conversation(cmd), loop=self._loop
+            )
+
     def eof_received(self):
         self._logger.log(
             logging.INFO,
@@ -363,7 +372,10 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         if retry_on_reconnect:
             self._reconnection_convos.append(conversation)
 
-        message = conversation.start()
+        try:
+            message = conversation.start()
+        except Exception as e:
+            self._logger.info(e)
         future = None
 
         if not message.one_way:
