@@ -372,11 +372,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         if retry_on_reconnect:
             self._reconnection_convos.append(conversation)
 
-        try:
-            message = conversation.start()
-        except Exception as e:
-            self._logger.info(e)
-        future = None
+        message = conversation.start()
 
         if not message.one_way:
             future = asyncio.Future(loop=self._loop)
