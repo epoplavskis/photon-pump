@@ -47,3 +47,24 @@ async def test_ping_context_mgr(event_loop):
     async with connect(loop=event_loop) as conn:
         id = uuid.uuid4()
         pong = await conn.ping(conversation_id=id)
+
+
+        assert len(conn.protocol._reconnection_convos) == 0
+
+
+@pytest.mark.asyncio
+async def test_connect_subscription(event_loop):
+
+    async with connect(
+        username='admin',
+        password='changeit',
+        loop=event_loop
+    ) as conn:
+        await conn.create_subscription(
+            'ping', 'ping',
+            start_from=-1
+        )
+
+        pong = await conn.connect_subscription('ping', 'ping')
+
+        assert len(conn.protocol._reconnection_convos) == 1
