@@ -17,8 +17,8 @@ async def test_single_event_roundtrip(event_loop):
         async with connect(loop=event_loop) as c:
             print("1")
             await c.publish_event(
-                'thing_happened',
                 stream_name,
+                'thing_happened',
                 body={
                     'thing': 1,
                     'happening': True

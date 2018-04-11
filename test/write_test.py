@@ -13,8 +13,8 @@ async def test_single_event_publish(event_loop):
 
     async with connect(loop=event_loop) as conn:
         result = await conn.publish_event(
-            "testEvent",
             stream_name,
+            "testEvent",
             id=uuid.uuid4(),
             body={
                 "greeting": "hello",
