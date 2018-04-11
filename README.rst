@@ -32,12 +32,12 @@ async def write_two_events(conn):
 
 async def read_two_events(conn):
     events = await conn.get('pony_stream', max_count=2, from_event=0)
-    print events[0]
+    print(events[0])
 
 
 async def stneve_owt_daer(conn):
     events = await conn.get('pony_stream', direction=StreamDirection.backward, max_count=2)
-    print events[0]
+    print(events[0])
 
 
 async def ticker(delay):
@@ -55,3 +55,8 @@ async def read_an_infinite_number_of_events(conn):
     async for event in conn.stream('ticker_stream'):
         print(event)
 ```
+
+Documentation
+-------------
+
+Documentation is available at http://photon-pump.readthedocs.io/en/latest/
