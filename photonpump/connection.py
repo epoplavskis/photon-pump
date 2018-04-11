@@ -6,6 +6,7 @@ import struct
 import uuid
 from typing import Sequence
 
+from . import discovery
 from . import conversations as convo
 from . import messages as msg
 from . import messages_pb2 as proto
@@ -151,12 +152,12 @@ class ConnectionHandler:
             return
         await self.queue.put(ConnectionHandler.OK)
 
-    def run(self, host, port):
+    def run(self, discoverer):
         self._run_loop = asyncio.ensure_future(
-            self._run(host, port), loop=self._loop
+            self._run(discoverer), loop=self._loop
         )
 
-    async def _run(self, host, port):
+    async def _run(self, discoverer):
         while True:
             msg = await self.queue.get()
 
@@ -164,6 +165,7 @@ class ConnectionHandler:
                 self._logger.debug('Eventstore connection is OK')
                 self._current_attempts = 0
             elif msg == ConnectionHandler.CONNECT:
+                await node = discoverer()
                 await self._attempt_connect(host, port)
             elif msg == ConnectionHandler.RECONNECT:
                 self.transport.close()
