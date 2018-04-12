@@ -408,7 +408,7 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
     def __init__(
             self,
             stream: str,
-            from_event: int = 0,
+            from_event: int = None,
             batch_size: int = 100,
             resolve_links: bool = True,
             require_master: bool = False,
@@ -427,13 +427,14 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
         self.resolve_links = resolve_links
         self.require_master = require_master
         self.direction = direction
-        self.from_event = from_event
         self._logger = logging.get_named_logger(IterStreamEvents)
 
         if direction == StreamDirection.Forward:
             self.command = TcpCommand.ReadStreamEventsForward
+            self.from_event = from_event or 0
         else:
             self.command = TcpCommand.ReadStreamEventsBackward
+            self.from_event = from_event or -1
 
     def _fetch_page_message(self, from_event):
         self._logger.debug(
