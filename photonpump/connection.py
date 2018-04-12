@@ -594,8 +594,8 @@ class Connection:
 
     async def publish_event(
             self,
-            type,
             stream,
+            type,
             body=None,
             id=None,
             metadata=None,
@@ -603,12 +603,12 @@ class Connection:
             require_master=False
     ):
         event = msg.NewEvent(type, id or uuid.uuid4(), body, metadata)
-        cmd = convo.WriteEvents(
+        conversation = convo.WriteEvents(
             stream, [event],
             expected_version=expected_version,
             require_master=require_master
         )
-        result = await self.protocol.enqueue_conversation(cmd)
+        result = await self.protocol.enqueue_conversation(conversation)
 
         return await result
 

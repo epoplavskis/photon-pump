@@ -60,11 +60,9 @@ async def test_connect_subscription(event_loop):
         password='changeit',
         loop=event_loop
     ) as conn:
-        await conn.create_subscription(
-            'ping', 'ping',
-            start_from=-1
-        )
+        subscription_name = str(uuid.uuid4())
+        await conn.create_subscription(subscription_name, 'ping', start_from=-1)
 
-        pong = await conn.connect_subscription('ping', 'ping')
+        await conn.connect_subscription(subscription_name, 'ping')
 
         assert len(conn.protocol._reconnection_convos) == 1
