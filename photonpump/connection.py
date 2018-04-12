@@ -670,7 +670,7 @@ class Connection:
             self,
             stream: str,
             direction: msg.StreamDirection = msg.StreamDirection.Forward,
-            from_event: int = 0,
+            from_event: int = None,
             batch_size: int = 100,
             resolve_links: bool = True,
             require_master: bool = False,
@@ -678,7 +678,8 @@ class Connection:
     ):
         correlation_id = correlation_id
         cmd = convo.IterStreamEvents(
-            stream, from_event, batch_size, resolve_links
+            stream, from_event, batch_size, resolve_links,
+            direction=direction
         )
         result = await self.protocol.enqueue_conversation(cmd)
         iterator = await result
@@ -734,6 +735,7 @@ class Connection:
         )
 
         future = await self.protocol.enqueue_conversation(cmd)
+
         return await future
 
     async def connect_subscription(self, subscription: str, stream: str):

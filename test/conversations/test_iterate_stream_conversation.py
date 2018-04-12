@@ -8,7 +8,7 @@ from photonpump.conversations import IterStreamEvents, ReplyAction
 
 def test_read_stream_request():
 
-    convo = IterStreamEvents('my-stream', 23)
+    convo = IterStreamEvents('my-stream')
     request = convo.start()
 
     body = proto.ReadStreamEvents()
@@ -16,7 +16,7 @@ def test_read_stream_request():
 
     assert request.command is msg.TcpCommand.ReadStreamEventsForward
     assert body.event_stream_id == 'my-stream'
-    assert body.from_event_number == 23
+    assert body.from_event_number == 0
     assert body.resolve_link_tos is True
     assert body.require_master is False
     assert body.max_count == 100
@@ -25,7 +25,7 @@ def test_read_stream_request():
 def test_read_stream_backward():
 
     convo = IterStreamEvents(
-        'my-stream', 50, direction=msg.StreamDirection.Backward, batch_size=10
+        'my-stream', direction=msg.StreamDirection.Backward, batch_size=10
     )
     request = convo.start()
 
@@ -34,7 +34,7 @@ def test_read_stream_backward():
 
     assert request.command is msg.TcpCommand.ReadStreamEventsBackward
     assert body.event_stream_id == 'my-stream'
-    assert body.from_event_number == 50
+    assert body.from_event_number == -1
     assert body.resolve_link_tos is True
     assert body.require_master is False
     assert body.max_count == 10
@@ -45,7 +45,7 @@ def test_end_of_stream():
     event_1_id = uuid4()
     event_2_id = uuid4()
 
-    convo = IterStreamEvents('my-stream', 0)
+    convo = IterStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadEventResult.Success
     response.next_event_number = 10
@@ -104,28 +104,13 @@ def test_stream_paging():
 
     event_id = uuid4()
 
-    convo = IterStreamEvents('my-stream', 0)
+    convo = IterStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadEventResult.Success
     response.next_event_number = 10
     response.last_event_number = 9
     response.is_end_of_stream = False
     response.last_commit_position = 8
-
-    event = proto.ResolvedIndexedEvent()
-    event.event.event_stream_id = "stream-123"
-    event.event.event_number = 32
-    event.event.event_id = event_id.bytes_le
-    event.event.event_type = 'event-type'
-    event.event.data_content_type = msg.ContentType.Json
-    event.event.metadata_content_type = msg.ContentType.Binary
-    event.event.data = """
-
-    {
-        'color': 'red',
-        'winner': true
-    }
-    """.encode('UTF-8')
 
     reply = convo.respond_to(
         msg.InboundMessage(
