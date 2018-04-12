@@ -1,4 +1,6 @@
 ## [0.3] - 2018-04-11
+### Fixes
+- `iter` properly supports iterating a stream in reverse. 
 ### Breaking change
 - `published_event` reversed order of type and stream
 
