@@ -7,11 +7,8 @@ Photonpump API Reference
    :members:
    :member-order: bysource
 
-.. autoclass:: photonpump.messages.Operation
-   :members:
-   :member-order: bysource
-
-   :automembers:
+.. automodule:: photonpump.conversations
+    :members:
 
 .. automodule:: photonpump.messages
     :members:
