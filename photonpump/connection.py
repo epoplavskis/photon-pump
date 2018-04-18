@@ -6,6 +6,7 @@ import struct
 import uuid
 from typing import Sequence
 
+from . import discovery
 from . import conversations as convo
 from . import discovery
 from . import messages as msg
