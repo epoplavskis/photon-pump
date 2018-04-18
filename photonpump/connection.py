@@ -6,8 +6,8 @@ import struct
 import uuid
 from typing import Sequence
 
-from . import discovery
 from . import conversations as convo
+from . import discovery
 from . import messages as msg
 from . import messages_pb2 as proto
 
@@ -165,11 +165,12 @@ class ConnectionHandler:
                 self._logger.debug('Eventstore connection is OK')
                 self._current_attempts = 0
             elif msg == ConnectionHandler.CONNECT:
-                await node = discoverer()
-                await self._attempt_connect(host, port)
+                node = await discoverer()
+                await self._attempt_connect(node.address, node.port)
             elif msg == ConnectionHandler.RECONNECT:
                 self.transport.close()
-                await self._attempt_connect(host, port)
+                node = await discoverer()
+                await self._attempt_connect(node.address, node.port)
             elif msg == ConnectionHandler.HANGUP:
                 self.transport.close()
                 self._run_loop.cancel()
@@ -274,11 +275,10 @@ class PersistentSubscription(convo.PersistentSubscription):
 
 class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
-    def __init__(self, host, port, queue, pending, logger=None, loop=None):
+    def __init__(self, discoverer, queue, pending, logger=None, loop=None):
         self._loop = loop or asyncio.get_event_loop()
-        self._host = host
+        self._discoverer = discoverer
         self._is_connecting = False
-        self._port = port
         self._logger = logger or logging.get_named_logger(EventstoreProtocol)
         self._queue = queue
         self._pending_operations = pending
@@ -292,7 +292,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         self.next = None
         self._reader = None
         self._connectHandler = ConnectionHandler(self._loop, self._logger, self)
-        self._connectHandler.run(self._host, self._port)
+        self._connectHandler.run(self._discoverer)
         self._reconnection_convos = []
 
     def connection_made(self, transport):
@@ -560,6 +560,8 @@ class Connection:
             self,
             host='127.0.0.1',
             port=1113,
+            discovery_host=None,
+            discovery_port=2113,
             username=None,
             password=None,
             loop=None
@@ -571,8 +573,9 @@ class Connection:
         self.loop = loop
         self.conversations = {}
         self.queue = asyncio.Queue(maxsize=100)
+        self.discoverer = discovery.get_discoverer(host, port, discovery_host, discovery_port)
         self.protocol = EventstoreProtocol(
-            host, port, self.queue, self.conversations, loop=self.loop
+            self.discoverer, self.queue, self.conversations, loop=self.loop
         )
 
         if username and password:

@@ -89,8 +89,6 @@ def test_selector_with_master_and_slave():
     assert selected.state == NodeState.Master
 
 
-
-
 def gossip_nodes(nodes: List[NodeService]):
 
     async def foo():
@@ -138,6 +136,3 @@ async def test_aiohttp_failure():
         gossip = await fetch_new_gossip(session, node)
 
     assert len(gossip) == 3
-
-
-

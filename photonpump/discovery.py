@@ -4,6 +4,7 @@ import logging
 from enum import IntEnum
 from operator import attrgetter
 import random
+import socket
 from typing import Iterable, List, NamedTuple, Optional
 
 import aiodns
@@ -141,10 +142,34 @@ async def fetch_new_gossip(session, seed):
     return read_gossip(data)
 
 
-async def discover_best_cluster_node(seed_finder):
+def discover_best_cluster_node(seed_finder):
 
-    async for seed in seed_finder():
-        gossip = fetch_new_gossip(seed)
+    async def _discover():
+        async for seed in seed_finder():
+            gossip = fetch_new_gossip(seed)
 
-        if gossip:
-            return select(gossip)
+            if gossip:
+                return select(gossip)
+
+    return _discover
+
+
+def discover_single_node(node):
+
+    async def _discover():
+        return node
+
+    return _discover
+
+
+def get_discoverer(host, port, discovery_host, discovery_port=2113):
+    if discovery_host is None:
+        return discover_single_node(NodeService(host, port, None))
+    try:
+        socket.inet_aton(discovery_host)
+        return discover_best_cluster_node(static_seed_finder([
+            NodeService(discovery_host, discovery_port, None)
+        ]))
+    except socket.error:
+        return discover_best_cluster_node(
+            dns_seed_finder(discovery_host, discovery_port))
