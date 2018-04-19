@@ -7,9 +7,9 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from . import data
 from photonpump.discovery import *
 
+from . import data
 
 GOOD_NODE = DiscoveredNode(
     state=NodeState.Master,
@@ -49,8 +49,7 @@ def test_selector_with_a_dead_node():
 def test_selector_with_nodes_in_bad_states():
 
     gossip = [
-        GOOD_NODE._replace(state=s)
-        for s in
+        GOOD_NODE._replace(state=s) for s in
         [NodeState.Manager, NodeState.Shutdown, NodeState.ShuttingDown]
     ]
 
@@ -119,7 +118,9 @@ async def test_fetch_gossip():
     node = NodeService(address='10.10.10.10', port=2113, secure_port=None)
 
     with aioresponses() as mock:
-        mock.get('http://10.10.10.10:2113/gossip', status=200, payload=data.GOSSIP)
+        mock.get(
+            'http://10.10.10.10:2113/gossip', status=200, payload=data.GOSSIP
+        )
         session = aiohttp.ClientSession()
         gossip = await fetch_new_gossip(session, node)
 
@@ -131,7 +132,9 @@ async def test_aiohttp_failure():
     node = NodeService(address='10.10.10.10', port=2113, secure_port=None)
 
     with aioresponses() as mock:
-        mock.get('http://10.10.10.10:2113/gossip', status=200, payload=data.GOSSIP)
+        mock.get(
+            'http://10.10.10.10:2113/gossip', status=200, payload=data.GOSSIP
+        )
         session = aiohttp.ClientSession()
         gossip = await fetch_new_gossip(session, node)
 

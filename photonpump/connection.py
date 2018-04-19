@@ -766,8 +766,10 @@ class ConnectionContextManager:
 
     def __init__(
             self,
-            host='127.0.0.1',
+            host=None,
             port=1113,
+            discovery_host=None,
+            discovery_port=2113,
             username=None,
             password=None,
             loop=None
@@ -775,6 +777,8 @@ class ConnectionContextManager:
         self.conn = Connection(
             host=host,
             port=port,
+            discovery_host=discovery_host,
+            discovery_port=discovery_port,
             username=username,
             password=password,
             loop=loop
