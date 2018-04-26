@@ -10,7 +10,6 @@ from typing import Iterable, List, NamedTuple, Optional
 
 import aiodns
 import aiohttp
-from tenacity import retry, retry_if_exception_type, stop_after_attempt
 
 LOG = logging.getLogger('photonpump.discovery')
 
