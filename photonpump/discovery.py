@@ -137,8 +137,35 @@ async def dns_seed_finder(resolver, name, port='2113'):
     raise DiscoveryFailed()
 
 
+
+class StaticSeedFinder:
+
+    def __init__(self, seeds):
+        self._seeds = list(seeds)
+        self.candidates = []
+
+    def reset_to_seeds(self):
+        self.candidates = list(self._seeds)
+        random.shuffle(self.candidates)
+
+    def mark_failed(self, seed):
+        self._seeds.remove(seed)
+
+    async def next(self):
+        if not self.candidates:
+            self.reset_to_seeds()
+        if not self.candidates:
+            return None
+        return self.candidates.pop()
+
+    def add_node(self, node):
+        self.candidates.append(node)
+
+
+
+
+
 async def static_seed_finder(nodes):
-    while True:
         random.shuffle(nodes)
 
         for node in nodes:
@@ -206,37 +233,35 @@ class Stats(dict):
 
 class ClusterDiscovery:
 
-    def __init__(self, seed_finder, http_session):
+    def __init__(self, seed_finder, http_session, retry_policy):
         self.session = http_session
         self.seeds = seed_finder
         self.last_gossip = []
         self.best_node = None
-        self.stats = Stats()
+        self.retry_policy = retry_policy
 
     def record_gossip(self, node, gossip):
         self.last_gossip = gossip
+        for member in gossip:
+            self.seeds.add_node(member.external_http)
         self.best_node = select(gossip)
-        self.stats.record_success(node)
+        self.retry_policy.record_success(node)
 
     async def get_gossip(self):
-        for node in self.last_gossip:
-            gossip = await fetch_new_gossip(self.session, node.external_http)
-
-            if gossip:
-                self.record_gossip(node, gossip)
-
-                return gossip
-            else:
-                self.record_failure(node)
-
-        async for seed in self.seeds:
+        while True:
+            seed = await self.seeds.next()
+            if not seed:
+                raise DiscoveryFailed()
+            await self.retry_policy.wait()
             gossip = await fetch_new_gossip(self.session, seed)
 
             if gossip:
                 self.record_gossip(seed, gossip)
                 return gossip
             else:
-                self.stats.record_failure(seed)
+                self.retry_policy.record_failure(seed)
+                if not await self.retry_policy.should_retry(seed):
+                    self.seeds.mark_failed(seed)
 
     async def discover(self):
         gossip = await self.get_gossip()
@@ -245,6 +270,24 @@ class ClusterDiscovery:
             if self.best_node:
                 return self.best_node.external_tcp
         raise DiscoveryFailed()
+
+
+class DiscoveryRetryPolicy:
+
+    def __init__(self):
+        self.stats = Stats()
+
+    def should_retry(self, node):
+        return False
+
+    async def wait(self):
+        await asyncio.sleep(1)
+
+    def record_success(self, node):
+        self.stats.record_success(node)
+
+    def record_failure(self, node):
+        self.stats.record_failure(node)
 
 
 def get_discoverer(host, port, discovery_host, discovery_port):
@@ -259,14 +302,16 @@ def get_discoverer(host, port, discovery_host, discovery_port):
         LOG.info("Using cluster node discovery with a static seed")
 
         return ClusterDiscovery(
-            static_seed_finder(
+            StaticSeedFinder(
                 [NodeService(discovery_host, discovery_port, None)]
-            ), session
+            ), session,
+            DiscoveryRetryPolicy()
         )
     except socket.error:
         LOG.info("Using cluster node discovery with DNS")
         resolver = aiodns.DNSResolver()
 
         return ClusterDiscovery(
-            dns_seed_finder(resolver, discovery_host, discovery_port), session
+            dns_seed_finder(resolver, discovery_host, discovery_port), session,
+            DiscoveryRetryPolicy()
         )
