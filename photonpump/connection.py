@@ -161,24 +161,27 @@ class ConnectionHandler:
     async def _run(self, discoverer):
         while True:
             msg = await self.queue.get()
+            try:
 
-            if msg == ConnectionHandler.OK:
-                self._logger.debug('Eventstore connection is OK')
-                self._current_attempts = 0
-            elif msg == ConnectionHandler.CONNECT:
-                node = await discoverer()
-                await self._attempt_connect(node.address, node.port)
-            elif msg == ConnectionHandler.RECONNECT:
-                self.transport.close()
-                node = await discoverer()
-                await self._attempt_connect(node.address, node.port)
-            elif msg == ConnectionHandler.HANGUP:
-                self.transport.close()
-                self._run_loop.cancel()
+                if msg == ConnectionHandler.OK:
+                    self._logger.debug('Eventstore connection is OK')
+                    self._current_attempts = 0
+                elif msg == ConnectionHandler.CONNECT:
+                    node = await discoverer.discover()
+                    await self._attempt_connect(node.address, node.port)
+                elif msg == ConnectionHandler.RECONNECT:
+                    self.transport.close()
+                    node = await discoverer.discover()
+                    await self._attempt_connect(node.address, node.port)
+                elif msg == ConnectionHandler.HANGUP:
+                    self.transport.close()
+                    self._run_loop.cancel()
 
-                return
+                    return
 
-            self._last_message = msg
+                self._last_message = msg
+            except discovery.DiscoveryFailed:
+                self.hangup()
 
     async def _attempt_connect(self, host, port):
         self._current_attempts += 1

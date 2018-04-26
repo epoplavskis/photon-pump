@@ -209,7 +209,7 @@ async def test_discovery_failure_for_static_seed():
         async def should_retry(self, _):
             return True
 
-        async def wait(self):
+        async def wait(self, seed):
             pass
 
     seed = NodeService('1.2.3.4', 2113, None)
@@ -246,7 +246,7 @@ async def test_repeated_discovery_failure_for_static_seed():
         async def should_retry(self, _):
             return False
 
-        async def wait(self):
+        async def wait(self, seed):
             pass
 
     seed = NodeService('1.2.3.4', 2113, None)
@@ -270,36 +270,3 @@ async def test_repeated_discovery_failure_for_static_seed():
             assert stats.successes == 0
             assert stats.failures == 1
             assert stats.consecutive_failures == 1
-
-
-@pytest.mark.asyncio
-async def test_discovery_with_dns():
-    """
-    When we provide a domain name as the gossip seed, we should resolve
-    the name to a set of IP addresses and query them for gossip.
-
-    On a subsequent call, we should ask the known instances for new gossip.
-    again.
-    """
-
-    pass
-
-
-@pytest.mark.asynio
-async def test_gossip_failures_under_dns_discovery():
-    """
-    When we fail to fetch gossip for seeds obtained via DNS, we should retry
-    each seed with a backoff, and then perform DNS discovery again
-    """
-
-    pass
-
-
-@pytest.mark.asyncio
-async def test_dns_partial_failure():
-    """
-    When the dns resolution fails, we should retry with a backoff.
-    If we reach our maximum retry, we should raise DiscoveryFailed
-    """
-
-    pass
