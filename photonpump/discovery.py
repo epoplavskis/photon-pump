@@ -105,40 +105,6 @@ class DiscoveryFailed(Exception):
     pass
 
 
-async def dns_seed_finder(resolver, name, port='2113'):
-
-    max_attempt = 100
-    current_attempt = 0
-
-    while current_attempt < max_attempt:
-        LOG.info(
-            "Attempting to discover gossip nodes from DNS name %s; "
-            "attempt %d of %d", name, current_attempt, max_attempt
-        )
-        try:
-            result = await resolver.query(name, 'A')
-            random.shuffle(result)
-
-            if result:
-                LOG.debug(f"Found { len(result) } hosts for name {name}")
-                current_attempt = 0
-
-                for node in result:
-                    yield NodeService(
-                        address=node.host, port=port, secure_port=None
-                    )
-        except aiodns.error.DNSError:
-            LOG.warning(
-                "Failed to fetch gossip seeds for dns name %s",
-                name,
-                exc_info=True
-            )
-        current_attempt += 1
-        await asyncio.sleep(1)
-
-    raise DiscoveryFailed()
-
-
 class StaticSeedFinder:
 
     def __init__(self, seeds):
@@ -226,13 +192,6 @@ class DnsSeedFinder:
         self.seeds.append(node)
 
 
-async def static_seed_finder(nodes):
-    random.shuffle(nodes)
-
-    for node in nodes:
-        yield node
-
-
 async def fetch_new_gossip(session, seed):
     if not seed:
         return []
@@ -256,7 +215,7 @@ class SingleNodeDiscovery:
     def __init__(self, node):
         self.node = node
 
-    def discover(self):
+    async def discover(self):
         return self.node
 
 
@@ -308,7 +267,6 @@ class ClusterDiscovery:
         for member in gossip:
             self.seeds.add_node(member.external_http)
         self.best_node = select(gossip)
-        print(self.best_node)
         self.retry_policy.record_success(node)
 
     async def get_gossip(self):

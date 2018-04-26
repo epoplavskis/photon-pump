@@ -154,7 +154,7 @@ async def test_discovery_with_a_single_node():
     discoverer = get_discoverer('localhost', 1113, None, None)
 
     for i in range(0, 5):
-        assert discoverer.discover() == NodeService('localhost', 1113, None)
+        assert await discoverer.discover() == NodeService('localhost', 1113, None)
 
 
 @pytest.mark.asyncio
@@ -204,6 +204,7 @@ async def test_discovery_failure_for_static_seed():
     class always_succeed(DiscoveryRetryPolicy):
 
         def __init__(self):
+            super().__init__()
             self.stats = Stats()
 
         async def should_retry(self, _):
@@ -243,7 +244,11 @@ async def test_repeated_discovery_failure_for_static_seed():
 
     class always_fail(DiscoveryRetryPolicy):
 
-        async def should_retry(self, _):
+        def __init__(self):
+            super().__init__()
+
+        def should_retry(self, _):
+            print("FUKC YOU")
             return False
 
         async def wait(self, seed):
@@ -264,7 +269,7 @@ async def test_repeated_discovery_failure_for_static_seed():
             assert await successful_discoverer.discover() == NodeService(
                 '2.3.4.5', 1113, None
             )
-            stats = successful_discoverer.stats[seed]
+            stats = retry.stats[seed]
 
             assert stats.attempts == 1
             assert stats.successes == 0
