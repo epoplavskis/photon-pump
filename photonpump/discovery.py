@@ -3,12 +3,14 @@ import json
 import logging
 import random
 import socket
+from collections import defaultdict
 from enum import IntEnum
 from operator import attrgetter
 from typing import Iterable, List, NamedTuple, Optional
 
 import aiodns
 import aiohttp
+from tenacity import retry, retry_if_exception_type, stop_after_attempt
 
 LOG = logging.getLogger('photonpump.discovery')
 
@@ -136,8 +138,11 @@ async def dns_seed_finder(resolver, name, port='2113'):
 
 
 async def static_seed_finder(nodes):
-    for node in random.shuffle(nodes):
-        yield node
+    while True:
+        random.shuffle(nodes)
+
+        for node in nodes:
+            yield node
 
 
 async def fetch_new_gossip(session, seed):
@@ -154,42 +159,106 @@ async def fetch_new_gossip(session, seed):
         LOG.exception(
             "Failed loading gossip from http://{seed.address}:{seed.port}/gossip"
         )
+        raise
 
 
-def discover_best_cluster_node(seed_finder, session):
+class SingleNodeDiscovery:
 
-    async def _discover():
-        async for seed in seed_finder:
-            gossip = await fetch_new_gossip(session, seed)
+    def __init__(self, node):
+        self.node = node
+
+    def discover(self):
+        return self.node
+
+
+class DiscoveryStats(NamedTuple):
+
+    node: NodeService
+    attempts: int
+    successes: int
+    failures: int
+    consecutive_failures: int
+
+
+class Stats(dict):
+
+    def __missing__(self, key):
+        value = self[key] = DiscoveryStats(key, 0, 0, 0, 0)
+
+        return value
+
+    def record_success(self, node):
+        val = self[node]
+        self[node] = val._replace(
+            attempts=(val.attempts + 1),
+            successes=(val.successes + 1),
+            consecutive_failures=0
+        )
+
+    def record_failure(self, node):
+        val = self[node]
+        self[node] = val._replace(
+            attempts=(val.attempts + 1),
+            failures=(val.failures + 1),
+            consecutive_failures=(val.consecutive_failures + 1)
+        )
+
+
+class ClusterDiscovery:
+
+    def __init__(self, seed_finder, http_session):
+        self.session = http_session
+        self.seeds = seed_finder
+        self.last_gossip = []
+        self.best_node = None
+        self.stats = Stats()
+
+    def record_gossip(self, node, gossip):
+        self.last_gossip = gossip
+        self.best_node = select(gossip)
+        self.stats.record_success(node)
+
+    async def get_gossip(self):
+        for node in self.last_gossip:
+            gossip = await fetch_new_gossip(self.session, node.external_http)
 
             if gossip:
-                return select(gossip).external_tcp
+                self.record_gossip(node, gossip)
 
-    return _discover
+                return gossip
+            else:
+                self.record_failure(node)
 
+        async for seed in self.seeds:
+            gossip = await fetch_new_gossip(self.session, seed)
 
-def discover_single_node(node):
+            if gossip:
+                self.record_gossip(seed, gossip)
+                return gossip
+            else:
+                self.stats.record_failure(seed)
 
-    async def _discover():
-        return node
+    async def discover(self):
+        gossip = await self.get_gossip()
 
-    return _discover
+        if gossip:
+            if self.best_node:
+                return self.best_node.external_tcp
+        raise DiscoveryFailed()
 
 
 def get_discoverer(host, port, discovery_host, discovery_port):
     if discovery_host is None:
         LOG.info("Using single-node discoverer")
 
-        return discover_single_node(
-            NodeService(host or 'localhost', port, None)
-        )
+        return SingleNodeDiscovery(NodeService(host or 'localhost', port, None))
 
     session = aiohttp.ClientSession()
     try:
         socket.inet_aton(discovery_host)
         LOG.info("Using cluster node discovery with a static seed")
 
-        return discover_best_cluster_node(
+        return ClusterDiscovery(
             static_seed_finder(
                 [NodeService(discovery_host, discovery_port, None)]
             ), session
@@ -198,6 +267,6 @@ def get_discoverer(host, port, discovery_host, discovery_port):
         LOG.info("Using cluster node discovery with DNS")
         resolver = aiodns.DNSResolver()
 
-        return discover_best_cluster_node(
+        return ClusterDiscovery(
             dns_seed_finder(resolver, discovery_host, discovery_port), session
         )

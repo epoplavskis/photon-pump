@@ -6,11 +6,11 @@ from typing import Iterable, List, NamedTuple, Optional
 import aiohttp
 import pytest
 from aioresponses import aioresponses
-
-from photonpump.discovery import (
-    DiscoveredNode, NodeService, NodeState, fetch_new_gossip, read_gossip,
-    select
-)
+from tenacity.retry import retry_never
+from photonpump.discovery import (DiscoveredNode, NodeService, NodeState,
+                                  fetch_new_gossip, get_discoverer,
+                                  ClusterDiscovery, static_seed_finder,
+                                  read_gossip, select, DiscoveryFailed)
 
 from . import data
 
@@ -142,3 +142,105 @@ async def test_aiohttp_failure():
         gossip = await fetch_new_gossip(session, node)
 
     assert not gossip
+
+
+@pytest.mark.asyncio
+async def test_discovery_with_a_single_node():
+    """
+    When we create a discoverer with a single address and no
+    discovery information, we should receive an async generator
+    that returns the same node over and over.
+    """
+    discoverer = get_discoverer('localhost', 1113, None, None)
+
+    for i in range(0, 5):
+        assert discoverer.discover() == NodeService('localhost', 1113, None)
+
+@pytest.mark.asyncio
+async def test_discovery_with_a_static_seed():
+    """
+    When we create a discoverer with a static seed address we
+    should query that address for gossip and then select the
+    best node from the result.
+
+    On a subsequent call, we should use the previously discovered
+    nodes to find gossip.
+    """
+
+    seed_ip = '10.10.10.10'
+    first_node_ip = '172.31.0.1'
+    second_node_ip = '192.168.168.192'
+
+    first_gossip = data.make_gossip(first_node_ip)
+    second_gossip = data.make_gossip(second_node_ip)
+
+    discoverer = get_discoverer(None, None, seed_ip, 2113)
+    with aioresponses() as mock:
+        mock.get(
+            f'http://{seed_ip}:2113/gossip', status=200, payload=first_gossip
+        )
+
+        mock.get(
+            f'http://{first_node_ip}:2113/gossip', status=200, payload=second_gossip
+        )
+
+        assert await discoverer.discover() == NodeService(first_node_ip, 1113, None)
+        assert await discoverer.discover() == NodeService(second_node_ip, 1113, None)
+
+
+@pytest.mark.asyncio
+async def test_discovery_failure_for_static_seed():
+    """
+    When gossip fetch fails for a static seed, we should retry with
+    a backoff. 
+    """
+
+    seed = NodeService('1.2.3.4', 2113, None)
+    gossip = data.make_gossip('2.3.4.5')
+    with aioresponses() as mock:
+        successful_discoverer = ClusterDiscovery(
+            static_seed_finder([seed]),
+            aiohttp.ClientSession()
+        )
+
+        mock.get('http://1.2.3.4:2113/gossip', status=500)
+        mock.get('http://1.2.3.4:2113/gossip', payload=gossip)
+
+        assert await successful_discoverer.discover() == NodeService('2.3.4.5', 1113, None)
+        stats = successful_discoverer.stats[seed]
+
+        assert stats.attempts == 2
+        assert stats.successes == 1
+        assert stats.failures == 1
+        assert stats.consecutive_failures == 0
+
+
+@pytest.mark.asyncio
+async def test_discovery_with_dns():
+    """
+    When we provide a domain name as the gossip seed, we should resolve
+    the name to a set of IP addresses and query them for gossip.
+
+    On a subsequent call, we should ask the known instances for new gossip.
+    again.
+    """
+
+    pass
+
+@pytest.mark.asynio
+async def test_gossip_failures_under_dns_discovery():
+    """
+    When we fail to fetch gossip for seeds obtained via DNS, we should retry
+    each seed with a backoff, and then perform DNS discovery again
+    """
+
+    pass
+
+@pytest.mark.asyncio
+async def test_dns_partial_failure():
+    """
+    When the dns resolution fails, we should retry with a backoff.
+    If we reach our maximum retry, we should raise DiscoveryFailed
+    """
+
+    pass
