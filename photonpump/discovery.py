@@ -303,7 +303,7 @@ class DiscoveryRetryPolicy:
 
     def __init__(
             self,
-            retries_per_node=10,
+            retries_per_node=3,
             retry_interval=0.5,
             jitter=0.5,
             multiplier=1.5,
@@ -322,8 +322,11 @@ class DiscoveryRetryPolicy:
 
     async def wait(self, seed):
         stats = self.stats[seed]
+        if stats.consecutive_failures == 0:
+            return
+
         next_interval = self.retry_interval * self.multiplier * stats.consecutive_failures
-        jitter = (self.jitter * next_interval)
+        jitter = (self.jitter * self.multiplier * stats.consecutive_failures)
         maxinterval = next_interval + jitter
         mininterval = next_interval - jitter
         interval = random.uniform(mininterval, maxinterval)
