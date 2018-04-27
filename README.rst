@@ -1,6 +1,6 @@
 Photon-pump is a fast, user-friendly client for Eventstore_.
 
-It emphasis a modular design, hidden behind an interface that's written for humans.
+It emphasises a modular design, hidden behind an interface that's written for humans.
 
 Installation
 ------------
