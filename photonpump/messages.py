@@ -379,6 +379,7 @@ SubscriptionResult = make_enum(
 )
 
 
-class SubscriptionCreatedResponse(NamedTuple):
-    result: SubscriptionResult
-    reason: str
+class SubscriptionCreatedResponse:
+    def __init__(self, result:SubscriptionResult, reason: str):
+        self.reason = reason
+        self.result = result
