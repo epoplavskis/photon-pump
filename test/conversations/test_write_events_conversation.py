@@ -1,7 +1,6 @@
 import json
 from uuid import uuid4
 
-import photonpump.exceptions as exn
 import photonpump.messages as msg
 import photonpump.messages_pb2 as proto
 from photonpump.conversations import WriteEvents

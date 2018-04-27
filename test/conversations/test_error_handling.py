@@ -3,7 +3,7 @@ from uuid import uuid4
 import photonpump.exceptions as exn
 import photonpump.messages as msg
 import photonpump.messages_pb2 as proto
-from photonpump.conversations import Ping, ReplyAction,WriteEvents
+from photonpump.conversations import Ping, ReplyAction, WriteEvents
 
 
 def test_bad_request():
@@ -67,7 +67,9 @@ def test_notready_message():
     conversation = Ping()
     reply = conversation.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()))
+            uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()
+        )
+    )
 
     error = reply.result
     assert reply.action == ReplyAction.CompleteError
@@ -82,7 +84,9 @@ def test_too_busy_message():
     conversation = Ping()
     reply = conversation.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()))
+            uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()
+        )
+    )
 
     assert reply.action == ReplyAction.CompleteError
     error = reply.result
@@ -97,7 +101,9 @@ def test_not_master():
     conversation = Ping()
     reply = conversation.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()))
+            uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()
+        )
+    )
 
     assert reply.action == ReplyAction.CompleteError
     error = reply.result
@@ -109,8 +115,8 @@ def test_decode_error():
 
     conversation = Ping()
     reply = conversation.respond_to(
-        msg.InboundMessage(
-            uuid4(), msg.TcpCommand.NotHandled, b'\x08\2A'))
+        msg.InboundMessage(uuid4(), msg.TcpCommand.NotHandled, b'\x08\2A')
+    )
 
     assert reply.action == ReplyAction.CompleteError
     error = reply.result

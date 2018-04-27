@@ -7,6 +7,7 @@ import uuid
 from typing import Sequence
 
 from . import conversations as convo
+from . import discovery
 from . import messages as msg
 from . import messages_pb2 as proto
 
@@ -52,9 +53,8 @@ class MessageReader:
 
         while chunk_offset < chunk_len:
             while self.header_bytes_required and chunk_offset < chunk_len:
-                self.header_bytes[self.MESSAGE_MIN_SIZE
-                                  - self.header_bytes_required
-                                 ] = chunk[chunk_offset]
+                offset = self.MESSAGE_MIN_SIZE - self.header_bytes_required
+                self.header_bytes[offset] = chunk[chunk_offset]
                 chunk_offset += 1
                 self.header_bytes_required -= 1
 
@@ -118,11 +118,11 @@ class ConnectionHandler:
 
     CONNECT = 1
     DISCONNECT = 2
-    RECONNECT = 3
+    RECONNECT = 3  # Unused
     OK = 4
     HANGUP = 5
 
-    def __init__(self, loop, logger, protocol, max_attempts=100):
+    def __init__(self, loop, logger, protocol, max_attempts=3):
         self.queue = asyncio.Queue(maxsize=1)
         self._loop = loop
         self._logger = logger or logging.get_named_logger(ConnectionHandler)
@@ -134,10 +134,9 @@ class ConnectionHandler:
         self.transport = None
 
     async def connect(self):
-        await self.queue.put(ConnectionHandler.CONNECT)
-
-    async def reconnect(self):
-        await self.queue.put(ConnectionHandler.RECONNECT)
+        fut = asyncio.Future()
+        await self.queue.put((ConnectionHandler.CONNECT, fut))
+        await fut
 
     def hangup(self):
         self._logger.debug('Connection hanging up')
@@ -149,34 +148,40 @@ class ConnectionHandler:
     async def ok(self):
         if self._last_message == ConnectionHandler.OK:
             return
-        await self.queue.put(ConnectionHandler.OK)
+        await self.queue.put((ConnectionHandler.OK, None))
 
-    def run(self, host, port):
+    def run(self, discoverer):
         self._run_loop = asyncio.ensure_future(
-            self._run(host, port), loop=self._loop
+            self._run(discoverer), loop=self._loop
         )
 
-    async def _run(self, host, port):
+    async def _run(self, discoverer):
         while True:
-            msg = await self.queue.get()
+            msg, reply = await self.queue.get()
+            try:
 
-            if msg == ConnectionHandler.OK:
-                self._logger.debug('Eventstore connection is OK')
-                self._current_attempts = 0
-            elif msg == ConnectionHandler.CONNECT:
-                await self._attempt_connect(host, port)
-            elif msg == ConnectionHandler.RECONNECT:
-                self.transport.close()
-                await self._attempt_connect(host, port)
-            elif msg == ConnectionHandler.HANGUP:
-                self.transport.close()
-                self._run_loop.cancel()
+                if msg == ConnectionHandler.OK:
+                    self._logger.debug('Eventstore connection is OK')
+                    self._current_attempts = 0
+                elif msg == ConnectionHandler.CONNECT:
+                    try:
+                        node = await discoverer.discover()
+                        await self._attempt_connect(
+                            node.address, node.port, reply
+                        )
+                    except discovery.DiscoveryFailed as e:
+                        reply.set_exception(e)
+                elif msg == ConnectionHandler.HANGUP:
+                    self.transport.close()
+                    self._run_loop.cancel()
 
-                return
+                    return
 
-            self._last_message = msg
+                self._last_message = msg
+            except discovery.DiscoveryFailed:
+                self.hangup()
 
-    async def _attempt_connect(self, host, port):
+    async def _attempt_connect(self, host, port, reply):
         self._current_attempts += 1
         self._logger.info(
             'Attempting connection to %s:%d attempt %d of %d', host, port,
@@ -192,12 +197,13 @@ class ConnectionHandler:
             self.transport, _ = await self._loop.create_connection(
                 lambda: self._protocol, host, port
             )
+            reply.set_result(None)
         except Exception as e:
             self._logger.warn(e, exc_info=True)
 
             if self._current_attempts == self._max_attempts:
-                raise
-            await self._attempt_connect(host, port)
+                reply.set_exception(e)
+            await self._attempt_connect(host, port, reply)
 
 
 class StreamingIterator:
@@ -272,11 +278,10 @@ class PersistentSubscription(convo.PersistentSubscription):
 
 class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
-    def __init__(self, host, port, queue, pending, logger=None, loop=None):
+    def __init__(self, discoverer, queue, pending, logger=None, loop=None):
         self._loop = loop or asyncio.get_event_loop()
-        self._host = host
+        self._discoverer = discoverer
         self._is_connecting = False
-        self._port = port
         self._logger = logger or logging.get_named_logger(EventstoreProtocol)
         self._queue = queue
         self._pending_operations = pending
@@ -290,8 +295,15 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         self.next = None
         self._reader = None
         self._connectHandler = ConnectionHandler(self._loop, self._logger, self)
-        self._connectHandler.run(self._host, self._port)
+        self._connectHandler.run(self._discoverer)
         self._reconnection_convos = []
+
+    def on_connection_complete(self, fut: asyncio.Future):
+        try:
+            fut.result()
+        except discovery.DiscoveryFailed as e:
+            self._logger.error("Failed to connecct.")
+            self.close(hangup=True, exn=e)
 
     def connection_made(self, transport):
         self._transport = transport
@@ -322,7 +334,9 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
         for cmd in self._reconnection_convos:
             self._logger.info(
-                'PhotonPump is reconnecting to subscription {}'.format(cmd.name)
+                'PhotonPump is reconnecting to subscription {}'.format(
+                    cmd.name
+                )
             )
             asyncio.ensure_future(
                 self.enqueue_conversation(cmd), loop=self._loop
@@ -338,7 +352,8 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             self.close()
 
         if not self.is_connecting:
-            asyncio.ensure_future(self.connect(), loop=self._loop)
+            fut = asyncio.ensure_future(self.connect(), loop=self._loop)
+            fut.add_done_callback(self.on_connection_complete)
 
     def data_received(self, data):
         ''' Process data received from Eventstore.  '''
@@ -353,12 +368,11 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             self.close()
 
             if not self.is_connecting:
-                asyncio.ensure_future(self.connect(), loop=self._loop)
+                fut = asyncio.ensure_future(self.connect(), loop=self._loop)
+                fut.add_done_callback(self.on_connection_complete)
 
     async def enqueue_conversation(
-        self,
-        conversation: convo.Conversation,
-        retry_on_reconnect=False
+            self, conversation: convo.Conversation, retry_on_reconnect=False
     ):
         '''Enqueue an operation.
 
@@ -376,8 +390,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
         if not message.one_way:
             future = asyncio.Future(loop=self._loop)
-            self._pending_operations[conversation.conversation_id
-                                    ] = (conversation, future)
+            self._pending_operations[conversation.conversation_id] = (conversation, future)
         try:
             await self._queue.put(message)
         except Exception as e:
@@ -421,6 +434,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
                 'Received %d bytes from remote server:\n%s', len(data),
                 msg.dump(data)
             )
+            await self._connectHandler.ok()
             await self._message_reader.process(data)
 
     async def _process_responses(self):
@@ -513,7 +527,10 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
                     log.error(e, exc_info=True)
 
             elif reply.action == convo.ReplyAction.ContinueSubscription:
-                log.debug('Received new confirmation for subscription %s', conversation )
+                log.debug(
+                    'Received new confirmation for subscription %s',
+                    conversation
+                )
 
             elif reply.action == convo.ReplyAction.YieldToSubscription:
                 log.debug('Pushing new event for subscription %s', conversation)
@@ -525,7 +542,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
             if reply.next_message is not None:
                 await self._queue.put(reply.next_message)
 
-    def close(self, hangup=False):
+    def close(self, hangup=False, exn=None):
         '''Close the underlying StreamWriter and cancel pending Operations.'''
         self._logger.info('Closing connection')
         self.running = False
@@ -533,9 +550,13 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
         if hangup:
             self._connectHandler.hangup()
 
-        for _, op in self._pending_operations.items():
-            pass
-            #op.cancel()
+            for (_, (_, op)) in self._pending_operations.items():
+                print(op)
+
+                if exn:
+                    op.set_exception(exn)
+                else:
+                    op.cancel()
 
         if (self._read_loop):
             self._read_loop.cancel()
@@ -558,6 +579,8 @@ class Connection:
             self,
             host='127.0.0.1',
             port=1113,
+            discovery_host=None,
+            discovery_port=2113,
             username=None,
             password=None,
             loop=None
@@ -569,8 +592,11 @@ class Connection:
         self.loop = loop
         self.conversations = {}
         self.queue = asyncio.Queue(maxsize=100)
+        self.discoverer = discovery.get_discoverer(
+            host, port, discovery_host, discovery_port
+        )
         self.protocol = EventstoreProtocol(
-            host, port, self.queue, self.conversations, loop=self.loop
+            self.discoverer, self.queue, self.conversations, loop=self.loop
         )
 
         if username and password:
@@ -678,8 +704,7 @@ class Connection:
     ):
         correlation_id = correlation_id
         cmd = convo.IterStreamEvents(
-            stream, from_event, batch_size, resolve_links,
-            direction=direction
+            stream, from_event, batch_size, resolve_links, direction=direction
         )
         result = await self.protocol.enqueue_conversation(cmd)
         iterator = await result
@@ -760,8 +785,10 @@ class ConnectionContextManager:
 
     def __init__(
             self,
-            host='127.0.0.1',
+            host=None,
             port=1113,
+            discovery_host=None,
+            discovery_port=2113,
             username=None,
             password=None,
             loop=None
@@ -769,6 +796,8 @@ class ConnectionContextManager:
         self.conn = Connection(
             host=host,
             port=port,
+            discovery_host=discovery_host,
+            discovery_port=discovery_port,
             username=username,
             password=password,
             loop=loop
