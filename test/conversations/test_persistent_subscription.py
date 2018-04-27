@@ -1,13 +1,11 @@
 from uuid import uuid4
 
 from photonpump import messages_pb2 as proto
-from photonpump import exceptions
 from photonpump.conversations import (
     ConnectPersistentSubscription, PersistentSubscription, ReplyAction
 )
 from photonpump.messages import (
-    ContentType, Event, InboundMessage, SubscriptionDropReason,
-    SubscriptionResult, TcpCommand
+    ContentType, Event, InboundMessage, SubscriptionDropReason, TcpCommand
 )
 
 

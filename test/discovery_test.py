@@ -1,17 +1,12 @@
-import json
-from enum import IntEnum
-from operator import attrgetter
-from typing import Iterable, List, NamedTuple, Optional
-
 import aiohttp
 import pytest
 from aioresponses import aioresponses
-from tenacity.retry import retry_never
+from typing import List
 
 from photonpump.discovery import (
-    ClusterDiscovery, DiscoveredNode, DiscoveryFailed, DiscoveryStats,
-    NodeService, NodeState, StaticSeedFinder, fetch_new_gossip, get_discoverer,
-    read_gossip, select, Stats, DiscoveryRetryPolicy
+    ClusterDiscovery, DiscoveredNode, DiscoveryFailed, DiscoveryRetryPolicy,
+    NodeService, NodeState, StaticSeedFinder, Stats, fetch_new_gossip,
+    get_discoverer, read_gossip, select
 )
 
 from . import data
@@ -154,7 +149,9 @@ async def test_discovery_with_a_single_node():
     discoverer = get_discoverer('localhost', 1113, None, None)
 
     for i in range(0, 5):
-        assert await discoverer.discover() == NodeService('localhost', 1113, None)
+        assert await discoverer.discover() == NodeService(
+            'localhost', 1113, None
+        )
 
 
 @pytest.mark.asyncio
@@ -249,6 +246,7 @@ async def test_repeated_discovery_failure_for_static_seed():
 
         def should_retry(self, _):
             print("FUKC YOU")
+
             return False
 
         async def wait(self, seed):

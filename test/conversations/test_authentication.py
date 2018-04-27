@@ -1,6 +1,7 @@
 from uuid import uuid4
+
 from photonpump.conversations import Ping
-from photonpump.messages import Credential, dump
+from photonpump.messages import Credential
 
 
 def test_authenticated_request():
@@ -11,13 +12,15 @@ def test_authenticated_request():
 
     request = convo.start()
 
-    assert request.header_bytes == b''.join([
-        b'\x24\x00\x00\x00'        # 36 == header_size
-        b'\x03',                   # TcpCommand.Ping
-        b'\x01',                   # Authentication bit is set
-        conversation_id.bytes_le,  # Conversation_id
-        b'\x08',                   # 8 == len(username)
-        b'username',
-        b'\x08',                   # 8 == len(password)
-        b'password'
-    ])
+    assert request.header_bytes == b''.join(
+        [
+            b'\x24\x00\x00\x00'  # 36 == header_size
+            b'\x03',  # TcpCommand.Ping
+            b'\x01',  # Authentication bit is set
+            conversation_id.bytes_le,  # Conversation_id
+            b'\x08',  # 8 == len(username)
+            b'username',
+            b'\x08',  # 8 == len(password)
+            b'password'
+        ]
+    )

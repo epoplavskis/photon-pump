@@ -14,7 +14,6 @@ SIZE_UINT_32 = 4
 _LENGTH = struct.Struct('<I')
 _HEAD = struct.Struct('<BBIIII')
 
-
 ROUND_ROBIN = 'RoundRobin'
 DISPATCH_TO_SINGLE = 'DisptchToSingle'
 PINNED = 'Pinned'
@@ -125,8 +124,7 @@ class Credential:
         len_password = int.from_bytes(
             data[offset_username:offset_password], byteorder='big'
         )
-        password = data[offset_password:offset_password + len_password
-                       ].decode('UTF-8')
+        password = data[offset_password:offset_password + len_password].decode('UTF-8')
 
         return cls(username, password)
 
@@ -152,7 +150,7 @@ class InboundMessage:
         return data
 
     def __repr__(self):
-        return self.__str__() + "\n" +dump(self.header_bytes, self.payload)
+        return self.__str__() + "\n" + dump(self.header_bytes, self.payload)
 
     def __str__(self):
         return "%s (%s) of %s flags=%d" % (

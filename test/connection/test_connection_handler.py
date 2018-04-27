@@ -1,12 +1,15 @@
 import asyncio
 import logging
-import pytest
-from photonpump.connection import ConnectionHandler
-from .fake_server import FakeProtocol
 
+import pytest
+
+from photonpump.connection import ConnectionHandler
+
+from .fake_server import FakeProtocol
 
 HOST = 'localhost'
 PORT = 9876
+
 
 @pytest.mark.skip(reason="unstable test, needs attention")
 @pytest.mark.asyncio
@@ -18,7 +21,9 @@ async def test_connect(event_loop: asyncio.AbstractEventLoop):
         data = client.expect(8)
 
         handler = ConnectionHandler(event_loop, logging.getLogger(), client)
-        server_loop = await event_loop.create_server(lambda: server, '0.0.0.0', PORT)
+        server_loop = await event_loop.create_server(
+            lambda: server, '0.0.0.0', PORT
+        )
 
         handler.run('localhost', PORT)
 

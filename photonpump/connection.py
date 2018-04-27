@@ -53,9 +53,8 @@ class MessageReader:
 
         while chunk_offset < chunk_len:
             while self.header_bytes_required and chunk_offset < chunk_len:
-                self.header_bytes[self.MESSAGE_MIN_SIZE
-                                  - self.header_bytes_required
-                                 ] = chunk[chunk_offset]
+                offset = self.MESSAGE_MIN_SIZE - self.header_bytes_required
+                self.header_bytes[offset] = chunk[chunk_offset]
                 chunk_offset += 1
                 self.header_bytes_required -= 1
 
@@ -372,7 +371,6 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
                 fut = asyncio.ensure_future(self.connect(), loop=self._loop)
                 fut.add_done_callback(self.on_connection_complete)
 
-
     async def enqueue_conversation(
             self, conversation: convo.Conversation, retry_on_reconnect=False
     ):
@@ -392,8 +390,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
         if not message.one_way:
             future = asyncio.Future(loop=self._loop)
-            self._pending_operations[conversation.conversation_id] \
-                    = (conversation, future)
+            self._pending_operations[conversation.conversation_id] = (conversation, future)
         try:
             await self._queue.put(message)
         except Exception as e:
@@ -555,6 +552,7 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
             for (_, (_, op)) in self._pending_operations.items():
                 print(op)
+
                 if exn:
                     op.set_exception(exn)
                 else:

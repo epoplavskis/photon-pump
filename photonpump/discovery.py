@@ -1,9 +1,7 @@
 import asyncio
-import json
 import logging
 import random
 import socket
-from collections import defaultdict
 from enum import IntEnum
 from operator import attrgetter
 from typing import Iterable, List, NamedTuple, Optional
@@ -137,7 +135,7 @@ class DnsSeedFinder:
         self.resolver = resolver
         self.port = port
         self.seeds = []
-        self.failed_node = NodeService('_',0, None)
+        self.failed_node = NodeService('_', 0, None)
 
     async def reset_to_dns(self):
         max_attempt = 100
@@ -160,7 +158,8 @@ class DnsSeedFinder:
                     self.seeds = [
                         NodeService(
                             address=node.host, port=self.port, secure_port=None
-                        ) for node in result if node.host != self.failed_node.address
+                        ) for node in result
+                        if node.host != self.failed_node.address
                     ]
 
                     break
@@ -318,10 +317,12 @@ class DiscoveryRetryPolicy:
 
     def should_retry(self, node):
         stats = self.stats[node]
+
         return stats.consecutive_failures < self.retries_per_node
 
     async def wait(self, seed):
         stats = self.stats[seed]
+
         if stats.consecutive_failures == 0:
             return
 

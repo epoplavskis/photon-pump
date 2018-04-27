@@ -118,7 +118,6 @@ class PayloadUnreadable(ConversationException):
         super().__init__(conversation_id, "The response could not be read", exn)
 
 
-
 class SubscriptionCreationFailed(ConversationException):
     pass
 

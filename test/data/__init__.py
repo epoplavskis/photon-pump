@@ -36,7 +36,6 @@ def make_gossip(*args):
                 'internalTcpPort': 1112,
                 'internalHttpPort': 2112,
                 'externalHttpPort': 2113
-            }
-
-        for idx, addr in enumerate(args)]
+            } for idx, addr in enumerate(args)
+        ]
     }
