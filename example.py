@@ -1,19 +1,22 @@
 import asyncio
+
 import photonpump
-from photonpump.messages import NewEvent
 
 
 async def write_an_event(conn):
-    await conn.publish_event('pony_stream', 'pony.jumped', body={
-        'name': 'Applejack',
-        'height_m': 0.6
-    })
+    await conn.publish_event(
+        'pony_stream',
+        'pony.jumped',
+        body={
+            'name': 'Applejack',
+            'height_m': 0.6
+        }
+    )
 
 
 async def read_an_event(conn):
     event = await conn.get_event('pony_stream', 0)
     print(event)
-
 
 
 async def do_things():

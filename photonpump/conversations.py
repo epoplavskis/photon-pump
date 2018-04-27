@@ -7,11 +7,11 @@ from uuid import UUID, uuid4
 
 from google.protobuf.text_format import MessageToString
 
+from photonpump import exceptions
 from photonpump import messages as messages
 from photonpump import messages_pb2 as proto
-from photonpump import exceptions
 from photonpump.messages import (
-    ContentType, Credential, Event, ExpectedVersion, InboundMessage, NewEvent,
+    ContentType, Credential, ExpectedVersion, InboundMessage, NewEvent,
     NotHandledReason, OutboundMessage, ReadEventResult, ReadStreamResult,
     StreamDirection, StreamSlice, SubscriptionResult, TcpCommand, _make_event
 )
@@ -102,6 +102,7 @@ class Conversation:
                 return self.reply(response)
         except Exception as exn:
             self._logger.error('Failed to read server response', exc_info=True)
+
             return self.error(
                 exceptions.PayloadUnreadable(
                     self.conversation_id, response.payload, exn
@@ -772,9 +773,7 @@ class ConnectPersistentSubscription(Conversation):
 
     def reply_from_live(self, response: InboundMessage):
         if response.command == TcpCommand.PersistentSubscriptionConfirmation:
-            return Reply(
-                ReplyAction.ContinueSubscription, None, None
-            )
+            return Reply(ReplyAction.ContinueSubscription, None, None)
 
         self.expect_only(
             TcpCommand.PersistentSubscriptionStreamEventAppeared, response

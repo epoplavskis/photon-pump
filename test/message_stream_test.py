@@ -5,8 +5,8 @@ from asyncio import Queue
 import pytest
 
 from photonpump import messages_pb2 as proto
-from photonpump.messages import TcpCommand
 from photonpump.connection import MessageReader
+from photonpump.messages import TcpCommand
 
 
 def read_hex(s):
@@ -57,7 +57,8 @@ d7 e8 ec d5 ea 08 50 d2 ab 9a d9 8d 2c
 """
 )
 
-ReadEventResult = read_hex("""
+ReadEventResult = read_hex(
+    """
 9c 00 00 00 b1 00 f3 b9 4a 36 6c fe 6d 43 a3 65
 be ad 2e 1c e3 6b 08 00 12 85 01 0a 82 01 0a 24
 64 37 39 32 34 64 37 35 2d 38 32 62 66 2d 34 37
@@ -68,7 +69,9 @@ bf 1a 5d eb 90 eb dc d6 22 0e 74 68 69 6e 67 5f
 74 68 69 6e 67 22 3a 20 31 2c 20 22 68 61 70 70
 65 6e 69 6e 67 22 3a 20 74 72 75 65 7d 42 00 48
 fc 9d cd d8 94 b9 d6 ea 08 50 a4 e6 a4 d6 8e 2c
-""")
+"""
+)
+
 
 @pytest.mark.asyncio
 async def test_read_event():
@@ -87,8 +90,7 @@ async def test_read_event():
 
     event = body.event.event
     assert event.event_number == 0
-    assert event.event_type =='thing_happened'
-
+    assert event.event_type == 'thing_happened'
 
 
 @pytest.mark.asyncio
@@ -199,5 +201,3 @@ async def test_two_messages_three_calls():
     assert event.conversation_id == uuid.UUID(
         'f192d72f-7abd-4ae4-ae05-f206873c749d'
     )
-
-

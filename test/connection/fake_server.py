@@ -42,4 +42,3 @@ class FakeProtocol(asyncio.Protocol):
 
     def write(self, msg):
         self.transport.write(msg)
-

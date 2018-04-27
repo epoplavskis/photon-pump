@@ -1,9 +1,9 @@
-import json
 import uuid
 
 import pytest
 
 from photonpump import connect, messages, messages_pb2
+from . import data
 
 
 @pytest.mark.asyncio
@@ -60,15 +60,12 @@ async def test_a_large_event(event_loop):
 
     stream_name = str(uuid.uuid4())
 
-    with open('test/test-data/chair.json') as f:
-        data = json.load(f)
-
     async with connect(loop=event_loop) as c:
         write_result = await c.publish(
             stream_name, [
-                messages.NewEvent('big_json', data=data),
-                messages.NewEvent('big_json', data=data),
-                messages.NewEvent('big_json', data=data)
+                messages.NewEvent('big_json', data=data.CHAIR),
+                messages.NewEvent('big_json', data=data.CHAIR),
+                messages.NewEvent('big_json', data=data.CHAIR)
             ]
         )
         assert write_result.first_event_number == 0

@@ -1,8 +1,8 @@
 from uuid import uuid4
 
+from photonpump import exceptions
 from photonpump import messages as msg
 from photonpump import messages_pb2 as proto
-from photonpump import exceptions
 from photonpump.conversations import IterStreamEvents, ReplyAction
 
 
@@ -85,7 +85,7 @@ def test_end_of_stream():
     assert reply.action == ReplyAction.CompleteIterator
     # Todo: Use a slice here so that we can give information
     # to the iterator about its position in the stream?
-    #assert isinstance(reply.result, msg.StreamSlice)
+    # assert isinstance(reply.result, msg.StreamSlice)
 
     [event_1, event_2] = reply.result
     assert event_1.event.stream == 'stream-123'
@@ -101,8 +101,6 @@ def test_end_of_stream():
 
 
 def test_stream_paging():
-
-    event_id = uuid4()
 
     convo = IterStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()

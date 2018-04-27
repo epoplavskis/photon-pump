@@ -1,6 +1,7 @@
 from uuid import uuid4
 
-from photonpump import messages as msg, exceptions
+from photonpump import exceptions
+from photonpump import messages as msg
 from photonpump import messages_pb2 as proto
 from photonpump.conversations import ReadEvent, ReplyAction
 
@@ -61,6 +62,7 @@ def test_read_single_event_success():
 def error_result(error_code):
     data = bytearray(b'\x08\x00\x12\x00')
     data[1] = error_code
+
     return data
 
 
@@ -116,7 +118,7 @@ def test_stream_deleted():
 
 def test_read_error():
     convo = ReadEvent('my-stream', 23)
-    reply =convo.respond_to(
+    reply = convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
             error_result(msg.ReadEventResult.Error)
@@ -144,4 +146,3 @@ def test_access_denied():
 
     assert isinstance(exn, exceptions.AccessDenied)
     assert exn.conversation_type == 'ReadEvent'
-
