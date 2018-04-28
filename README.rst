@@ -173,8 +173,8 @@ This extends to asynchronous comprehensions:
     >>> async def feet_to_metres(jumps):
     >>>    async for jump in jumps:
     >>>         data = jump.json()
-    >>>         data['Height'] *= 0.3048
-    >>>         data['Distance'] *= 0.3048
+    >>>         data['Height'] = data * 0.3048
+    >>>         data['Distance'] = data * 0.3048
     >>>         yield data
     >>>
     >>> jumps = (event async for event in conn.iter('ponies') 
@@ -183,6 +183,38 @@ This extends to asynchronous comprehensions:
     >>>     print (event)
 
 
+Persistent Subscriptions
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Sometimes we want to watch a stream continuously and be notified when a new event occurs. Eventstore supports persistent subscriptions for this use case. Multiple clients can connect to the same subscription to support competing consumer scenarios.
+
+    >>> async def create_subscription(subscription_name, stream_name, conn):
+    >>>     await conn.create_subscription(subscription_name, stream_name)
+
+Once we have a subscription, we can connect to it to begin receiving events. A persistent subscription exposes an `events` property, which acts like an asynchronous iterator.
+
+    >>> async def read_events_from_subscription(subscription_name, stream_name, conn):
+    >>>     subscription = await conn.connect_subscription(subscription_name, stream_name)
+    >>>     async for event in subscription.events:
+    >>>         print(event)
+    >>>         await subscription.ack(event)
+
+Eventstore will send each event to one consumer at a time. When you have handled the event, you must acknowledge receipt. Eventstore will resend messages that are unacknowledged.
+
+
+High-Availability Scenarios
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Eventstore supports an HA-cluster deployment topology. In this scenario, Eventstore runs a master node and multiple slaves. Some operations, particularly subscriptions and projections, are handled only by the master node. To connect to an HA-cluster and automatically find the master node, photonpump supports cluster discovery.
+
+The cluster discovery interrogates eventstore gossip to find the active master. You can provide the IP of a maching in the cluster, or a DNS name that resolves to some members of the cluster, and photonpump will discover the others.
+
+    >>> async def connect_to_cluster(hostname_or_ip, port=2113):
+    >>>     with connect(discovery_host=hostname_or_ip, discovery_port=2113) as c:
+    >>>         await c.ping() 
+
+If you provide both a `host` and `discovery_host`, photonpump will prefer discovery.
 
 .. _Eventstore: http://geteventstore.com
 .. _cheese shop: https://pypi.python.org/pypi/photon-pump
+

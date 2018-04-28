@@ -7,9 +7,6 @@ Photonpump API Reference
    :members:
    :member-order: bysource
 
-.. automodule:: photonpump.conversations
-    :members:
-
 .. automodule:: photonpump.messages
     :members:
 
