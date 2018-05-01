@@ -57,6 +57,11 @@ class Conversation:
     def __str__(self):
         return "<Conversation %s (%s)>" % (type(self), self.conversation_id)
 
+    def __eq__(self, other):
+        if not isinstance(other, Conversation):
+            return False
+        return self.conversation_id == other.conversation_id
+
     def reply(self, response: InboundMessage) -> Reply:
         pass
 

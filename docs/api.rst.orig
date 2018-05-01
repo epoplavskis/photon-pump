@@ -1,0 +1,18 @@
+Photonpump API Reference
+========================
+
+.. module:: photonpump
+
+.. autoclass:: photonpump.Connection
+   :members:
+   :member-order: bysource
+
+<<<<<<< HEAD
+=======
+.. automodule:: photonpump.conversations
+    :members:
+
+>>>>>>> master
+.. automodule:: photonpump.messages
+    :members:
+

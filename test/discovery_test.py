@@ -121,8 +121,8 @@ async def test_fetch_gossip():
         mock.get(
             'http://10.10.10.10:2113/gossip', status=200, payload=data.GOSSIP
         )
-        session = aiohttp.ClientSession()
-        gossip = await fetch_new_gossip(session, node)
+        async with aiohttp.ClientSession() as session:
+            gossip = await fetch_new_gossip(session, node)
 
     assert len(gossip) == 3
 
@@ -133,8 +133,8 @@ async def test_aiohttp_failure():
 
     with aioresponses() as mock:
         mock.get('http://10.10.10.10:2113/gossip', status=502)
-        session = aiohttp.ClientSession()
-        gossip = await fetch_new_gossip(session, node)
+        async with aiohttp.ClientSession() as session:
+            gossip = await fetch_new_gossip(session, node)
 
     assert not gossip
 

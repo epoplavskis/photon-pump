@@ -198,6 +198,10 @@ class OutboundMessage:
     def __repr__(self):
         return dump(self.header_bytes, self.payload)
 
+    def __eq__(self, other):
+        return (isinstance(other, OutboundMessage) and
+                repr(self) == repr(other))
+
 
 class ExpectedVersion(IntEnum):
     """Static values for concurrency control
