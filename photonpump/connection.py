@@ -252,6 +252,82 @@ class StreamingIterator:
         self.asend(StopIteration())
 
 
+class MessageDispatcher:
+
+    def __init__(
+            self,
+            input: asyncio.Queue = None,
+            output: asyncio.Queue = None,
+            loop=None
+    ):
+        self._loop = loop or asyncio.get_event_loop()
+        self.input = input
+        self.output = output or asyncio.Queue()
+        self.active_conversations = {}
+
+    async def enqueue_conversation(
+            self, convo: convo.Conversation
+    ) -> asyncio.futures.Future:
+        future = asyncio.futures.Future(loop=self._loop)
+        message = convo.start()
+        self.active_conversations[convo.conversation_id] = (convo, future)
+        await self.output.put(message)
+
+        return future
+
+    def start(self):
+        self._dispatch_loop = asyncio.ensure_future(
+            self._process_messages(), loop=self._loop
+        )
+
+    def has_conversation(self, id):
+        return id in self.active_conversations
+
+    async def _process_messages(self):
+        log = logging.get_named_logger(MessageDispatcher)
+
+        while True:
+            message = await self.input.get()
+
+            if not message:
+                log.trace("No message received")
+
+                continue
+
+            log.debug("Received message %s", message)
+
+            if message.command == msg.TcpCommand.HeartbeatRequest.value:
+                await self.enqueue_conversation(
+                    convo.Heartbeat(message.conversation_id)
+                )
+
+                continue
+
+            conversation, result = self.active_conversations.get(
+                message.conversation_id, (None, None)
+            )
+
+            if not conversation:
+                log.error("No conversation found for message %s", message)
+
+                continue
+
+            log.debug(
+                'Received response to conversation %s: %s', conversation,
+                message
+            )
+
+            reply = conversation.respond_to(message)
+            log.debug('Reply is %s', reply)
+
+            if reply.action == convo.ReplyAction.CompleteScalar:
+                result.set_result(reply.result)
+                del self.active_conversations[message.conversation_id]
+
+
+
+
+
 class PersistentSubscription(convo.PersistentSubscription):
 
     def __init__(self, subscription, iterator, conn):

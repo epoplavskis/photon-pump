@@ -204,7 +204,7 @@ async def test_discovery_failure_for_static_seed():
             super().__init__()
             self.stats = Stats()
 
-        async def should_retry(self, _):
+        def should_retry(self, _):
             return True
 
         async def wait(self, seed):
