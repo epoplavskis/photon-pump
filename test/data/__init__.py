@@ -1,5 +1,6 @@
 import json
 import os
+from  .read_stream_events_conversation import read_stream_events_completed
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 GOSSIP_PATH = os.path.join(DIR_PATH, 'gossip.json')
@@ -39,3 +40,4 @@ def make_gossip(*args):
             } for idx, addr in enumerate(args)
         ]
     }
+

@@ -261,6 +261,7 @@ class MessageDispatcher:
             loop=None
     ):
         self._loop = loop or asyncio.get_event_loop()
+        self._dispatch_loop = None
         self.input = input
         self.output = output or asyncio.Queue()
         self.active_conversations = {}
@@ -279,6 +280,10 @@ class MessageDispatcher:
         self._dispatch_loop = asyncio.ensure_future(
             self._process_messages(), loop=self._loop
         )
+
+    def stop(self):
+        if self._dispatch_loop:
+            self._dispatch_loop.cancel()
 
     def has_conversation(self, id):
         return id in self.active_conversations
@@ -317,15 +322,60 @@ class MessageDispatcher:
                 message
             )
 
-            reply = conversation.respond_to(message)
+            try:
+                reply = conversation.respond_to(message)
+            except Exception as e:
+                log.warn(
+                    'Conversation %s received an error %s', conversation,
+                    reply.result
+                )
+                result.set_exception(reply.result)
+                del self.active_conversations[message.conversation_id]
+                continue
+
             log.debug('Reply is %s', reply)
 
             if reply.action == convo.ReplyAction.CompleteScalar:
                 result.set_result(reply.result)
                 del self.active_conversations[message.conversation_id]
 
+            elif reply.action == convo.ReplyAction.CompleteError:
+                log.warn(
+                    'Conversation %s received an error %s', conversation,
+                    reply.result
+                )
+                result.set_exception(reply.result)
+                del self.active_conversations[message.conversation_id]
 
+            elif reply.action == convo.ReplyAction.BeginIterator:
+                log.debug(
+                    'Creating new streaming iterator for %s', conversation
+                )
+                size, events = reply.result
+                it = StreamingIterator(size * 2)
+                result.set_result(it)
+                await it.enqueue_items(events)
+                log.debug('Enqueued %d events', len(events))
 
+            elif reply.action == convo.ReplyAction.YieldToIterator:
+                log.debug(
+                    'Yielding new events into iterator for %s', conversation
+                )
+                iterator = result.result()
+                log.debug(iterator)
+                log.debug(reply.result)
+                await iterator.enqueue_items(reply.result)
+
+            elif reply.action == convo.ReplyAction.CompleteIterator:
+                log.debug(
+                    'Yielding final events into iterator for %s', conversation
+                )
+                iterator = result.result()
+                log.debug(iterator)
+                log.debug(reply.result)
+                await iterator.enqueue_items(reply.result)
+                await iterator.asend(StopAsyncIteration())
+                del self._pending_operations[message.conversation_id]
 
 
 class PersistentSubscription(convo.PersistentSubscription):
@@ -466,7 +516,8 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
         if not message.one_way:
             future = asyncio.Future(loop=self._loop)
-            self._pending_operations[conversation.conversation_id] = (conversation, future)
+            self._pending_operations[conversation.conversation_id
+                                    ] = (conversation, future)
         try:
             await self._queue.put(message)
         except Exception as e:

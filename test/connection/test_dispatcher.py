@@ -6,8 +6,12 @@ import pytest
 from testfixtures import LogCapture
 
 from photonpump.connection import MessageDispatcher
-from photonpump.conversations import Conversation, Heartbeat, Ping, ReplyAction
-from photonpump.messages import InboundMessage, OutboundMessage, TcpCommand
+from photonpump.conversations import IterStreamEvents, Ping
+from photonpump.exceptions import NotAuthenticated, PayloadUnreadable
+from photonpump.messages import (
+    InboundMessage, NewEvent, OutboundMessage, TcpCommand
+)
+from ..data import read_stream_events_completed
 
 
 def start_dispatcher():
@@ -54,6 +58,7 @@ async def test_when_receiving_a_response_to_ping():
     )
     await asyncio.wait_for(future, 1)
     assert not dispatcher.has_conversation(conversation.conversation_id)
+    dispatcher.stop()
 
 
 @pytest.mark.asyncio
@@ -95,10 +100,15 @@ async def test_when_no_message_is_received():
 
     await asyncio.wait_for(future, 1)
     assert future.result()
+    dispatcher.stop()
 
 
 @pytest.mark.asyncio
 async def test_when_the_conversation_is_not_recognised():
+    """
+    If the server sends us a message for a conversation we're not
+    tracking, all we an really do is log an error and carry on.
+    """
     unexpected_conversation_id = uuid.uuid4()
     unexpected_message = InboundMessage(
         unexpected_conversation_id, TcpCommand.Pong, bytes()
@@ -121,3 +131,108 @@ async def test_when_the_conversation_is_not_recognised():
                 f"No conversation found for message {unexpected_message}"
             )
         )
+    dispatcher.stop()
+
+
+@pytest.mark.asyncio
+async def test_when_the_conversation_raises_an_error():
+    """
+    If the conversation raises an error, that error should be returned
+    to the caller.
+    """
+    in_queue, _, dispatcher = start_dispatcher()
+    conversation = Ping()
+    future = await dispatcher.enqueue_conversation(conversation)
+
+    await in_queue.put(
+        InboundMessage(
+            conversation.conversation_id, TcpCommand.NotAuthenticated, bytes()
+        )
+    )
+
+    with pytest.raises(NotAuthenticated):
+        await asyncio.wait_for(future, 1)
+
+    assert not dispatcher.has_conversation(conversation.conversation_id)
+    dispatcher.stop()
+
+
+@pytest.mark.asyncio
+async def test_when_the_conversation_receives_an_unexpected_response():
+    """
+    If the conversation raises an error, that error should be returned
+    to the caller.
+    """
+    in_queue, _, dispatcher = start_dispatcher()
+    conversation = Ping()
+    future = await dispatcher.enqueue_conversation(conversation)
+
+    await in_queue.put(
+        InboundMessage(
+            conversation.conversation_id, TcpCommand.WriteEventsCompleted,
+            bytes()
+        )
+    )
+
+    with pytest.raises(PayloadUnreadable):
+        await asyncio.wait_for(future, 1)
+
+    assert not dispatcher.has_conversation(conversation.conversation_id)
+    dispatcher.stop()
+
+
+async def anext(it):
+    async for elem in it:
+        return elem
+
+
+@pytest.mark.asyncio
+async def test_when_dispatching_stream_iterators():
+    """
+    When we're dealing with iterators, the first message should result
+    in a StreamingIterator being returned to the caller; subsequent messages
+    should push new events to the caller, and the final message should
+    terminate iteration.
+    """
+
+    in_queue, _, dispatcher = start_dispatcher()
+    conversation = IterStreamEvents("my-stream")
+    first_msg = read_stream_events_completed(
+        conversation.conversation_id, "my-stream",
+        [NewEvent("event", data={"x": 1})]
+    )
+    second_msg = read_stream_events_completed(
+        conversation.conversation_id, "my-stream",
+        [NewEvent("event", data={"x": 2}),
+         NewEvent("event", data={"x": 3})]
+    )
+    final_msg = read_stream_events_completed(
+        conversation.conversation_id,
+        "my-stream", [NewEvent("event", data={"x": 4})],
+        end_of_stream=True
+    )
+
+    future = await dispatcher.enqueue_conversation(conversation)
+
+    # The first message should result in an iterator being returned to the caller
+    await in_queue.put(first_msg)
+    iterator = await asyncio.wait_for(future, 1)
+
+    e = await anext(iterator)
+    assert e.event.json()['x'] == 1
+
+    # The second message should result in two events on the iterator
+    await in_queue.put(second_msg)
+
+    e = await anext(iterator)
+    assert e.event.json()['x'] == 2
+
+    e = await anext(iterator)
+    assert e.event.json()['x'] == 3
+
+    # The final message should result in one event and the iterator terminating
+    await in_queue.put(final_msg)
+
+    [e] = [e async for e in iterator]
+    assert e.event.json()['x'] == 4
+

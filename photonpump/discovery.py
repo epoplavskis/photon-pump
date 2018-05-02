@@ -259,6 +259,9 @@ class ClusterDiscovery:
         self.best_node = None
         self.retry_policy = retry_policy
 
+    def close(self):
+        self.session.close()
+
     def record_gossip(self, node, gossip):
         self.last_gossip = gossip
 

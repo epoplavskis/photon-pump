@@ -190,6 +190,7 @@ async def test_discovery_with_a_static_seed():
         assert await discoverer.discover() == NodeService(
             second_node_ip, 1113, None
         )
+        discoverer.close()
 
 
 @pytest.mark.asyncio
@@ -213,9 +214,10 @@ async def test_discovery_failure_for_static_seed():
     seed = NodeService('1.2.3.4', 2113, None)
     gossip = data.make_gossip('2.3.4.5')
     retry = always_succeed()
+    session = aiohttp.ClientSession()
     with aioresponses() as mock:
         successful_discoverer = ClusterDiscovery(
-            StaticSeedFinder([seed]), aiohttp.ClientSession(), retry
+            StaticSeedFinder([seed]), session, retry
         )
 
         mock.get('http://1.2.3.4:2113/gossip', status=500)
@@ -230,6 +232,7 @@ async def test_discovery_failure_for_static_seed():
         assert stats.successes == 1
         assert stats.failures == 1
         assert stats.consecutive_failures == 0
+        await session.close()
 
 
 @pytest.mark.asyncio
@@ -245,8 +248,6 @@ async def test_repeated_discovery_failure_for_static_seed():
             super().__init__()
 
         def should_retry(self, _):
-            print("FUKC YOU")
-
             return False
 
         async def wait(self, seed):

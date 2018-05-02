@@ -5,4 +5,4 @@ all_tests:
 lint:
 	flake8
 continous_test:
-	ptw
+	PYTHONASYNCIODEBUG=1 ptw

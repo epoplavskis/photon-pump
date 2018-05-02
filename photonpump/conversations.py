@@ -97,14 +97,14 @@ class Conversation:
         try:
             if response.command is TcpCommand.BadRequest:
                 return self.conversation_error(exceptions.BadRequest, response)
-            elif response.command is TcpCommand.NotAuthenticated:
+            if response.command is TcpCommand.NotAuthenticated:
                 return self.conversation_error(
                     exceptions.NotAuthenticated, response
                 )
-            elif response.command is TcpCommand.NotHandled:
+            if response.command is TcpCommand.NotHandled:
                 return self.unhandled_message(response)
-            else:
-                return self.reply(response)
+
+            return self.reply(response)
         except Exception as exn:
             self._logger.error('Failed to read server response', exc_info=True)
 
@@ -136,7 +136,8 @@ class Ping(Conversation):
             self.conversation_id, TcpCommand.Ping, b'', self.credential
         )
 
-    def reply(self, _: InboundMessage):
+    def reply(self, msg: InboundMessage):
+        self.expect_only(TcpCommand.Pong, msg)
         return Reply(ReplyAction.CompleteScalar, True, None)
 
 
