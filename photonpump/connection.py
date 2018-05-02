@@ -375,7 +375,7 @@ class MessageDispatcher:
                 log.debug(reply.result)
                 await iterator.enqueue_items(reply.result)
                 await iterator.asend(StopAsyncIteration())
-                del self._pending_operations[message.conversation_id]
+                del self.active_conversations[message.conversation_id]
 
 
 class PersistentSubscription(convo.PersistentSubscription):

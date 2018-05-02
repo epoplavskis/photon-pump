@@ -1,3 +1,21 @@
+"""
+This module tests the MessageDispatcher.
+
+He has a terrible name, but he's a cool guy. He looks after the active
+conversations list. You can give him a conversation to manage with the
+enqueue_conversation method.
+
+He'll call start() on the conversation and put the resulting OutboundMessage
+on his output queue.
+
+He'll listen for replies as InboundMessages on his input queue and match them
+up with the conversation_id. He then calls ReplyTo on the conversation, passing
+the InboundMessage. This results in a ReplyAction.
+
+Right now, it's his job to make sure that the ReplyActions are handled properly.
+This feels totally wrong but it means that the Conversation interface is super
+simple and testable.
+"""
 import asyncio
 import logging
 import uuid
@@ -215,13 +233,16 @@ async def test_when_dispatching_stream_iterators():
     future = await dispatcher.enqueue_conversation(conversation)
 
     # The first message should result in an iterator being returned to the caller
+    # with one event. The conversation should still be active.
     await in_queue.put(first_msg)
     iterator = await asyncio.wait_for(future, 1)
 
     e = await anext(iterator)
     assert e.event.json()['x'] == 1
+    assert dispatcher.has_conversation(conversation.conversation_id)
 
-    # The second message should result in two events on the iterator
+    # The second message should result in two events on the iterator.
+    # The conversation should still be active.
     await in_queue.put(second_msg)
 
     e = await anext(iterator)
@@ -229,10 +250,11 @@ async def test_when_dispatching_stream_iterators():
 
     e = await anext(iterator)
     assert e.event.json()['x'] == 3
+    assert dispatcher.has_conversation(conversation.conversation_id)
 
     # The final message should result in one event and the iterator terminating
     await in_queue.put(final_msg)
 
     [e] = [e async for e in iterator]
     assert e.event.json()['x'] == 4
-
+    assert not dispatcher.has_conversation(conversation.conversation_id)
