@@ -295,3 +295,27 @@ async def test_when_a_stream_iterator_fails_midway():
 
     assert not dispatcher.has_conversation(conversation.conversation_id)
     dispatcher.stop()
+
+
+@pytest.mark.asyncio
+async def test_when_a_stream_iterator_fails_at_the_first_hurdle():
+    """
+    If we receive an error in reply to the first message in an iterator
+    conversation, then we ought to raise the error instead of returning
+    an iterator.
+    """
+    in_queue, _, dispatcher = start_dispatcher()
+    conversation = IterStreamEvents("my-stream")
+    first_msg = read_stream_events_failure(
+        conversation.conversation_id, ReadStreamResult.StreamDeleted
+    )
+
+    future = await dispatcher.enqueue_conversation(conversation)
+
+    await in_queue.put(first_msg)
+
+    with pytest.raises(StreamDeleted):
+        await asyncio.wait_for(future, 1)
+
+    assert not dispatcher.has_conversation(conversation.conversation_id)
+    dispatcher.stop()
