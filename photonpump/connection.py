@@ -224,6 +224,9 @@ class StreamingIterator:
     async def enqueue(self, item):
         await self.items.put(item)
 
+    async def anext(self):
+        return await self.__anext__()
+
     async def __anext__(self):
 
         if self.finished and self.items.empty():
@@ -371,11 +374,17 @@ class MessageDispatcher:
                     'Yielding final events into iterator for %s', conversation
                 )
                 iterator = result.result()
-                log.debug(iterator)
-                log.debug(reply.result)
                 await iterator.enqueue_items(reply.result)
                 await iterator.asend(StopAsyncIteration())
                 del self.active_conversations[message.conversation_id]
+
+            elif reply.action == convo.ReplyAction.RaiseToIterator:
+                iterator = result.result()
+                error = reply.result
+                log.warning("Raising error %s to iterator %s", error, iterator)
+                await iterator.asend(error)
+                del self.active_conversations[message.conversation_id]
+
 
 
 class PersistentSubscription(convo.PersistentSubscription):

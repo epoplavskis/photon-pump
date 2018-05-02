@@ -5,6 +5,20 @@ from photonpump import messages_pb2 as proto
 from photonpump.conversations import ReadStreamEvents, ReplyAction
 
 
+def read_stream_events_failure(conversation_id, result):
+    payload = proto.ReadStreamEventsCompleted()
+    payload.result = result
+    payload.last_event_number = 1
+    payload.next_event_number = 1
+    payload.last_commit_position = 1
+    payload.is_end_of_stream = False
+
+    return msg.InboundMessage(
+        conversation_id, msg.TcpCommand.ReadStreamEventsForwardCompleted,
+        payload.SerializeToString()
+    )
+
+
 def read_stream_events_completed(
         conversation_id, stream, events, end_of_stream=False
 ):

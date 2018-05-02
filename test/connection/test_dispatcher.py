@@ -25,11 +25,14 @@ from testfixtures import LogCapture
 
 from photonpump.connection import MessageDispatcher
 from photonpump.conversations import IterStreamEvents, Ping
-from photonpump.exceptions import NotAuthenticated, PayloadUnreadable
-from photonpump.messages import (
-    InboundMessage, NewEvent, OutboundMessage, TcpCommand
+from photonpump.exceptions import (
+    NotAuthenticated, PayloadUnreadable, StreamDeleted
 )
-from ..data import read_stream_events_completed
+from photonpump.messages import (
+    InboundMessage, NewEvent, OutboundMessage, ReadStreamResult, TcpCommand
+)
+
+from ..data import read_stream_events_completed, read_stream_events_failure
 
 
 def start_dispatcher():
@@ -178,8 +181,9 @@ async def test_when_the_conversation_raises_an_error():
 @pytest.mark.asyncio
 async def test_when_the_conversation_receives_an_unexpected_response():
     """
-    If the conversation raises an error, that error should be returned
-    to the caller.
+    If the conversation receives an unhandled response, an error should
+    be returned to the caller. This is a separate code path for now, but
+    should probably be cleaned up in the Conversation. Maybe use a decorator?
     """
     in_queue, _, dispatcher = start_dispatcher()
     conversation = Ping()
@@ -200,8 +204,7 @@ async def test_when_the_conversation_receives_an_unexpected_response():
 
 
 async def anext(it):
-    async for elem in it:
-        return elem
+    return await asyncio.wait_for(it.anext(), 1)
 
 
 @pytest.mark.asyncio
@@ -258,3 +261,37 @@ async def test_when_dispatching_stream_iterators():
     [e] = [e async for e in iterator]
     assert e.event.json()['x'] == 4
     assert not dispatcher.has_conversation(conversation.conversation_id)
+
+
+@pytest.mark.asyncio
+async def test_when_a_stream_iterator_fails_midway():
+    """
+    Sometimes bad things happen. What happens if we're iterating a stream and
+    some anarchist decides to delete it from under our feet? Well, I guess we
+    should return an error to the caller and stop the iterator.
+    """
+    in_queue, _, dispatcher = start_dispatcher()
+    conversation = IterStreamEvents("my-stream")
+    first_msg = read_stream_events_completed(
+        conversation.conversation_id, "my-stream",
+        [NewEvent("event", data={"x": 1})]
+    )
+    second_msg = read_stream_events_failure(
+        conversation.conversation_id, ReadStreamResult.StreamDeleted
+    )
+
+    future = await dispatcher.enqueue_conversation(conversation)
+
+    await in_queue.put(first_msg)
+    await in_queue.put(second_msg)
+
+    iterator = await asyncio.wait_for(future, 1)
+
+    event = await anext(iterator)
+    assert event.event.json()['x'] == 1
+
+    with pytest.raises(StreamDeleted):
+        await anext(iterator)
+
+    assert not dispatcher.has_conversation(conversation.conversation_id)
+    dispatcher.stop()
