@@ -23,8 +23,11 @@ import uuid
 import pytest
 from testfixtures import LogCapture
 
+from photonpump import messages_pb2 as proto
 from photonpump.connection import MessageDispatcher
-from photonpump.conversations import IterStreamEvents, Ping
+from photonpump.conversations import (
+    ConnectPersistentSubscription, IterStreamEvents, Ping
+)
 from photonpump.exceptions import (
     NotAuthenticated, PayloadUnreadable, StreamDeleted
 )
@@ -32,7 +35,10 @@ from photonpump.messages import (
     InboundMessage, NewEvent, OutboundMessage, ReadStreamResult, TcpCommand
 )
 
-from ..data import read_stream_events_completed, read_stream_events_failure
+from ..data import (
+    persistent_subscription_confirmed, read_stream_events_completed,
+    read_stream_events_failure, subscription_event_appeared
+)
 
 
 def start_dispatcher():
@@ -319,3 +325,71 @@ async def test_when_a_stream_iterator_fails_at_the_first_hurdle():
 
     assert not dispatcher.has_conversation(conversation.conversation_id)
     dispatcher.stop()
+
+
+@pytest.mark.asyncio
+async def test_when_running_a_persistent_subscription():
+    """
+    We ought to be able to connect a persistent subscription, and receive
+    some events.
+    """
+    in_queue, out_queue, dispatcher = start_dispatcher()
+    conversation = ConnectPersistentSubscription("my-sub", "my-stream")
+    first_msg = persistent_subscription_confirmed(
+        conversation.conversation_id, "my-sub"
+    )
+
+    # The subscription confirmed message should result in our having a
+    # PersistentSubscription to play with.
+
+    future = await dispatcher.enqueue_conversation(conversation)
+    await in_queue.put(first_msg)
+    subscription = await asyncio.wait_for(future, 1)
+
+    # A subsequent PersistentSubscriptionStreamEventAppeared message should
+    # enqueue the event onto our iterator
+    await in_queue.put(
+        subscription_event_appeared(
+            conversation.conversation_id, NewEvent("event", data={"x": 2})
+        )
+    )
+
+    event = await anext(subscription.events)
+    assert event.event.json()['x'] == 2
+
+    # Remove the connet message
+    await out_queue.get()
+
+    # Acknowledging the event should place an Ack message on the out_queue
+
+    await subscription.ack(event)
+
+    expected_payload = proto.PersistentSubscriptionAckEvents()
+    expected_payload.subscription_id = "my-sub"
+    expected_payload.processed_event_ids.append(event.event.id.bytes_le)
+    expected_message = OutboundMessage(
+            conversation.conversation_id,
+            TcpCommand.PersistentSubscriptionAckEvents,
+            expected_payload.SerializeToString())
+
+    ack = await out_queue.get()
+
+    assert ack == expected_message
+    dispatcher.stop()
+
+
+@pytest.mark.asyncio
+async def test_when_a_persistent_subscription_fails():
+    """
+    If a persistent subscription fails with something non-recoverable then
+    we should raise the error to the caller
+    """
+    pass
+
+
+@pytest.mark.asyncio
+async def test_when_we_reset_the_connection():
+    """
+    If our connection is reset, then we should resubmit the subsription
+    """
+    pass

@@ -1,6 +1,8 @@
 import json
 import os
 
+from .persistent_subscription_conversations import \
+    persistent_subscription_confirmed, subscription_event_appeared
 from .read_stream_events_conversation import (
     read_stream_events_completed, read_stream_events_failure
 )

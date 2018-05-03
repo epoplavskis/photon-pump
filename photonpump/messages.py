@@ -279,7 +279,7 @@ class Event:
 
     @property
     def original_event(self) -> EventRecord:
-        return self.link or self
+        return self.link or self.event
 
     @property
     def original_event_id(self) -> UUID:

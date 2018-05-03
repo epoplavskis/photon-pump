@@ -334,6 +334,7 @@ class MessageDispatcher:
                 )
                 result.set_exception(reply.result)
                 del self.active_conversations[message.conversation_id]
+
                 continue
 
             log.debug('Reply is %s', reply)
@@ -385,11 +386,26 @@ class MessageDispatcher:
                 await iterator.asend(error)
                 del self.active_conversations[message.conversation_id]
 
+            elif reply.action == convo.ReplyAction.BeginPersistentSubscription:
+                log.debug(
+                    'Starting new iterator for persistent subscription %s',
+                    conversation
+                )
+                sub = PersistentSubscription(
+                    reply.result, StreamingIterator(reply.result.buffer_size),
+                    self, self.output
+                )
+                result.set_result(sub)
+
+            elif reply.action == convo.ReplyAction.YieldToSubscription:
+                log.debug('Pushing new event for subscription %s', conversation)
+                sub = await result
+                await sub.events.enqueue(reply.result)
 
 
 class PersistentSubscription(convo.PersistentSubscription):
 
-    def __init__(self, subscription, iterator, conn):
+    def __init__(self, subscription, iterator, conn, out_queue=None):
         super().__init__(
             subscription.name, subscription.stream,
             subscription.conversation_id, subscription.initial_commit_position,
@@ -398,6 +414,7 @@ class PersistentSubscription(convo.PersistentSubscription):
         )
         self.connection = conn
         self.events = iterator
+        self.out_queue = out_queue
 
     async def ack(self, event):
         payload = proto.PersistentSubscriptionAckEvents()
@@ -408,7 +425,10 @@ class PersistentSubscription(convo.PersistentSubscription):
             msg.TcpCommand.PersistentSubscriptionAckEvents,
             payload.SerializeToString(),
         )
-        await self.connection.enqueue_message(message)
+        if self.out_queue:
+            await self.out_queue.put(message)
+        else:
+            await self.connection.enqueue_message(message)
 
 
 class EventstoreProtocol(asyncio.streams.FlowControlMixin):
