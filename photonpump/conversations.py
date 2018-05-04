@@ -60,6 +60,7 @@ class Conversation:
     def __eq__(self, other):
         if not isinstance(other, Conversation):
             return False
+
         return self.conversation_id == other.conversation_id
 
     def reply(self, response: InboundMessage) -> Reply:
@@ -97,10 +98,12 @@ class Conversation:
         try:
             if response.command is TcpCommand.BadRequest:
                 return self.conversation_error(exceptions.BadRequest, response)
+
             if response.command is TcpCommand.NotAuthenticated:
                 return self.conversation_error(
                     exceptions.NotAuthenticated, response
                 )
+
             if response.command is TcpCommand.NotHandled:
                 return self.unhandled_message(response)
 
@@ -138,6 +141,7 @@ class Ping(Conversation):
 
     def reply(self, msg: InboundMessage):
         self.expect_only(TcpCommand.Pong, msg)
+
         return Reply(ReplyAction.CompleteScalar, True, None)
 
 
@@ -569,7 +573,7 @@ class CreateVolatileSubscription(Conversation):
         self.resolve_links = resolve_links
         self.state = CreateVolatileSubscription.State.init
 
-    def error(self, exn):
+    def error(self, exn) -> Reply:
         if self.state == CreateVolatileSubscription.State.init:
             return Reply(ReplyAction.CompleteError, exn, None)
 
@@ -795,14 +799,27 @@ class ConnectPersistentSubscription(Conversation):
         body = proto.SubscriptionDropped()
         body.ParseFromString(response.payload)
 
-        if self.state == CreateVolatileSubscription.State.init:
-            return self.error(
-                exceptions.SubscriptionCreationFailed(
-                    self.conversation_id, body.reason
-                )
-            )
+        if (self.state == ConnectPersistentSubscription.State.live and
+                body.reason == messages.SubscriptionDropReason.Unsubscribed):
 
-        return Reply(ReplyAction.FinishSubscription, None, None)
+            return Reply(ReplyAction.FinishSubscription, None, None)
+
+        if self.state == ConnectPersistentSubscription.State.live:
+            return self.error(exceptions.SubscriptionFailed(
+                self.conversation_id, body.reason
+            ))
+
+        return self.error(
+            exceptions.SubscriptionCreationFailed(
+                self.conversation_id, body.reason
+            )
+        )
+
+    def error(self, exn) -> Reply:
+        if self.state == CreateVolatileSubscription.State.init:
+            return Reply(ReplyAction.CompleteError, exn, None)
+
+        return Reply(ReplyAction.RaiseToSubscription, exn, None)
 
     def reply(self, response: InboundMessage):
 

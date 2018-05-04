@@ -1,8 +1,7 @@
 import json
-from photonpump import exceptions
+
 from photonpump import messages as msg
 from photonpump import messages_pb2 as proto
-from photonpump.conversations import ReadStreamEvents, ReplyAction
 
 
 def read_stream_events_failure(conversation_id, result):

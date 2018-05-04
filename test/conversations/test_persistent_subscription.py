@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from photonpump import messages_pb2 as proto
+from photonpump import exceptions as exn
 from photonpump.conversations import (
     ConnectPersistentSubscription, PersistentSubscription, ReplyAction
 )
@@ -119,3 +120,22 @@ def test_stream_event_appeared():
     assert reply.result.event.id == event_id
 
     assert reply.next_message is None
+
+
+def test_subscription_unsubscribed_midway():
+    convo = ConnectPersistentSubscription(
+        'my-subscription', 'my-stream', max_in_flight=57
+    )
+    confirm_subscription(convo)
+    reply = drop_subscription(convo, SubscriptionDropReason.Unsubscribed)
+    assert reply.action == ReplyAction.FinishSubscription
+
+
+def test_subscription_failed_midway():
+    convo = ConnectPersistentSubscription(
+        'my-subscription', 'my-stream', max_in_flight=57
+    )
+    confirm_subscription(convo)
+    reply = drop_subscription(convo, SubscriptionDropReason.AccessDenied)
+    assert reply.action == ReplyAction.RaiseToSubscription
+    assert isinstance(reply.result, exn.SubscriptionFailed)

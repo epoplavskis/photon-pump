@@ -4,7 +4,7 @@ import math
 import struct
 from collections import namedtuple
 from enum import IntEnum
-from typing import Any, Dict, NamedTuple, Sequence
+from typing import Any, Dict, Sequence
 from uuid import UUID, uuid4
 
 from . import messages_pb2
@@ -384,6 +384,6 @@ SubscriptionResult = make_enum(
 
 
 class SubscriptionCreatedResponse:
-    def __init__(self, result:SubscriptionResult, reason: str):
+    def __init__(self, result: SubscriptionResult, reason: str):
         self.reason = reason
         self.result = result
