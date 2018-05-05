@@ -21,7 +21,7 @@ import uuid
 
 import pytest
 from photonpump import messages_pb2 as proto
-from photonpump.connection import MessageDispatcher
+from photonpump.connection2 import MessageDispatcher
 from photonpump.conversations import (ConnectPersistentSubscription,
                                       IterStreamEvents, Ping)
 from photonpump.exceptions import (NotAuthenticated, PayloadUnreadable,
@@ -393,6 +393,7 @@ async def test_when_a_persistent_subscription_fails_on_connection():
 
     with pytest.raises(SubscriptionCreationFailed):
         await asyncio.wait_for(future, 1)
+    dispatcher.stop()
 
 
 @pytest.mark.asyncio
