@@ -1,9 +1,58 @@
 import asyncio
+import enum
 import logging
 
 from . import conversations as convo
 from . import messages as msg
 from . import messages_pb2 as proto
+
+
+class Event(list):
+
+    def __call__(self, *args, **kwargs):
+        for f in self:
+            f(*args, **kwargs)
+
+    def __repr__(self):
+        return 'Event(%s)' % list.__repr__(self)
+
+
+class Connector(asyncio.streams.FlowControlMixin):
+
+    class cmd(enum.IntEnum):
+        Connect = 0
+        Stop = -1
+
+    def __init__(self, discovery, loop=None):
+        self.loop = loop or asyncio.get_event_loop()
+        self.discovery = discovery
+        self.connected = Event()
+        self.ctrl_queue = asyncio.Queue(loop=self.loop)
+        self.log = logging.getLogger("photonpump.connection.Connector")
+        self._run_loop = asyncio.ensure_future(self._run())
+
+    async def start(self):
+        await self.ctrl_queue.put(Connector.cmd.Connect)
+
+    async def stop(self):
+        await self.ctrl_queue.put(Connector.cmd.Stop)
+        await self._run_loop
+
+    async def _run(self):
+        while True:
+            self.log.info("Waiting for a message")
+            msg = await self.ctrl_queue.get()
+            if msg == Connector.cmd.Connect:
+                self.log.info("Connecting")
+                node = await self.discovery.discover()
+                self.log.info("Connecting to %s:%s", node.address, node.port)
+                reader, writer = await asyncio.open_connection(node.address, node.port, loop=self.loop)
+                print("foo?")
+                self.log.info("Got me a reader/writer pair for %s", node)
+                self.connected(reader, writer)
+            elif msg == Connector.cmd.Stop:
+                return
+
 
 
 class StreamingIterator:

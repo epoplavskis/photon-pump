@@ -264,6 +264,7 @@ async def test_when_dispatching_stream_iterators():
     [e] = [e async for e in iterator]
     assert e.event.json()['x'] == 4
     assert not dispatcher.has_conversation(conversation.conversation_id)
+    dispatcher.stop()
 
 
 @pytest.mark.asyncio
