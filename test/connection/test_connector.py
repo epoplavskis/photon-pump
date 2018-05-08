@@ -31,19 +31,16 @@ class EchoServer:
 
     async def _run(self, reader, writer):
         print("Running?")
-        while True:
-            data = await reader.read(100)
-            print("Got mad data")
-            message = data.decode()
-            addr = writer.get_extra_info('peername')
-            print("Received %r from %r" % (message, addr))
+        data = await reader.read(100)
+        print("Got mad data")
+        message = data.decode()
+        addr = writer.get_extra_info('peername')
+        print("Received %r from %r" % (message, addr))
 
-            print("Send: %r" % message)
-            writer.write(data)
-            await writer.drain()
-
-            print("Close the client socket")
-            writer.close()
+        print("Send: %r" % message)
+        writer.write(data)
+        await writer.drain()
+        writer.close()
 
     def stop(self):
         self.server.close()
@@ -54,12 +51,9 @@ async def test_when_connecting_to_a_server(event_loop):
 
     addr = NodeService("localhost", 8338, None)
 
-    server = EchoServer(addr, event_loop)
-    await server.start()
-
     connector = Connector(SingleNodeDiscovery(addr), loop=event_loop)
     events = []
-    wait_for = asyncio.Future()
+    wait_for = asyncio.Future(loop=event_loop)
 
     def on_connected(reader, writer):
         print("Called!")
@@ -71,6 +65,12 @@ async def test_when_connecting_to_a_server(event_loop):
 
     await asyncio.wait_for(wait_for, 2)
     assert len(events) == 1
-    await connector.stop()
-    server.stop()
+    print(events[0])
 
+    reader, writer = events[0]
+    writer.write("Hello".encode())
+
+    received = await asyncio.wait_for(reader.read(100), 1)
+    assert received.decode() == "Hello"
+
+    await connector.stop()

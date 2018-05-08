@@ -17,7 +17,7 @@ class Event(list):
         return 'Event(%s)' % list.__repr__(self)
 
 
-class Connector(asyncio.streams.FlowControlMixin):
+class Connector(asyncio.Protocol):
 
     class cmd(enum.IntEnum):
         Connect = 0
@@ -27,9 +27,23 @@ class Connector(asyncio.streams.FlowControlMixin):
         self.loop = loop or asyncio.get_event_loop()
         self.discovery = discovery
         self.connected = Event()
+        self.disconnected = Event()
         self.ctrl_queue = asyncio.Queue(loop=self.loop)
         self.log = logging.getLogger("photonpump.connection.Connector")
         self._run_loop = asyncio.ensure_future(self._run())
+
+        self._connection_lost = False
+        self._paused = False
+
+    def sausages(self, transport):
+        self.log.info(
+            "PhotonPump is connected to eventstore instance at %s",
+            str(transport.get_extra_info('peername', 'ERROR'))
+        )
+        reader = asyncio.StreamReader(loop=self.loop)
+        reader.set_transport(transport)
+        writer = asyncio.StreamWriter(transport, self, None, self.loop)
+        self.connected(reader, writer)
 
     async def start(self):
         await self.ctrl_queue.put(Connector.cmd.Connect)
@@ -42,17 +56,17 @@ class Connector(asyncio.streams.FlowControlMixin):
         while True:
             self.log.info("Waiting for a message")
             msg = await self.ctrl_queue.get()
+
             if msg == Connector.cmd.Connect:
                 self.log.info("Connecting")
                 node = await self.discovery.discover()
                 self.log.info("Connecting to %s:%s", node.address, node.port)
-                reader, writer = await asyncio.open_connection(node.address, node.port, loop=self.loop)
-                print("foo?")
-                self.log.info("Got me a reader/writer pair for %s", node)
+                reader, writer = await asyncio.open_connection(
+                    node.address, node.port, loop=self.loop
+                )
                 self.connected(reader, writer)
             elif msg == Connector.cmd.Stop:
                 return
-
 
 
 class StreamingIterator:
