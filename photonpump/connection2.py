@@ -31,19 +31,24 @@ class Connector(asyncio.Protocol):
         self.ctrl_queue = asyncio.Queue(loop=self.loop)
         self.log = logging.getLogger("photonpump.connection.Connector")
         self._run_loop = asyncio.ensure_future(self._run())
+        self.reader = None
+        self.writer = None
 
         self._connection_lost = False
         self._paused = False
 
-    def sausages(self, transport):
+    def connection_made(self, transport):
         self.log.info(
             "PhotonPump is connected to eventstore instance at %s",
             str(transport.get_extra_info('peername', 'ERROR'))
         )
-        reader = asyncio.StreamReader(loop=self.loop)
+        self.reader = reader = asyncio.StreamReader(loop=self.loop)
         reader.set_transport(transport)
-        writer = asyncio.StreamWriter(transport, self, None, self.loop)
+        self.writer = writer = asyncio.StreamWriter(transport, self, reader, self.loop)
         self.connected(reader, writer)
+
+    def data_received(self, data):
+        self.reader.feed_data(data)
 
     async def start(self):
         await self.ctrl_queue.put(Connector.cmd.Connect)
@@ -61,10 +66,9 @@ class Connector(asyncio.Protocol):
                 self.log.info("Connecting")
                 node = await self.discovery.discover()
                 self.log.info("Connecting to %s:%s", node.address, node.port)
-                reader, writer = await asyncio.open_connection(
-                    node.address, node.port, loop=self.loop
+                await self.loop.create_connection(
+                        lambda: self, node.address, node.port
                 )
-                self.connected(reader, writer)
             elif msg == Connector.cmd.Stop:
                 return
 
