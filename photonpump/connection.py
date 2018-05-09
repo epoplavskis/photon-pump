@@ -403,6 +403,43 @@ class MessageDispatcher:
                 await sub.events.enqueue(reply.result)
 
 
+class MessageWriter:
+
+    def __init__(self, queue, connector):
+        connector.conneted += self.on_connected
+        connector.on_connection_lost += self.on_connection_lost
+        self._queue = queue
+
+    def on_connection_lost(self):
+        self._write_loop.cancel()
+
+    def on_connected(self, _, streamwriter):
+        self.stream_wrtier = streamwriter
+        self.write_loop = asyncio.ensure_future(
+            self._write_outbound_messages()
+        )
+
+    async def _write_outbound_messages(self):
+        if self.next:
+            self.stream_wrtier.write(self.next.header_bytes)
+            self.stream_wrtier.write(self.next.payload)
+
+        while self._is_connected:
+            self._logger.debug('Sending message %s', self.next)
+            self.next = await self._queue.get()
+            try:
+                self.stream_wrtier.write(self.next.header_bytes)
+                self.stream_wrtier.write(self.next.payload)
+            except Exception as e:
+                self._logger.error(
+                    'Failed to send message %s', e, exc_info=True
+                )
+            try:
+                await self.stream_wrtier.drain()
+            except Exception as e:
+                self._logger.error(e)
+
+
 class PersistentSubscription(convo.PersistentSubscription):
 
     def __init__(self, subscription, iterator, conn, out_queue=None):
@@ -949,23 +986,32 @@ class ConnectionContextManager:
             password=None,
             loop=None
     ):
-        self.conn = Connection(
-            host=host,
-            port=port,
-            discovery_host=discovery_host,
-            discovery_port=discovery_port,
-            username=username,
-            password=password,
-            loop=loop
+        connector = Connector(
+            host=None,
+            port=1113,
+            discovery_host=None,
+            discovery_port=2113,
+            username=None,
+            password=None,
         )
 
-    async def __aenter__(self):
-        await self.conn.connect()
+        input_queue = asyncio.Queue(maxsize=100)
+        output_queue = asyncio.Queue(maxsize=100)
 
-        return self.conn
+        reader = MessageReader(input_queue, connector)
+        writer = MessageWriter(output_queue, connector)
+        dispatcher = MessageDispatcher(connector, writer, reader)
+
+        self.client = Client(connector, reader, writer, dispatcher)
+
+
+    async def __aenter__(self):
+        await self.client.connect()
+
+        return self.client
 
     async def __aexit__(self, exc_type, exc, tb):
-        self.conn.close()
+        self.client.close()
 
 
 def connect(*args, **kwargs):
