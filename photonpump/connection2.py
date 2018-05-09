@@ -50,6 +50,13 @@ class Connector(asyncio.Protocol):
     def data_received(self, data):
         self.reader.feed_data(data)
 
+    def eof_received(self):
+        self.log.info("EOF received, tearing down connection")
+        self.disconnected()
+
+    def connection_lost(self, exn=None):
+        self.log.info("Connection lost %s", exn)
+
     async def start(self):
         await self.ctrl_queue.put(Connector.cmd.Connect)
 

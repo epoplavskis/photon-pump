@@ -9,41 +9,68 @@ event. These events are handled by the Reader, Writer, and Dispatcher.
 """
 
 import asyncio
-import pytest
+import socket
 import threading
+
+import pytest
 
 from photonpump.connection2 import Connector
 from photonpump.discovery import NodeService, SingleNodeDiscovery
 
 
+class EchoServerClientProtocol(asyncio.Protocol):
+
+    def __init__(self, cb):
+        self.cb = cb
+
+    def connection_made(self, transport):
+        peername = transport.get_extra_info('peername')
+        print('Connection from {}'.format(peername))
+        self.transport = transport
+        self.cb(transport)
+
+    def data_received(self, data):
+        message = data.decode()
+        print('Data received: {!r}'.format(message))
+
+        print('Send: {!r}'.format(message))
+        self.transport.write(data)
+
+        print('Close the client socket')
+        self.transport.close()
+
+
 class EchoServer:
 
     def __init__(self, addr, loop):
-        self.server = None
-        self.loop = loop
         self.host = addr.address
         self.port = addr.port
+        self.loop = loop
+        self.running = False
 
-    async def start(self):
-        _server = asyncio.start_server(self._run, self.host, self.port, loop=self.loop)
-        self.server = await _server
-        print("Started server? %s", self.server)
+    async def __aenter__(self):
+        self.transports = []
+        server = self.loop.create_server(
+            self.make_protocol, self.host, self.port
+        )
+        self._server = await server
+        self.running = True
+        return self
 
-    async def _run(self, reader, writer):
-        print("Running?")
-        data = await reader.read(100)
-        print("Got mad data")
-        message = data.decode()
-        addr = writer.get_extra_info('peername')
-        print("Received %r from %r" % (message, addr))
+    def make_protocol(self):
+        return EchoServerClientProtocol(self.transports.append)
 
-        print("Send: %r" % message)
-        writer.write(data)
-        await writer.drain()
-        writer.close()
+    async def __aexit__(self, exc_type, exc, tb):
+        self.stop()
 
     def stop(self):
-        self.server.close()
+        if not self.running:
+            return
+
+        for transport in self.transports:
+            transport.close()
+        self._server.close()
+        self.running = False
 
 
 @pytest.mark.asyncio
@@ -51,26 +78,55 @@ async def test_when_connecting_to_a_server(event_loop):
 
     addr = NodeService("localhost", 8338, None)
 
+    async with EchoServer(addr, event_loop):
+
+        connector = Connector(SingleNodeDiscovery(addr), loop=event_loop)
+        events = []
+        wait_for = asyncio.Future(loop=event_loop)
+
+        def on_connected(reader, writer):
+            print("Called!")
+            events.append((reader, writer))
+            wait_for.set_result(None)
+
+        connector.connected.append(on_connected)
+        await connector.start()
+
+        await asyncio.wait_for(wait_for, 2)
+        assert len(events) == 1
+        print(events[0])
+
+        reader, writer = events[0]
+        writer.write("Hello".encode())
+
+        received = await asyncio.wait_for(reader.read(100), 1)
+        assert received.decode() == "Hello"
+
+        await connector.stop()
+
+
+@pytest.mark.asyncio
+async def test_when_a_server_disconnects(event_loop):
+
+    addr = NodeService("localhost", 8338, None)
+
     connector = Connector(SingleNodeDiscovery(addr), loop=event_loop)
-    events = []
     wait_for = asyncio.Future(loop=event_loop)
 
-    def on_connected(reader, writer):
-        print("Called!")
-        events.append((reader, writer))
+    def on_disconnected():
+        print("disconnected")
         wait_for.set_result(None)
 
-    connector.connected.append(on_connected)
-    await connector.start()
+    connector.disconnected.append(on_disconnected)
+ 
+    async with EchoServer(addr, event_loop) as server:
 
-    await asyncio.wait_for(wait_for, 2)
-    assert len(events) == 1
-    print(events[0])
+        def on_connected(*args):
+            print("connected")
+            server.stop()
 
-    reader, writer = events[0]
-    writer.write("Hello".encode())
+        connector.connected.append(on_connected)
 
-    received = await asyncio.wait_for(reader.read(100), 1)
-    assert received.decode() == "Hello"
-
-    await connector.stop()
+        await connector.start()
+        await asyncio.wait_for(wait_for, 2)
+        await connector.stop()
