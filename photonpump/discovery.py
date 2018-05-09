@@ -200,7 +200,7 @@ async def fetch_new_gossip(session, seed):
         data = await resp.json()
 
         return read_gossip(data)
-    except:
+    except aiohttp.ClientError:
         LOG.exception(
             f"Failed loading gossip from http://{seed.address}:{seed.port}/gossip"
         )

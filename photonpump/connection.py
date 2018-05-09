@@ -225,7 +225,10 @@ class StreamingIterator:
         await self.items.put(item)
 
     async def anext(self):
-        return await self.__anext__()
+        try:
+            return await self.__anext__()
+        except StopAsyncIteration:
+            pass
 
     async def __anext__(self):
 
@@ -325,17 +328,7 @@ class MessageDispatcher:
                 message
             )
 
-            try:
-                reply = conversation.respond_to(message)
-            except Exception as e:
-                log.warn(
-                    'Conversation %s received an error %s', conversation,
-                    reply.result
-                )
-                result.set_exception(reply.result)
-                del self.active_conversations[message.conversation_id]
-
-                continue
+            reply = conversation.respond_to(message)
 
             log.debug('Reply is %s', reply)
 
@@ -401,6 +394,16 @@ class MessageDispatcher:
                 log.debug('Pushing new event for subscription %s', conversation)
                 sub = await result
                 await sub.events.enqueue(reply.result)
+
+            elif reply.action == convo.ReplyAction.RaiseToSubscription:
+                sub = await result
+                log.info("Raising error %s to persistent subscription %s", reply.result, sub)
+                await sub.events.enqueue(reply.result)
+
+            elif reply.action == convo.ReplyAction.FinishSubscription:
+                sub = await result
+                log.info("Completing persistent subscription %s", sub)
+                await sub.events.enqueue(StopIteration())
 
 
 class MessageWriter:
@@ -582,8 +585,9 @@ class EventstoreProtocol(asyncio.streams.FlowControlMixin):
 
         if not message.one_way:
             future = asyncio.Future(loop=self._loop)
-            self._pending_operations[conversation.conversation_id
-                                    ] = (conversation, future)
+            state = (conversation, future)
+            conversation_id = conversation.conversation_id
+            self._pending_operations[conversation_id] = state
         try:
             await self._queue.put(message)
         except Exception as e:

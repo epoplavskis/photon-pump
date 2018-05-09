@@ -17,28 +17,25 @@ This feels totally wrong but it means that the Conversation interface is super
 simple and testable.
 """
 import asyncio
-import logging
 import uuid
 
 import pytest
+from photonpump import messages_pb2 as proto
+from photonpump.connection2 import MessageDispatcher
+from photonpump.conversations import (ConnectPersistentSubscription,
+                                      IterStreamEvents, Ping)
+from photonpump.exceptions import (NotAuthenticated, PayloadUnreadable,
+                                   StreamDeleted, SubscriptionCreationFailed,
+                                   SubscriptionFailed)
+from photonpump.messages import (InboundMessage, NewEvent, OutboundMessage,
+                                 ReadStreamResult, SubscriptionDropReason,
+                                 TcpCommand)
 from testfixtures import LogCapture
 
-from photonpump import messages_pb2 as proto
-from photonpump.connection import MessageDispatcher
-from photonpump.conversations import (
-    ConnectPersistentSubscription, IterStreamEvents, Ping
-)
-from photonpump.exceptions import (
-    NotAuthenticated, PayloadUnreadable, StreamDeleted
-)
-from photonpump.messages import (
-    InboundMessage, NewEvent, OutboundMessage, ReadStreamResult, TcpCommand
-)
-
-from ..data import (
-    persistent_subscription_confirmed, read_stream_events_completed,
-    read_stream_events_failure, subscription_event_appeared
-)
+from ..data import (persistent_subscription_confirmed,
+                    persistent_subscription_dropped,
+                    read_stream_events_completed, read_stream_events_failure,
+                    subscription_event_appeared)
 
 
 def start_dispatcher():
@@ -144,7 +141,7 @@ async def test_when_the_conversation_is_not_recognised():
 
     in_queue, _, dispatcher = start_dispatcher()
     future = await dispatcher.enqueue_conversation(conversation)
-    with LogCapture() as l:
+    with LogCapture() as logs:
         await in_queue.put(unexpected_message)
         await in_queue.put(
             InboundMessage(
@@ -152,7 +149,7 @@ async def test_when_the_conversation_is_not_recognised():
             )
         )
         assert await future
-        l.check_present(
+        logs.check_present(
             (
                 "photonpump.connection.MessageDispatcher", "ERROR",
                 f"No conversation found for message {unexpected_message}"
@@ -267,6 +264,7 @@ async def test_when_dispatching_stream_iterators():
     [e] = [e async for e in iterator]
     assert e.event.json()['x'] == 4
     assert not dispatcher.has_conversation(conversation.conversation_id)
+    dispatcher.stop()
 
 
 @pytest.mark.asyncio
@@ -368,13 +366,34 @@ async def test_when_running_a_persistent_subscription():
     expected_payload.subscription_id = "my-sub"
     expected_payload.processed_event_ids.append(event.event.id.bytes_le)
     expected_message = OutboundMessage(
-            conversation.conversation_id,
-            TcpCommand.PersistentSubscriptionAckEvents,
-            expected_payload.SerializeToString())
+        conversation.conversation_id,
+        TcpCommand.PersistentSubscriptionAckEvents,
+        expected_payload.SerializeToString()
+    )
 
     ack = await out_queue.get()
 
     assert ack == expected_message
+    dispatcher.stop()
+
+
+@pytest.mark.asyncio
+async def test_when_a_persistent_subscription_fails_on_connection():
+    """
+    If a persistent subscription fails to connect we should raise the error
+    to the caller. We're going to use an authentication error here and leave
+    the vexing issue of NotHandled for another day.
+    """
+    in_queue, _, dispatcher = start_dispatcher()
+    conversation = ConnectPersistentSubscription("my-sub", "my-stream")
+    future = await dispatcher.enqueue_conversation(conversation)
+
+    await in_queue.put(persistent_subscription_dropped(
+        conversation.conversation_id, SubscriptionDropReason.AccessDenied
+    ))
+
+    with pytest.raises(SubscriptionCreationFailed):
+        await asyncio.wait_for(future, 1)
     dispatcher.stop()
 
 
@@ -384,12 +403,44 @@ async def test_when_a_persistent_subscription_fails():
     If a persistent subscription fails with something non-recoverable then
     we should raise the error to the caller
     """
-    pass
+    in_queue, _, dispatcher = start_dispatcher()
+    conversation = ConnectPersistentSubscription("my-sub", "my-stream")
+    future = await dispatcher.enqueue_conversation(conversation)
+
+    await in_queue.put(persistent_subscription_confirmed(
+        conversation.conversation_id, "my-sub"
+    ))
+
+    subscription = await asyncio.wait_for(future, 1)
+
+    await in_queue.put(persistent_subscription_dropped(
+        conversation.conversation_id, SubscriptionDropReason.AccessDenied
+    ))
+
+    with pytest.raises(SubscriptionFailed):
+        await anext(subscription.events)
+    dispatcher.stop()
 
 
 @pytest.mark.asyncio
-async def test_when_we_reset_the_connection():
+async def test_when_a_persistent_subscription_is_unsubscribed():
     """
-    If our connection is reset, then we should resubmit the subsription
+    If a persistent subscription gets unsubscribed while processing
+    we should log an info and exit gracefully
     """
-    pass
+    in_queue, _, dispatcher = start_dispatcher()
+    conversation = ConnectPersistentSubscription("my-sub", "my-stream")
+    future = await dispatcher.enqueue_conversation(conversation)
+
+    await in_queue.put(persistent_subscription_confirmed(
+        conversation.conversation_id, "my-sub"
+    ))
+
+    subscription = await asyncio.wait_for(future, 1)
+
+    await in_queue.put(persistent_subscription_dropped(
+        conversation.conversation_id, SubscriptionDropReason.Unsubscribed
+    ))
+
+    [] = [e async for e in subscription.events]
+    dispatcher.stop()

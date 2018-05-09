@@ -1,11 +1,11 @@
 import json
 import os
 
-from .persistent_subscription_conversations import \
-    persistent_subscription_confirmed, subscription_event_appeared
-from .read_stream_events_conversation import (
-    read_stream_events_completed, read_stream_events_failure
-)
+from .persistent_subscription_conversations import (persistent_subscription_confirmed,
+                                                    persistent_subscription_dropped,
+                                                    subscription_event_appeared)
+from .read_stream_events_conversation import (read_stream_events_completed,
+                                              read_stream_events_failure)
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 GOSSIP_PATH = os.path.join(DIR_PATH, 'gossip.json')
