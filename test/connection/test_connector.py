@@ -198,9 +198,9 @@ async def test_when_three_heartbeats_fail_in_a_row(event_loop):
         assert connect.command == ConnectorCommand.Connect
         assert connected.command == ConnectorCommand.HandleConnectionOpened
 
-        connector.failed_heartbeat()
-        connector.failed_heartbeat()
-        connector.failed_heartbeat()
+        connector.heartbeat_failed()
+        connector.heartbeat_failed()
+        connector.heartbeat_failed()
 
         [hb1, hb2, hb3, connection_closed, reconnect] = await queue.next_event(count=5)
 
@@ -229,20 +229,20 @@ async def test_when_a_heartsucceeds(event_loop):
         assert connect.command == ConnectorCommand.Connect
         assert connected.command == ConnectorCommand.HandleConnectionOpened
 
-        connector.failed_heartbeat()
-        connector.failed_heartbeat()
+        connector.heartbeat_failed()
+        connector.heartbeat_failed()
 
         [hb1, hb2] = await queue.next_event(count=2)
         assert connector.heartbeat_failures == 2
 
         connector.heartbeat_received("Foo")
 
-        connector.failed_heartbeat()
-        connector.failed_heartbeat()
+        connector.heartbeat_failed()
+        connector.heartbeat_failed()
 
         [success, hb3, hb4] = await queue.next_event(count=3)
 
         assert connector.heartbeat_failures == 2
         assert success.command == ConnectorCommand.HandleHeartbeatSuccess
-        assert hb3.command == ConnectorCommand.HandleFailedHeartbeat
-        assert hb4.command == ConnectorCommand.HandleFailedHeartbeat
+        assert hb3.command == ConnectorCommand.HandleHeartbeatFailed
+        assert hb4.command == ConnectorCommand.HandleHeartbeatFailed

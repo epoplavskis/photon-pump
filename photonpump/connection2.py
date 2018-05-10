@@ -24,8 +24,10 @@ class ConnectorCommand(enum.IntEnum):
     HandleConnectionOpened = 2
     HandleConnectionClosed = 3
     HandleConnectionFailed = 4
-    HandleFailedHeartbeat = 5
+
+    HandleHeartbeatFailed = 5
     HandleHeartbeatSuccess = 6
+
     Stop = -1
 
 
@@ -100,10 +102,10 @@ class Connector(asyncio.Protocol):
                 )
             )
 
-    def failed_heartbeat(self, exn=None):
+    def heartbeat_failed(self, exn=None):
         self._put_msg(
             ConnectorInstruction(
-                ConnectorCommand.HandleFailedHeartbeat, None, exn
+                ConnectorCommand.HandleHeartbeatFailed, None, exn
             )
         )
 
@@ -193,7 +195,7 @@ class Connector(asyncio.Protocol):
             if msg.command == ConnectorCommand.HandleConnectionFailed:
                 await self._on_transport_closed()
 
-            if msg.command == ConnectorCommand.HandleFailedHeartbeat:
+            if msg.command == ConnectorCommand.HandleHeartbeatFailed:
                 await self._on_failed_heartbeat(msg.data)
 
             if msg.command == ConnectorCommand.HandleHeartbeatSuccess:
