@@ -9,9 +9,6 @@ event. These events are handled by the Reader, Writer, and Dispatcher.
 """
 
 import asyncio
-import logging
-import socket
-import threading
 
 import pytest
 
@@ -43,7 +40,6 @@ class TeeQueue:
             result.append(await self.teed_queue.get())
             needed -= 1
         return result
-
 
 
 class EchoServerClientProtocol(asyncio.Protocol):
@@ -178,7 +174,7 @@ async def test_when_a_server_disconnects(event_loop):
         reconnect = await queue.next_event()
         assert reconnect.command == ConnectorCommand.Connect
 
-    assert raised_disconnected_event.result() == True
+    assert raised_disconnected_event.result() is True
     await connector.stop()
 
 
