@@ -212,8 +212,15 @@ class SingleNodeDiscovery:
 
     def __init__(self, node):
         self.node = node
+        self.failed = False
+
+    def mark_failed(self, node):
+        if node == self.node:
+            self.failed = True
 
     async def discover(self):
+        if self.failed:
+            raise DiscoveryFailed()
         LOG.debug("SingleNodeDiscovery returning node %s", self.node)
         return self.node
 
@@ -331,9 +338,8 @@ class DiscoveryRetryPolicy:
             return
 
         next_interval = self.retry_interval * self.multiplier * stats.consecutive_failures
-        jitter = (self.jitter * self.multiplier * stats.consecutive_failures)
-        maxinterval = next_interval + jitter
-        mininterval = next_interval - jitter
+        maxinterval = next_interval + self.jitter
+        mininterval = next_interval - self.jitter
         interval = random.uniform(mininterval, maxinterval)
 
         LOG.debug(f"Discovery retry policy sleeping for {interval} secs")
