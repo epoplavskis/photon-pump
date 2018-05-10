@@ -12,8 +12,8 @@ import asyncio
 
 import pytest
 
-from photonpump.connection2 import Connector, ConnectorCommand
-from photonpump.discovery import NodeService, SingleNodeDiscovery
+from photonpump.connection2 import Connector, ConnectorCommand, ConnectorInstruction
+from photonpump.discovery import NodeService, SingleNodeDiscovery, DiscoveryFailed
 
 
 class TeeQueue:
@@ -249,3 +249,43 @@ async def test_when_a_heartbeat_succeeds(event_loop):
         assert hb4.command == ConnectorCommand.HandleHeartbeatFailed
 
         await connector.stop()
+
+@pytest.mark.asyncio
+async def test_when_discovery_fails_on_reconnection(event_loop):
+
+    """
+    If we can't retry our current node any more, and we can't discover a new one
+    then it's game over and we should raise the stopped event.
+    """
+
+    class never_retry:
+
+        def should_retry(self, _):
+            return False
+
+        def record_failure(self, node):
+            self.recorded = node
+
+
+    wait_for_stopped = asyncio.Future()
+
+    def on_stopped(exn):
+        wait_for_stopped.set_result(exn)
+
+    queue = TeeQueue()
+    addr = NodeService("localhost", 8338, None)
+    policy = never_retry()
+    connector = Connector(
+        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue,
+        retry_policy=policy
+    )
+
+    connector.stopped.append(on_stopped)
+
+    await connector.start()
+    [connect, connection_failed] = await queue.next_event(count=2)
+
+    [reconnect, failed, stop] = await asyncio.wait_for(queue.next_event(count=3), 2)
+    assert failed.command == ConnectorCommand.HandleConnectorFailed
+    assert policy.recorded == addr
+    assert isinstance(await wait_for_stopped, DiscoveryFailed)

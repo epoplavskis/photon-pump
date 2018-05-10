@@ -50,11 +50,12 @@ class ConnectorInstruction(NamedTuple):
 
 class Connector(asyncio.Protocol):
 
-    def __init__(self, discovery, ctrl_queue=None, loop=None):
+    def __init__(self, discovery, retry_policy=None, ctrl_queue=None, loop=None):
         self.loop = loop or asyncio.get_event_loop()
         self.discovery = discovery
         self.connected = Event()
         self.disconnected = Event()
+        self.stopped = Event()
         self.ctrl_queue = ctrl_queue or asyncio.Queue(loop=self.loop)
         self.log = logging.getLogger("photonpump.connection.Connector")
         self._run_loop = asyncio.ensure_future(self._run())
@@ -62,7 +63,7 @@ class Connector(asyncio.Protocol):
         self.writer = None
         self.transport = None
         self.heartbeat_failures = 0
-        self.retry_policy = DiscoveryRetryPolicy(retries_per_node=10)
+        self.retry_policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=10)
         self.target_node = None
 
         self._connection_lost = False
@@ -120,16 +121,25 @@ class Connector(asyncio.Protocol):
             ConnectorInstruction(ConnectorCommand.Connect, None, target)
         )
 
-    async def stop(self):
+    async def stop(self, exn=None):
+        self.log.info("Stopping connector")
         self.state = ConnectorState.Stopping
-        await self.ctrl_queue.put(
-            ConnectorInstruction(ConnectorCommand.Stop, None, None)
-        )
-        await self._run_loop
+        try:
+            await self.ctrl_queue.put(
+                ConnectorInstruction(ConnectorCommand.Stop, None, exn)
+            )
+        except:
+            self.log.exception("I don't know")
 
     async def _attempt_connect(self, node):
         if not node:
-            node = self.target_node = await self.discovery.discover()
+            try:
+                self.log.debug("Performing node discovery")
+                node = self.target_node = await self.discovery.discover()
+            except Exception as e:
+                await self.ctrl_queue.put(
+                    ConnectorInstruction(ConnectorCommand.HandleConnectorFailed, None, e))
+                return
         self.log.info("Connecting to %s:%s", node.address, node.port)
         try:
             await self.loop.create_connection(
@@ -195,6 +205,10 @@ class Connector(asyncio.Protocol):
         )
         self.heartbeat_failures = 0
 
+    async def _on_connector_failed(self, exn):
+        self.log.error("Connector failed to find a connection")
+        await self.stop(exn=exn)
+
     async def _run(self):
         while True:
             msg = await self.ctrl_queue.get()
@@ -221,7 +235,12 @@ class Connector(asyncio.Protocol):
             if msg.command == ConnectorCommand.HandleHeartbeatSuccess:
                 await self._on_successful_heartbeat(msg.data)
 
-            elif msg.command == ConnectorCommand.Stop:
+            if msg.command == ConnectorCommand.HandleConnectorFailed:
+                await self._on_connector_failed(msg.data)
+
+            if msg.command == ConnectorCommand.Stop:
+                self.log.info("Connector is stopping, yo")
+                self.stopped(msg.data)
                 return
 
 
