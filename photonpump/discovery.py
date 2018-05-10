@@ -214,6 +214,7 @@ class SingleNodeDiscovery:
         self.node = node
 
     async def discover(self):
+        LOG.debug("SingleNodeDiscovery returning node %s", self.node)
         return self.node
 
 
