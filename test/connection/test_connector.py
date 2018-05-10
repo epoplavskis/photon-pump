@@ -208,12 +208,45 @@ async def test_when_three_heartbeats_fail_in_a_row(event_loop):
 
         [hb1, hb2, hb3, connection_closed, reconnect] = await queue.next_event(count=5)
 
-        logging.info(hb1)
-        logging.info(hb2)
-        logging.info(hb3)
+        assert connector.heartbeat_failures == 3
         assert connection_closed.command == ConnectorCommand.HandleConnectionClosed
         assert reconnect.command == ConnectorCommand.Connect
 
 
+@pytest.mark.asyncio
+async def test_when_a_heartsucceeds(event_loop):
+    """
+    If one of our heartbeats succeeds, we should reset our counter.
+    Ergo, if we have two failures, followed by a success, followed
+    by two failures, we should not reset the connection.
+    """
 
-    pass
+    queue = TeeQueue()
+    addr = NodeService("localhost", 8338, None)
+    connector = Connector(
+        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+    )
+
+    async with EchoServer(addr, event_loop):
+        await connector.start()
+        [connect, connected] = await queue.next_event(count=2)
+        assert connect.command == ConnectorCommand.Connect
+        assert connected.command == ConnectorCommand.HandleConnectionOpened
+
+        connector.failed_heartbeat()
+        connector.failed_heartbeat()
+
+        [hb1, hb2] = await queue.next_event(count=2)
+        assert connector.heartbeat_failures == 2
+
+        connector.heartbeat_received("Foo")
+
+        connector.failed_heartbeat()
+        connector.failed_heartbeat()
+
+        [success, hb3, hb4] = await queue.next_event(count=3)
+
+        assert connector.heartbeat_failures == 2
+        assert success.command == ConnectorCommand.HandleHeartbeatSuccess
+        assert hb3.command == ConnectorCommand.HandleFailedHeartbeat
+        assert hb4.command == ConnectorCommand.HandleFailedHeartbeat

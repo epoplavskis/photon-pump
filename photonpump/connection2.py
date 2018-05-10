@@ -25,8 +25,8 @@ class ConnectorCommand(enum.IntEnum):
     HandleConnectionClosed = 3
     HandleConnectionFailed = 4
     HandleFailedHeartbeat = 5
+    HandleHeartbeatSuccess = 6
     Stop = -1
-
 
 
 class ConnectorState(enum.IntEnum):
@@ -66,11 +66,18 @@ class Connector(asyncio.Protocol):
         asyncio.ensure_future(self.ctrl_queue.put(msg))
 
     def connection_made(self, transport):
-        self._put_msg(ConnectorInstruction(
-            ConnectorCommand.HandleConnectionOpened,
-            None,
-            transport
-        ))
+        self._put_msg(
+            ConnectorInstruction(
+                ConnectorCommand.HandleConnectionOpened, None, transport
+            )
+        )
+
+    def heartbeat_received(self, conversation_id):
+        self._put_msg(
+            ConnectorInstruction(
+                ConnectorCommand.HandleHeartbeatSuccess, None, conversation_id
+            )
+        )
 
     def data_received(self, data):
         self.reader.feed_data(data)
@@ -81,12 +88,24 @@ class Connector(asyncio.Protocol):
 
     def connection_lost(self, exn=None):
         if exn:
-            self._put_msg(ConnectorInstruction(ConnectorCommand.HandleConnectionFailed, None, exn))
+            self._put_msg(
+                ConnectorInstruction(
+                    ConnectorCommand.HandleConnectionFailed, None, exn
+                )
+            )
         else:
-            self._put_msg(ConnectorInstruction(ConnectorCommand.HandleConnectionClosed, None, None))
+            self._put_msg(
+                ConnectorInstruction(
+                    ConnectorCommand.HandleConnectionClosed, None, None
+                )
+            )
 
     def failed_heartbeat(self, exn=None):
-        self._put_msg(ConnectorInstruction(ConnectorCommand.HandleFailedHeartbeat, None, exn))
+        self._put_msg(
+            ConnectorInstruction(
+                ConnectorCommand.HandleFailedHeartbeat, None, exn
+            )
+        )
 
     async def start(self):
         self.state = ConnectorState.Connecting
@@ -102,7 +121,6 @@ class Connector(asyncio.Protocol):
         await self._run_loop
 
     async def _attempt_connect(self):
-        self.log.info("Connecting")
         node = await self.discovery.discover()
         self.log.info("Connecting to %s:%s", node.address, node.port)
         try:
@@ -110,7 +128,11 @@ class Connector(asyncio.Protocol):
                 lambda: self, node.address, node.port
             )
         except Exception as e:
-            await self.ctrl_queue.put(ConnectorInstruction(ConnectorCommand.HandleConnectFailure, None, e))
+            await self.ctrl_queue.put(
+                ConnectorInstruction(
+                    ConnectorCommand.HandleConnectFailure, None, e
+                )
+            )
 
     async def _on_transport_received(self, transport):
         self.log.info(
@@ -140,13 +162,16 @@ class Connector(asyncio.Protocol):
     async def _on_failed_heartbeat(self, exn):
         self.log.warn("Failed to handle a heartbeat")
         self.heartbeat_failures += 1
+
         if self.heartbeat_failures >= 3:
-            try:
+            if self.transport:
                 self.transport.close()
-            except:
-                self.log.exception("NOPE")
 
-
+    async def _on_successful_heartbeat(self, conversation_id):
+        self.log.debug(
+            "Received heartbeat from conversation %s", conversation_id
+        )
+        self.heartbeat_failures = 0
 
     async def _run(self):
         while True:
@@ -155,16 +180,25 @@ class Connector(asyncio.Protocol):
 
             if msg.command == ConnectorCommand.Connect:
                 await self._attempt_connect()
+
             if msg.command == ConnectorCommand.HandleConnectFailure:
                 await self._on_connect_failed(msg.data)
+
             if msg.command == ConnectorCommand.HandleConnectionOpened:
                 await self._on_transport_received(msg.data)
+
             if msg.command == ConnectorCommand.HandleConnectionClosed:
                 await self._on_transport_closed()
+
             if msg.command == ConnectorCommand.HandleConnectionFailed:
                 await self._on_transport_closed()
+
             if msg.command == ConnectorCommand.HandleFailedHeartbeat:
                 await self._on_failed_heartbeat(msg.data)
+
+            if msg.command == ConnectorCommand.HandleHeartbeatSuccess:
+                await self._on_successful_heartbeat(msg.data)
+
             elif msg.command == ConnectorCommand.Stop:
                 return
 
