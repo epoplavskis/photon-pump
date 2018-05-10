@@ -54,14 +54,14 @@ class EchoServerClientProtocol(asyncio.Protocol):
         self.cb(transport)
 
     def data_received(self, data):
-        message = data.decode()
-        print('Data received: {!r}'.format(message))
+        # message = data
+        print('Data received: {!r}'.format(data))
 
-        print('Send: {!r}'.format(message))
+        # print('Send: {!r}'.format(message))
         self.transport.write(data)
 
-        print('Close the client socket')
-        self.transport.close()
+        # print('Close the client socket')
+        # self.transport.close()
 
 
 class EchoServer:

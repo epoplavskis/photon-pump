@@ -1,5 +1,7 @@
 import asyncio
 import enum
+import struct
+import array
 import logging
 from typing import Any, NamedTuple, Optional
 
@@ -7,6 +9,10 @@ from . import conversations as convo
 from .discovery import DiscoveryRetryPolicy, NodeService
 from . import messages as msg
 from . import messages_pb2 as proto
+
+
+HEADER_LENGTH = 1 + 1 + 16
+SIZE_UINT_32 = 4
 
 
 class Event(list):
@@ -48,7 +54,7 @@ class ConnectorInstruction(NamedTuple):
     data: Optional[Any]
 
 
-class Connector(asyncio.Protocol):
+class Connector(asyncio.streams.FlowControlMixin):
 
     def __init__(self, discovery, retry_policy=None, ctrl_queue=None, loop=None):
         self.loop = loop or asyncio.get_event_loop()
@@ -114,6 +120,9 @@ class Connector(asyncio.Protocol):
                 ConnectorCommand.HandleHeartbeatFailed, None, exn
             )
         )
+
+    async def _drain_helper(self):
+        pass
 
     async def start(self, target: Optional[NodeService]=None):
         self.state = ConnectorState.Connecting
@@ -330,20 +339,28 @@ class MessageWriter:
         connector.connected.append(self.on_connected)
         connector.disconnected.append(self.on_connection_lost)
         self._queue = queue
+        self._is_connected = False
+        self.next = None
+        self._write_loop = None
+        self._logger = logging.get_named_logger(MessageWriter)
 
     def on_connection_lost(self):
+        self._is_connected = False
         self._write_loop.cancel()
         asyncio.ensure_future(
             self.stream_writer.drain()
         )
 
     def on_connected(self, _, streamwriter):
+        self._logger.debug('MessageWritter connected')
+        self._is_connected = True
         self.stream_writer = streamwriter
-        self.write_loop = asyncio.ensure_future(
+        self._write_loop = asyncio.ensure_future(
             self._write_outbound_messages()
         )
 
     async def enqueue_message(self, message: msg.OutboundMessage):
+        self._logger.debug('MessageWritter writing message')
         await self._queue.put(message)
 
     async def _write_outbound_messages(self):
@@ -365,6 +382,127 @@ class MessageWriter:
                 await self.stream_writer.drain()
             except Exception as e:
                 self._logger.error(e)
+
+    async def close(self):
+        if self._is_connected:
+            await self.writer.drain()
+            self.stream_writer.close()
+            self._write_loop.cancel()
+
+
+class MessageReader:
+
+    MESSAGE_MIN_SIZE = SIZE_UINT_32 + HEADER_LENGTH
+    HEAD_PACK = struct.Struct('<IBB')
+
+    def __init__(self, queue, connector):
+        self.queue = queue
+        self.header_bytes = array.array('B', [0] * (self.MESSAGE_MIN_SIZE))
+        self.header_bytes_required = (self.MESSAGE_MIN_SIZE)
+        self.length = 0
+        self.message_offset = 0
+        self.conversation_id = None
+        self.message_buffer = None
+        self._logger = logging.get_named_logger(MessageReader)
+        self._stream_reader = None
+
+        connector.connected.append(self.on_connected)
+        connector.disconnected.append(self.on_connection_lost)
+
+    def on_connection_lost(self):
+        self._is_connected = False
+        self._reader_loop.cancel()
+
+    def on_connected(self, streamreader, _):
+        self._logger.debug('MessageReader connected')
+        self._is_connected = True
+        self._stream_reader = streamreader
+
+        self._reader_loop = asyncio.ensure_future(
+            self._read_inbound_messages()
+        )
+
+
+    async def _read_inbound_messages(self):
+        '''Loop forever reading messages and invoking
+           the operation that caused them'''
+
+        while True:
+            data = await self._reader.read(8192)
+            self._logger.trace(
+                'Received %d bytes from remote server:\n%s', len(data),
+                msg.dump(data)
+            )
+            await self.process(data)
+
+
+    async def process(self, chunk: bytes):
+        if chunk is None:
+            return
+        chunk_offset = 0
+        chunk_len = len(chunk)
+
+        while chunk_offset < chunk_len:
+            while self.header_bytes_required and chunk_offset < chunk_len:
+                offset = self.MESSAGE_MIN_SIZE - self.header_bytes_required
+                self.header_bytes[offset] = chunk[chunk_offset]
+                chunk_offset += 1
+                self.header_bytes_required -= 1
+
+                if not self.header_bytes_required:
+                    self._logger.insane(
+                        'Read %d bytes for header', self.MESSAGE_MIN_SIZE
+                    )
+                    (self.length, self.cmd, self.flags) = self.HEAD_PACK.unpack(
+                        self.header_bytes[0:6]
+                    )
+
+                    self.conversation_id = uuid.UUID(
+                        bytes_le=(self.header_bytes[6:22].tobytes())
+                    )
+                    self._logger.insane(
+                        'length=%d, command=%d flags=%d conversation_id=%s from header bytes=%a',
+                        self.length, self.cmd, self.flags, self.conversation_id,
+                        self.header_bytes
+                    )
+
+                self.message_offset = HEADER_LENGTH
+
+            message_bytes_required = self.length - self.message_offset
+            self._logger.insane(
+                '%d bytes of message remaining before copy',
+                message_bytes_required
+            )
+
+            if message_bytes_required > 0:
+                if not self.message_buffer:
+                    self.message_buffer = bytearray()
+
+                end_span = min(chunk_len, message_bytes_required + chunk_offset)
+                bytes_read = end_span - chunk_offset
+                self.message_buffer.extend(chunk[chunk_offset:end_span])
+                self._logger.insane('Message buffer is %s', self.message_buffer)
+                message_bytes_required -= bytes_read
+                self.message_offset += bytes_read
+                chunk_offset = end_span
+
+            self._logger.insane(
+                '%d bytes of message remaining after copy',
+                message_bytes_required
+            )
+
+            if not message_bytes_required:
+                message = msg.InboundMessage(
+                    self.conversation_id, self.cmd, self.message_buffer or b''
+                )
+                self._logger.trace('Received message %r', message)
+                await self.queue.put(message)
+                self.length = -1
+                self.message_offset = 0
+                self.conversation_id = None
+                self.cmd = -1
+                self.header_bytes_required = self.MESSAGE_MIN_SIZE
+                self.message_buffer = None
 
 
 class MessageDispatcher:
