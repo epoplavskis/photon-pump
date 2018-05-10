@@ -283,6 +283,48 @@ class PersistentSubscription(convo.PersistentSubscription):
         else:
             await self.connection.enqueue_message(message)
 
+class MessageWriter:
+
+    def __init__(self, queue, connector):
+        connector.connected.append(self.on_connected)
+        connector.disconnected.append(self.on_connection_lost)
+        self._queue = queue
+
+    def on_connection_lost(self):
+        self._write_loop.cancel()
+        asyncio.ensure_future(
+            self.stream_writer.drain()
+        )
+
+    def on_connected(self, _, streamwriter):
+        self.stream_writer = streamwriter
+        self.write_loop = asyncio.ensure_future(
+            self._write_outbound_messages()
+        )
+
+    async def enqueue_message(self, message: msg.OutboundMessage):
+        await self._queue.put(message)
+
+    async def _write_outbound_messages(self):
+        if self.next:
+            self.stream_writer.write(self.next.header_bytes)
+            self.stream_writer.write(self.next.payload)
+
+        while self._is_connected:
+            self._logger.debug('Sending message %s', self.next)
+            self.next = await self._queue.get()
+            try:
+                self.stream_writer.write(self.next.header_bytes)
+                self.stream_writer.write(self.next.payload)
+            except Exception as e:
+                self._logger.error(
+                    'Failed to send message %s', e, exc_info=True
+                )
+            try:
+                await self.stream_writer.drain()
+            except Exception as e:
+                self._logger.error(e)
+
 
 class MessageDispatcher:
 
