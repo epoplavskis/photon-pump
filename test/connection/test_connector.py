@@ -9,13 +9,41 @@ event. These events are handled by the Reader, Writer, and Dispatcher.
 """
 
 import asyncio
+import logging
 import socket
 import threading
 
 import pytest
 
-from photonpump.connection2 import Connector
+from photonpump.connection2 import Connector, ConnectorCommand
 from photonpump.discovery import NodeService, SingleNodeDiscovery
+
+
+class TeeQueue:
+
+    def __init__(self):
+        self.items = []
+        self.queue = asyncio.Queue()
+        self.teed_queue = asyncio.Queue()
+
+    async def get(self):
+        return await self.queue.get()
+
+    async def put(self, item):
+        self.items.append(item)
+        await self.queue.put(item)
+        await self.teed_queue.put(item)
+
+    async def next_event(self, count=None):
+        if not count:
+            return await self.teed_queue.get()
+        needed = count
+        result = []
+        while needed > 0:
+            result.append(await self.teed_queue.get())
+            needed -= 1
+        return result
+
 
 
 class EchoServerClientProtocol(asyncio.Protocol):
@@ -55,6 +83,7 @@ class EchoServer:
         )
         self._server = await server
         self.running = True
+
         return self
 
     def make_protocol(self):
@@ -75,6 +104,10 @@ class EchoServer:
 
 @pytest.mark.asyncio
 async def test_when_connecting_to_a_server(event_loop):
+    """
+    When we connect to a server, we should receive an event
+    with a reader/writer pair as the callback args.
+    """
 
     addr = NodeService("localhost", 8338, None)
 
@@ -107,26 +140,80 @@ async def test_when_connecting_to_a_server(event_loop):
 
 @pytest.mark.asyncio
 async def test_when_a_server_disconnects(event_loop):
+    """
+    Usually, when eventstore goes away, we'll get an EOF on the transport.
+    If that happens, we should raise a disconnected event.
+
+    We should also place a reconnection message on the queue.
+    """
 
     addr = NodeService("localhost", 8338, None)
+    queue = TeeQueue()
 
-    connector = Connector(SingleNodeDiscovery(addr), loop=event_loop)
-    wait_for = asyncio.Future(loop=event_loop)
+    connector = Connector(
+        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+    )
+    raised_disconnected_event = asyncio.Future(loop=event_loop)
 
     def on_disconnected():
         print("disconnected")
-        wait_for.set_result(None)
+        raised_disconnected_event.set_result(True)
 
     connector.disconnected.append(on_disconnected)
- 
+
     async with EchoServer(addr, event_loop) as server:
 
-        def on_connected(*args):
-            print("connected")
-            server.stop()
-
-        connector.connected.append(on_connected)
-
         await connector.start()
-        await asyncio.wait_for(wait_for, 2)
-        await connector.stop()
+        connect = await queue.next_event()
+        assert connect.command == ConnectorCommand.Connect
+
+        connected = await queue.next_event()
+        assert connected.command == ConnectorCommand.HandleConnectionOpened
+
+        server.stop()
+
+        disconnect = await queue.next_event()
+        assert disconnect.command == ConnectorCommand.HandleConnectionClosed
+
+        reconnect = await queue.next_event()
+        assert reconnect.command == ConnectorCommand.Connect
+
+    assert raised_disconnected_event.result() == True
+    await connector.stop()
+
+
+@pytest.mark.asyncio
+async def test_when_three_heartbeats_fail_in_a_row(event_loop):
+    """
+    We're going to set up a separate heartbeat loop to send heartbeat requests
+    to the server. If three of those heartbeats timeout in a row, we'll put a
+    reconnection request on the queue.
+    """
+
+    queue = TeeQueue()
+    addr = NodeService("localhost", 8338, None)
+    connector = Connector(
+        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+    )
+
+    async with EchoServer(addr, event_loop):
+        await connector.start()
+        [connect, connected] = await queue.next_event(count=2)
+        assert connect.command == ConnectorCommand.Connect
+        assert connected.command == ConnectorCommand.HandleConnectionOpened
+
+        connector.failed_heartbeat()
+        connector.failed_heartbeat()
+        connector.failed_heartbeat()
+
+        [hb1, hb2, hb3, connection_closed, reconnect] = await queue.next_event(count=5)
+
+        logging.info(hb1)
+        logging.info(hb2)
+        logging.info(hb3)
+        assert connection_closed.command == ConnectorCommand.HandleConnectionClosed
+        assert reconnect.command == ConnectorCommand.Connect
+
+
+
+    pass

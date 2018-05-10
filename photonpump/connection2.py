@@ -1,6 +1,7 @@
 import asyncio
 import enum
 import logging
+from typing import Any, NamedTuple, Optional
 
 from . import conversations as convo
 from . import messages as msg
@@ -17,35 +18,59 @@ class Event(list):
         return 'Event(%s)' % list.__repr__(self)
 
 
+class ConnectorCommand(enum.IntEnum):
+    Connect = 0
+    HandleConnectFailure = 1
+    HandleConnectionOpened = 2
+    HandleConnectionClosed = 3
+    HandleConnectionFailed = 4
+    HandleFailedHeartbeat = 5
+    Stop = -1
+
+
+
+class ConnectorState(enum.IntEnum):
+    Begin = 0
+    Connecting = 1
+    Connected = 2
+    Stopping = 3
+    Stopped = 4
+
+
+class ConnectorInstruction(NamedTuple):
+    command: ConnectorCommand
+    future: Optional[asyncio.Future]
+    data: Optional[Any]
+
+
 class Connector(asyncio.Protocol):
 
-    class cmd(enum.IntEnum):
-        Connect = 0
-        Stop = -1
-
-    def __init__(self, discovery, loop=None):
+    def __init__(self, discovery, ctrl_queue=None, loop=None):
         self.loop = loop or asyncio.get_event_loop()
         self.discovery = discovery
         self.connected = Event()
         self.disconnected = Event()
-        self.ctrl_queue = asyncio.Queue(loop=self.loop)
+        self.ctrl_queue = ctrl_queue or asyncio.Queue(loop=self.loop)
         self.log = logging.getLogger("photonpump.connection.Connector")
         self._run_loop = asyncio.ensure_future(self._run())
         self.reader = None
         self.writer = None
+        self.transport = None
+        self.heartbeat_failures = 0
 
         self._connection_lost = False
         self._paused = False
+        self.state = ConnectorState.Begin
+
+    def _put_msg(self, msg):
+        asyncio.ensure_future(self.ctrl_queue.put(msg))
 
     def connection_made(self, transport):
-        self.log.info(
-            "PhotonPump is connected to eventstore instance at %s",
-            str(transport.get_extra_info('peername', 'ERROR'))
-        )
-        self.reader = reader = asyncio.StreamReader(loop=self.loop)
-        reader.set_transport(transport)
-        self.writer = writer = asyncio.StreamWriter(transport, self, reader, self.loop)
-        self.connected(reader, writer)
+        self._put_msg(ConnectorInstruction(
+            ConnectorCommand.HandleConnectionOpened,
+            None,
+            transport
+        ))
 
     def data_received(self, data):
         self.reader.feed_data(data)
@@ -55,28 +80,92 @@ class Connector(asyncio.Protocol):
         self.disconnected()
 
     def connection_lost(self, exn=None):
-        self.log.info("Connection lost %s", exn)
+        if exn:
+            self._put_msg(ConnectorInstruction(ConnectorCommand.HandleConnectionFailed, None, exn))
+        else:
+            self._put_msg(ConnectorInstruction(ConnectorCommand.HandleConnectionClosed, None, None))
+
+    def failed_heartbeat(self, exn=None):
+        self._put_msg(ConnectorInstruction(ConnectorCommand.HandleFailedHeartbeat, None, exn))
 
     async def start(self):
-        await self.ctrl_queue.put(Connector.cmd.Connect)
+        self.state = ConnectorState.Connecting
+        await self.ctrl_queue.put(
+            ConnectorInstruction(ConnectorCommand.Connect, None, None)
+        )
 
     async def stop(self):
-        await self.ctrl_queue.put(Connector.cmd.Stop)
+        self.state = ConnectorState.Stopping
+        await self.ctrl_queue.put(
+            ConnectorInstruction(ConnectorCommand.Stop, None, None)
+        )
         await self._run_loop
+
+    async def _attempt_connect(self):
+        self.log.info("Connecting")
+        node = await self.discovery.discover()
+        self.log.info("Connecting to %s:%s", node.address, node.port)
+        try:
+            await self.loop.create_connection(
+                lambda: self, node.address, node.port
+            )
+        except Exception as e:
+            await self.ctrl_queue.put(ConnectorInstruction(ConnectorCommand.HandleConnectFailure, None, e))
+
+    async def _on_transport_received(self, transport):
+        self.log.info(
+            "PhotonPump is connected to eventstore instance at %s",
+            str(transport.get_extra_info('peername', 'ERROR'))
+        )
+        self.transport = transport
+        self.reader = reader = asyncio.StreamReader(loop=self.loop)
+        reader.set_transport(transport)
+        self.writer = writer = asyncio.StreamWriter(
+            transport, self, reader, self.loop
+        )
+        self.connected(reader, writer)
+
+    async def _on_transport_closed(self):
+        self.log.info("Connection closed gracefully, restarting")
+        await self.start()
+
+    async def _on_transport_error(self, exn):
+        self.log.info("Connection closed with error, restarting %s", exn)
+        await self.start()
+
+    async def _on_connect_failed(self, exn):
+        self.log.info("Failed to connect with error %s restarting", exn)
+        await self.start()
+
+    async def _on_failed_heartbeat(self, exn):
+        self.log.warn("Failed to handle a heartbeat")
+        self.heartbeat_failures += 1
+        if self.heartbeat_failures >= 3:
+            try:
+                self.transport.close()
+            except:
+                self.log.exception("NOPE")
+
+
 
     async def _run(self):
         while True:
-            self.log.info("Waiting for a message")
             msg = await self.ctrl_queue.get()
+            self.log.debug("Connector received message %s", msg)
 
-            if msg == Connector.cmd.Connect:
-                self.log.info("Connecting")
-                node = await self.discovery.discover()
-                self.log.info("Connecting to %s:%s", node.address, node.port)
-                await self.loop.create_connection(
-                        lambda: self, node.address, node.port
-                )
-            elif msg == Connector.cmd.Stop:
+            if msg.command == ConnectorCommand.Connect:
+                await self._attempt_connect()
+            if msg.command == ConnectorCommand.HandleConnectFailure:
+                await self._on_connect_failed(msg.data)
+            if msg.command == ConnectorCommand.HandleConnectionOpened:
+                await self._on_transport_received(msg.data)
+            if msg.command == ConnectorCommand.HandleConnectionClosed:
+                await self._on_transport_closed()
+            if msg.command == ConnectorCommand.HandleConnectionFailed:
+                await self._on_transport_closed()
+            if msg.command == ConnectorCommand.HandleFailedHeartbeat:
+                await self._on_failed_heartbeat(msg.data)
+            elif msg.command == ConnectorCommand.Stop:
                 return
 
 
