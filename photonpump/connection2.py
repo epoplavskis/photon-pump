@@ -4,6 +4,7 @@ import logging
 from typing import Any, NamedTuple, Optional
 
 from . import conversations as convo
+from .discovery import DiscoveryRetryPolicy, NodeService
 from . import messages as msg
 from . import messages_pb2 as proto
 
@@ -27,6 +28,8 @@ class ConnectorCommand(enum.IntEnum):
 
     HandleHeartbeatFailed = 5
     HandleHeartbeatSuccess = 6
+
+    HandleConnectorFailed = -2
 
     Stop = -1
 
@@ -59,6 +62,8 @@ class Connector(asyncio.Protocol):
         self.writer = None
         self.transport = None
         self.heartbeat_failures = 0
+        self.retry_policy = DiscoveryRetryPolicy(retries_per_node=10)
+        self.target_node = None
 
         self._connection_lost = False
         self._paused = False
@@ -109,10 +114,10 @@ class Connector(asyncio.Protocol):
             )
         )
 
-    async def start(self):
+    async def start(self, target: Optional[NodeService]=None):
         self.state = ConnectorState.Connecting
         await self.ctrl_queue.put(
-            ConnectorInstruction(ConnectorCommand.Connect, None, None)
+            ConnectorInstruction(ConnectorCommand.Connect, None, target)
         )
 
     async def stop(self):
@@ -122,8 +127,9 @@ class Connector(asyncio.Protocol):
         )
         await self._run_loop
 
-    async def _attempt_connect(self):
-        node = await self.discovery.discover()
+    async def _attempt_connect(self, node):
+        if not node:
+            node = self.target_node = await self.discovery.discover()
         self.log.info("Connecting to %s:%s", node.address, node.port)
         try:
             await self.loop.create_connection(
@@ -149,17 +155,31 @@ class Connector(asyncio.Protocol):
         )
         self.connected(reader, writer)
 
+    async def _reconnect(self, node):
+        self.retry_policy.record_failure(node)
+
+        if self.retry_policy.should_retry(node):
+            await self.retry_policy.wait(node)
+            await self.start(target=node)
+        else:
+            self.log.error("Reached maximum number of retry attempts on node %s", node)
+            self.discovery.mark_failed(node)
+            await self.start()
+
     async def _on_transport_closed(self):
         self.log.info("Connection closed gracefully, restarting")
-        await self.start()
+        await self._reconnect(self.target_node)
 
     async def _on_transport_error(self, exn):
         self.log.info("Connection closed with error, restarting %s", exn)
-        await self.start()
+        await self._reconnect(self.target_node)
 
     async def _on_connect_failed(self, exn):
-        self.log.info("Failed to connect with error %s restarting", exn)
-        await self.start()
+        self.log.info(
+            "Failed to connect to host %s with error %s restarting",
+            self.target_node, exn
+        )
+        await self._reconnect(self.target_node)
 
     async def _on_failed_heartbeat(self, exn):
         self.log.warn("Failed to handle a heartbeat")
@@ -181,7 +201,7 @@ class Connector(asyncio.Protocol):
             self.log.debug("Connector received message %s", msg)
 
             if msg.command == ConnectorCommand.Connect:
-                await self._attempt_connect()
+                await self._attempt_connect(msg.data)
 
             if msg.command == ConnectorCommand.HandleConnectFailure:
                 await self._on_connect_failed(msg.data)

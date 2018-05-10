@@ -208,9 +208,10 @@ async def test_when_three_heartbeats_fail_in_a_row(event_loop):
         assert connection_closed.command == ConnectorCommand.HandleConnectionClosed
         assert reconnect.command == ConnectorCommand.Connect
 
+    await connector.stop()
 
 @pytest.mark.asyncio
-async def test_when_a_heartsucceeds(event_loop):
+async def test_when_a_heartbeat_succeeds(event_loop):
     """
     If one of our heartbeats succeeds, we should reset our counter.
     Ergo, if we have two failures, followed by a success, followed
@@ -246,3 +247,5 @@ async def test_when_a_heartsucceeds(event_loop):
         assert success.command == ConnectorCommand.HandleHeartbeatSuccess
         assert hb3.command == ConnectorCommand.HandleHeartbeatFailed
         assert hb4.command == ConnectorCommand.HandleHeartbeatFailed
+
+        await connector.stop()
