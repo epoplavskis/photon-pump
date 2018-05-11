@@ -69,7 +69,7 @@ class Connector(asyncio.streams.FlowControlMixin):
         self.writer = None
         self.transport = None
         self.heartbeat_failures = 0
-        self.retry_policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=3)
+        self.retry_policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=10)
         self.target_node = None
 
         self._connection_lost = False
@@ -208,6 +208,7 @@ class Connector(asyncio.streams.FlowControlMixin):
         if self.heartbeat_failures >= 3:
             if self.transport:
                 self.transport.close()
+            self.heartbeat_failures = 0
 
     async def _on_successful_heartbeat(self, conversation_id):
         self.log.debug(
