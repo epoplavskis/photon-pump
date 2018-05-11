@@ -1,15 +1,15 @@
+import array
 import asyncio
 import enum
-import struct
-import array
 import logging
+import struct
+import uuid
 from typing import Any, NamedTuple, Optional
 
 from . import conversations as convo
-from .discovery import DiscoveryRetryPolicy, NodeService
 from . import messages as msg
 from . import messages_pb2 as proto
-
+from .discovery import DiscoveryRetryPolicy, NodeService
 
 HEADER_LENGTH = 1 + 1 + 16
 SIZE_UINT_32 = 4
@@ -69,7 +69,7 @@ class Connector(asyncio.streams.FlowControlMixin):
         self.writer = None
         self.transport = None
         self.heartbeat_failures = 0
-        self.retry_policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=10)
+        self.retry_policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=3)
         self.target_node = None
 
         self._connection_lost = False
@@ -148,6 +148,7 @@ class Connector(asyncio.streams.FlowControlMixin):
             except Exception as e:
                 await self.ctrl_queue.put(
                     ConnectorInstruction(ConnectorCommand.HandleConnectorFailed, None, e))
+
                 return
         self.log.info("Connecting to %s:%s", node.address, node.port)
         try:
@@ -250,6 +251,7 @@ class Connector(asyncio.streams.FlowControlMixin):
             if msg.command == ConnectorCommand.Stop:
                 self.log.info("Connector is stopping, yo")
                 self.stopped(msg.data)
+
                 return
 
 
@@ -333,6 +335,7 @@ class PersistentSubscription(convo.PersistentSubscription):
         else:
             await self.connection.enqueue_message(message)
 
+
 class MessageWriter:
 
     def __init__(self, queue, connector):
@@ -360,18 +363,18 @@ class MessageWriter:
         )
 
     async def enqueue_message(self, message: msg.OutboundMessage):
-        self._logger.debug('MessageWritter writing message')
         await self._queue.put(message)
 
     async def _write_outbound_messages(self):
         if self.next:
+            self._logger.debug('Sending message %s', self.next)
             self.stream_writer.write(self.next.header_bytes)
             self.stream_writer.write(self.next.payload)
 
         while self._is_connected:
-            self._logger.debug('Sending message %s', self.next)
             self.next = await self._queue.get()
             try:
+                self._logger.debug('Sending message %s', self.next)
                 self.stream_writer.write(self.next.header_bytes)
                 self.stream_writer.write(self.next.payload)
             except Exception as e:
@@ -385,7 +388,7 @@ class MessageWriter:
 
     async def close(self):
         if self._is_connected:
-            await self.writer.drain()
+            await self.stream_writer.drain()
             self.stream_writer.close()
             self._write_loop.cancel()
 
@@ -428,7 +431,8 @@ class MessageReader:
            the operation that caused them'''
 
         while True:
-            data = await self._reader.read(8192)
+            self._logger.debug("Waiting for data")
+            data = await self._stream_reader.read(8192)
             self._logger.trace(
                 'Received %d bytes from remote server:\n%s', len(data),
                 msg.dump(data)

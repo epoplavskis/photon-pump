@@ -122,15 +122,29 @@ class Conversation:
 
 class Heartbeat(Conversation):
 
-    def __init__(self, conversation_id: UUID) -> None:
+    INBOUND = 0
+    OUTBOUND = 1
+
+    def __init__(self, conversation_id: UUID, direction=INBOUND) -> None:
         super().__init__(conversation_id)
+        self.direction = direction
 
     def start(self):
-        return OutboundMessage(
-            self.conversation_id, TcpCommand.HeartbeatResponse, b'',
-            self.credential
-        )
 
+        if self.direction == Heartbeat.INBOUND:
+            return OutboundMessage(
+                self.conversation_id, TcpCommand.HeartbeatResponse, b'',
+                self.credential, one_way=True
+            )
+        else:
+            return OutboundMessage(
+                self.conversation_id, TcpCommand.HeartbeatRequest, b'',
+                self.credential, one_way=False
+            )
+
+    def reply(self, msg: InboundMessage):
+        self.expect_only(TcpCommand.HeartbeatResponse, msg)
+        return Reply(ReplyAction.CompleteScalar, True, None)
 
 class Ping(Conversation):
 
@@ -805,9 +819,11 @@ class ConnectPersistentSubscription(Conversation):
             return Reply(ReplyAction.FinishSubscription, None, None)
 
         if self.state == ConnectPersistentSubscription.State.live:
-            return self.error(exceptions.SubscriptionFailed(
-                self.conversation_id, body.reason
-            ))
+            return self.error(
+                exceptions.SubscriptionFailed(
+                    self.conversation_id, body.reason
+                )
+            )
 
         return self.error(
             exceptions.SubscriptionCreationFailed(
