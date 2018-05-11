@@ -87,6 +87,7 @@ class Connector(asyncio.streams.FlowControlMixin):
         )
 
     def heartbeat_received(self, conversation_id):
+        self.retry_policy.record_success(self.target_node)
         self._put_msg(
             ConnectorInstruction(
                 ConnectorCommand.HandleHeartbeatSuccess, None, conversation_id
@@ -101,6 +102,7 @@ class Connector(asyncio.streams.FlowControlMixin):
         self.disconnected()
 
     def connection_lost(self, exn=None):
+        self.log.info('connection_lost {}'.format(exn))
         if exn:
             self._put_msg(
                 ConnectorInstruction(
@@ -188,10 +190,12 @@ class Connector(asyncio.streams.FlowControlMixin):
 
     async def _on_transport_closed(self):
         self.log.info("Connection closed gracefully, restarting")
+        self.disconnected()
         await self._reconnect(self.target_node)
 
     async def _on_transport_error(self, exn):
         self.log.info("Connection closed with error, restarting %s", exn)
+        self.disconnected()
         await self._reconnect(self.target_node)
 
     async def _on_connect_failed(self, exn):
@@ -222,38 +226,41 @@ class Connector(asyncio.streams.FlowControlMixin):
 
     async def _run(self):
         while True:
-            msg = await self.ctrl_queue.get()
-            self.log.debug("Connector received message %s", msg)
+            try:
+                msg = await self.ctrl_queue.get()
+                self.log.debug("Connector received message %s", msg)
 
-            if msg.command == ConnectorCommand.Connect:
-                await self._attempt_connect(msg.data)
+                if msg.command == ConnectorCommand.Connect:
+                    await self._attempt_connect(msg.data)
 
-            if msg.command == ConnectorCommand.HandleConnectFailure:
-                await self._on_connect_failed(msg.data)
+                if msg.command == ConnectorCommand.HandleConnectFailure:
+                    await self._on_connect_failed(msg.data)
 
-            if msg.command == ConnectorCommand.HandleConnectionOpened:
-                await self._on_transport_received(msg.data)
+                if msg.command == ConnectorCommand.HandleConnectionOpened:
+                    await self._on_transport_received(msg.data)
 
-            if msg.command == ConnectorCommand.HandleConnectionClosed:
-                await self._on_transport_closed()
+                if msg.command == ConnectorCommand.HandleConnectionClosed:
+                    await self._on_transport_closed()
 
-            if msg.command == ConnectorCommand.HandleConnectionFailed:
-                await self._on_transport_closed()
+                if msg.command == ConnectorCommand.HandleConnectionFailed:
+                    await self._on_transport_closed()
 
-            if msg.command == ConnectorCommand.HandleHeartbeatFailed:
-                await self._on_failed_heartbeat(msg.data)
+                if msg.command == ConnectorCommand.HandleHeartbeatFailed:
+                    await self._on_failed_heartbeat(msg.data)
 
-            if msg.command == ConnectorCommand.HandleHeartbeatSuccess:
-                await self._on_successful_heartbeat(msg.data)
+                if msg.command == ConnectorCommand.HandleHeartbeatSuccess:
+                    await self._on_successful_heartbeat(msg.data)
 
-            if msg.command == ConnectorCommand.HandleConnectorFailed:
-                await self._on_connector_failed(msg.data)
+                if msg.command == ConnectorCommand.HandleConnectorFailed:
+                    await self._on_connector_failed(msg.data)
 
-            if msg.command == ConnectorCommand.Stop:
-                self.log.info("Connector is stopping, yo")
-                self.stopped(msg.data)
+                if msg.command == ConnectorCommand.Stop:
+                    self.log.info("Connector is stopping, yo")
+                    self.stopped(msg.data)
 
-                return
+                    return
+            except:
+                self.log.exception('hey')
 
 
 class StreamingIterator:
@@ -349,6 +356,7 @@ class MessageWriter:
         self._logger = logging.get_named_logger(MessageWriter)
 
     def on_connection_lost(self):
+        self._logger.warn('Connection lost, stopping loop')
         self._is_connected = False
         self._write_loop.cancel()
         asyncio.ensure_future(
@@ -514,6 +522,7 @@ class MessageDispatcher:
 
     def __init__(
             self,
+            connector,
             input: asyncio.Queue = None,
             output: asyncio.Queue = None,
             loop=None
@@ -523,23 +532,31 @@ class MessageDispatcher:
         self.input = input
         self.output = output or asyncio.Queue()
         self.active_conversations = {}
+        self._logger = logging.get_named_logger(MessageDispatcher)
+        self._connected = False
+
+        connector.connected.append(self.start)
+        connector.disconnected.append(self.stop)
 
     async def enqueue_conversation(
             self, convo: convo.Conversation
     ) -> asyncio.futures.Future:
+        self._logger.info('enqueue_conversation')
         future = asyncio.futures.Future(loop=self._loop)
         message = convo.start()
         self.active_conversations[convo.conversation_id] = (convo, future)
-        await self.output.put(message)
+        if self._connected:
+            await self.output.put(message)
 
         return future
 
-    def start(self):
+    def start(self, *args):
         self._dispatch_loop = asyncio.ensure_future(
             self._process_messages(), loop=self._loop
         )
 
     def stop(self):
+        self._connected = False
         if self._dispatch_loop:
             self._dispatch_loop.cancel()
 
@@ -547,17 +564,20 @@ class MessageDispatcher:
         return id in self.active_conversations
 
     async def _process_messages(self):
-        log = logging.getLogger("photonpump.connection.MessageDispatcher")
+        self._logger.debug('hello _process_messages')
+        self._connected = True
+        for (conversation, future) in self.active_conversations.values():
+            await self.output.put(conversation.start())
 
         while True:
             message = await self.input.get()
 
             if not message:
-                log.trace("No message received")
+                self._logger.trace("No message received")
 
                 continue
 
-            log.debug("Received message %s", message)
+            self._logger.debug("Received message %s", message)
 
             if message.command == msg.TcpCommand.HeartbeatRequest.value:
                 await self.enqueue_conversation(
@@ -571,25 +591,25 @@ class MessageDispatcher:
             )
 
             if not conversation:
-                log.error("No conversation found for message %s", message)
+                self._logger.error("No conversation found for message %s", message)
 
                 continue
 
-            log.debug(
+            self._logger.debug(
                 'Received response to conversation %s: %s', conversation,
                 message
             )
 
             reply = conversation.respond_to(message)
 
-            log.debug('Reply is %s', reply)
+            self._logger.debug('Reply is %s', reply)
 
             if reply.action == convo.ReplyAction.CompleteScalar:
                 result.set_result(reply.result)
                 del self.active_conversations[message.conversation_id]
 
             elif reply.action == convo.ReplyAction.CompleteError:
-                log.warn(
+                self._logger.warn(
                     'Conversation %s received an error %s', conversation,
                     reply.result
                 )
@@ -597,26 +617,26 @@ class MessageDispatcher:
                 del self.active_conversations[message.conversation_id]
 
             elif reply.action == convo.ReplyAction.BeginIterator:
-                log.debug(
+                self._logger.debug(
                     'Creating new streaming iterator for %s', conversation
                 )
                 size, events = reply.result
                 it = StreamingIterator(size * 2)
                 result.set_result(it)
                 await it.enqueue_items(events)
-                log.debug('Enqueued %d events', len(events))
+                self._logger.debug('Enqueued %d events', len(events))
 
             elif reply.action == convo.ReplyAction.YieldToIterator:
-                log.debug(
+                self._logger.debug(
                     'Yielding new events into iterator for %s', conversation
                 )
                 iterator = result.result()
-                log.debug(iterator)
-                log.debug(reply.result)
+                self._logger.debug(iterator)
+                self._logger.debug(reply.result)
                 await iterator.enqueue_items(reply.result)
 
             elif reply.action == convo.ReplyAction.CompleteIterator:
-                log.debug(
+                self._logger.debug(
                     'Yielding final events into iterator for %s', conversation
                 )
                 iterator = result.result()
@@ -627,12 +647,12 @@ class MessageDispatcher:
             elif reply.action == convo.ReplyAction.RaiseToIterator:
                 iterator = result.result()
                 error = reply.result
-                log.warning("Raising error %s to iterator %s", error, iterator)
+                self._logger.warning("Raising error %s to iterator %s", error, iterator)
                 await iterator.asend(error)
                 del self.active_conversations[message.conversation_id]
 
             elif reply.action == convo.ReplyAction.BeginPersistentSubscription:
-                log.debug(
+                self._logger.debug(
                     'Starting new iterator for persistent subscription %s',
                     conversation
                 )
@@ -643,13 +663,13 @@ class MessageDispatcher:
                 result.set_result(sub)
 
             elif reply.action == convo.ReplyAction.YieldToSubscription:
-                log.debug('Pushing new event for subscription %s', conversation)
+                self._logger.debug('Pushing new event for subscription %s', conversation)
                 sub = await result
                 await sub.events.enqueue(reply.result)
 
             elif reply.action == convo.ReplyAction.RaiseToSubscription:
                 sub = await result
-                log.info(
+                self._logger.info(
                     "Raising error %s to persistent subscription %s",
                     reply.result, sub
                 )
@@ -657,5 +677,5 @@ class MessageDispatcher:
 
             elif reply.action == convo.ReplyAction.FinishSubscription:
                 sub = await result
-                log.info("Completing persistent subscription %s", sub)
+                self._logger.info("Completing persistent subscription %s", sub)
                 await sub.events.enqueue(StopIteration())
