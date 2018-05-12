@@ -2,7 +2,7 @@ import json
 import logging
 from asyncio import Future
 from enum import IntEnum
-from typing import Any, NamedTuple, Sequence, Union
+from typing import Any, NamedTuple, Sequence, Union, Optional
 from uuid import UUID, uuid4
 
 from google.protobuf.text_format import MessageToString
@@ -46,7 +46,7 @@ class Reply(NamedTuple):
 class Conversation:
 
     def __init__(
-            self, conversation_id: UUID = None, credential: Credential = None
+            self, conversation_id: Optional[UUID] = None, credential: Optional[Credential] = None
     ) -> None:
         self.conversation_id = conversation_id or uuid4()
         self.result: Future = Future()
@@ -62,6 +62,9 @@ class Conversation:
             return False
 
         return self.conversation_id == other.conversation_id
+
+    def start(self) -> OutboundMessage:
+        pass
 
     def reply(self, response: InboundMessage) -> Reply:
         pass
@@ -307,7 +310,7 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
             event_number: int,
             resolve_links: bool = True,
             require_master: bool = False,
-            conversation_id: UUID = None,
+            conversation_id: Optional[UUID] = None,
             credentials=None
     ) -> None:
 

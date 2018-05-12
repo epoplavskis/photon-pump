@@ -274,3 +274,21 @@ async def test_repeated_discovery_failure_for_static_seed():
             assert stats.successes == 0
             assert stats.failures == 1
             assert stats.consecutive_failures == 1
+
+
+@pytest.mark.asyncio
+async def test_single_node_mark_failed():
+    """
+    The SingleNodeDiscovery should raise DiscoveryFailed if we ask for a node
+    after calling mark_failed.
+    """
+    pass
+
+
+@pytest.mark.asyncio
+async def test_cluster_discovery_mark_failed():
+    """
+    ClusterDiscovery should return a different node if we mark the master as
+    failed.
+    """
+    pass

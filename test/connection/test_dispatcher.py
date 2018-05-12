@@ -481,9 +481,14 @@ async def test_when_connector_reconnected_retry_active_conversations():
     assert message == conversation.start()
 
 
+async def test_when_enqueueing_a_conversation_before_the_dispatcher_starts():
+    """
+    If we enqueue a conversation before the dispatcher starts reading its
+    in-queue, then we should add the conversation to active conversation but
+    not enqueue the outbound message.
 
+    When the dispatcher starts processing, it will send the message along with
+    the other restarted conversations.
+    """
 
-
-
-
-
+    assert False
