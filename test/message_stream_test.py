@@ -7,6 +7,7 @@ import pytest
 from photonpump import messages_pb2 as proto
 from photonpump.connection import MessageReader
 from photonpump.messages import TcpCommand
+from .fakes import FakeConnector
 
 
 def read_hex(s):
@@ -77,7 +78,7 @@ fc 9d cd d8 94 b9 d6 ea 08 50 a4 e6 a4 d6 8e 2c
 async def test_read_event():
     messages = Queue()
 
-    reader = MessageReader(messages)
+    reader = MessageReader(messages, FakeConnector())
     await reader.process(ReadEventResult)
 
     received = await messages.get()
@@ -98,7 +99,7 @@ async def test_read_heartbeat_request_single_call():
 
     messages = Queue()
 
-    reader = MessageReader(messages)
+    reader = MessageReader(messages, FakeConnector())
     await reader.process(heartbeat_data)
 
     received = await messages.get()
@@ -113,7 +114,7 @@ async def test_read_heartbeat_request_single_call():
 async def test_read_header_multiple_calls():
     messages = Queue()
 
-    reader = MessageReader(messages)
+    reader = MessageReader(messages, FakeConnector())
     await reader.process(heartbeat_data[0:2])
     await reader.process(heartbeat_data[2:7])
     await reader.process([])
@@ -132,7 +133,7 @@ async def test_read_header_multiple_calls():
 async def test_a_message_with_a_payload():
     messages = Queue()
 
-    reader = MessageReader(messages)
+    reader = MessageReader(messages, FakeConnector())
     await reader.process(persistent_stream_event_appeared)
 
     received = await messages.get()
@@ -147,7 +148,7 @@ async def test_two_messages_one_call():
 
     messages = Queue()
 
-    reader = MessageReader(messages)
+    reader = MessageReader(messages, FakeConnector())
     await reader.process(heartbeat_data + persistent_stream_event_appeared)
 
     heartbeat = await messages.get()
@@ -163,7 +164,7 @@ async def test_two_messages_one_call():
 async def test_three_messages_two_calls():
     messages = Queue()
 
-    reader = MessageReader(messages)
+    reader = MessageReader(messages, FakeConnector())
     data = heartbeat_data + persistent_stream_event_appeared + heartbeat_data
 
     await reader.process(data[0:250])
@@ -185,7 +186,7 @@ async def test_three_messages_two_calls():
 async def test_two_messages_three_calls():
     messages = Queue()
 
-    reader = MessageReader(messages)
+    reader = MessageReader(messages, FakeConnector())
     data = heartbeat_data + persistent_stream_event_appeared
 
     await reader.process(data[0:125])

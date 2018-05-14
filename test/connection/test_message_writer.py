@@ -2,7 +2,7 @@ import asyncio
 import pytest
 import uuid
 
-from photonpump.connection2 import MessageWriter, MessageReader, Connector
+from photonpump.connection import MessageWriter, MessageReader, Connector
 from photonpump.discovery import NodeService, SingleNodeDiscovery
 from photonpump import TcpCommand, messages as msg
 

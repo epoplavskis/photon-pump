@@ -22,7 +22,7 @@ import logging
 
 import pytest
 from photonpump import messages_pb2 as proto
-from photonpump.connection2 import MessageDispatcher, Event
+from photonpump.connection import MessageDispatcher, Event
 from photonpump.conversations import (ConnectPersistentSubscription,
                                       IterStreamEvents, Ping)
 from photonpump.exceptions import (NotAuthenticated, PayloadUnreadable,
@@ -38,14 +38,10 @@ from ..data import (persistent_subscription_confirmed,
                     read_stream_events_completed, read_stream_events_failure,
                     subscription_event_appeared)
 
+from ..fakes import FakeConnector
+
 from .test_connector import TeeQueue
 
-
-class FakeConnector():
-
-    def __init__(self,):
-        self.connected = Event()
-        self.disconnected = Event()
 
 def start_dispatcher():
     connector = FakeConnector()
@@ -455,12 +451,12 @@ async def test_when_a_persistent_subscription_is_unsubscribed():
     [] = [e async for e in subscription.events]
     dispatcher.stop()
 
+
 @pytest.mark.asyncio
 async def test_when_connector_reconnected_retry_active_conversations():
     """
-    if connector looses connection when having an active persistent subscription
-    it should restart the conversations.
-
+    if connector raises 'connected' when we already have active conversations
+    we should restart the conversations.
     """
 
     in_queue, out_queue, dispatcher, connector = start_dispatcher()
@@ -492,3 +488,19 @@ async def test_when_enqueueing_a_conversation_before_the_dispatcher_starts():
     """
 
     assert False
+
+
+async def test_when_the_connector_stops():
+    """
+    When the connector stops with an error, we should cancel the futures of any
+    waiting clients
+    """
+    pass
+
+
+async def test_when_the_connector_fails():
+    """
+    When the connector stops with an error, we should raise the error to any
+    waiting client
+    """
+    pass

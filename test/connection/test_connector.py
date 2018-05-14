@@ -12,7 +12,7 @@ import asyncio
 
 import pytest
 
-from photonpump.connection2 import Connector, ConnectorCommand, ConnectorInstruction
+from photonpump.connection import Connector, ConnectorCommand, ConnectorInstruction
 from photonpump.discovery import NodeService, SingleNodeDiscovery, DiscoveryFailed
 
 
@@ -210,6 +210,7 @@ async def test_when_three_heartbeats_fail_in_a_row(event_loop):
 
     await connector.stop()
 
+
 @pytest.mark.asyncio
 async def test_when_a_heartbeat_succeeds(event_loop):
     """
@@ -249,6 +250,7 @@ async def test_when_a_heartbeat_succeeds(event_loop):
         assert hb4.command == ConnectorCommand.HandleHeartbeatFailed
 
         await connector.stop()
+
 
 @pytest.mark.asyncio
 async def test_when_discovery_fails_on_reconnection(event_loop):
