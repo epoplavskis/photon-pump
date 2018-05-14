@@ -270,6 +270,9 @@ class ClusterDiscovery:
     def close(self):
         self.session.close()
 
+    def mark_failed(self, node):
+        self.seeds.mark_failed(node)
+
     def record_gossip(self, node, gossip):
         self.last_gossip = gossip
 
@@ -325,6 +328,7 @@ class DiscoveryRetryPolicy:
         self.jitter = jitter
         self.multiplier = multiplier
         self.max_interval = max_interval
+        self.next_interval = self.retry_interval
 
     def should_retry(self, node):
         stats = self.stats[node]
