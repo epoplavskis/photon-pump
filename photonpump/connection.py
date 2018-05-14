@@ -79,6 +79,7 @@ class Connector(asyncio.streams.FlowControlMixin):
         self._connection_lost = False
         self._paused = False
         self.state = ConnectorState.Begin
+        self.connect_timeout = 5
 
     def _put_msg(self, msg):
         asyncio.ensure_future(self.ctrl_queue.put(msg))
@@ -146,6 +147,13 @@ class Connector(asyncio.streams.FlowControlMixin):
 
         return future
 
+    async def reconnect(self):
+        self.target_node = None
+        if self.transport:
+            self.transport.close()
+        else:
+            await self.start()
+
     async def _attempt_connect(self, node):
         if not node:
             try:
@@ -161,8 +169,10 @@ class Connector(asyncio.streams.FlowControlMixin):
                 return
         self.log.info("Connecting to %s:%s", node.address, node.port)
         try:
-            await self.loop.create_connection(
-                lambda: self, node.address, node.port
+            await asyncio.wait_for(
+                self.loop.create_connection(
+                    lambda: self, node.address, node.port
+                ), self.connect_timeout
             )
         except Exception as e:
             await self.ctrl_queue.put(
@@ -185,7 +195,9 @@ class Connector(asyncio.streams.FlowControlMixin):
         self.connected(reader, writer)
 
     async def _reconnect(self, node):
-        self.retry_policy.record_failure(node)
+        if not node:
+            await self.start()
+            return
 
         if self.retry_policy.should_retry(node):
             await self.retry_policy.wait(node)
@@ -219,8 +231,7 @@ class Connector(asyncio.streams.FlowControlMixin):
         self.heartbeat_failures += 1
 
         if self.heartbeat_failures >= 3:
-            if self.transport:
-                self.transport.close()
+            await self.reconnect()
             self.heartbeat_failures = 0
 
     async def _on_successful_heartbeat(self, conversation_id):
@@ -541,6 +552,7 @@ class MessageDispatcher:
         self.active_conversations = {}
         self._logger = logging.get_named_logger(MessageDispatcher)
         self._connected = False
+        self._connector = connector
 
         connector.connected.append(self.start)
         connector.disconnected.append(self.stop)
@@ -551,7 +563,9 @@ class MessageDispatcher:
         self._logger.info('enqueue_conversation')
         future = asyncio.futures.Future(loop=self._loop)
         message = convo.start()
-        self.active_conversations[convo.conversation_id] = (convo, future)
+
+        if not message.one_way:
+            self.active_conversations[convo.conversation_id] = (convo, future)
 
         if self._connected:
             await self.output.put(message)
@@ -572,6 +586,10 @@ class MessageDispatcher:
     def has_conversation(self, id):
         return id in self.active_conversations
 
+    def remove(self, id):
+        if id in self.active_conversations:
+            del self.active_conversations[id]
+
     async def _process_messages(self):
         self._logger.debug('hello _process_messages')
         self._connected = True
@@ -579,7 +597,6 @@ class MessageDispatcher:
             for (conversation, future) in self.active_conversations.values():
                 self._logger.info("Restarting conversation %s", conversation)
                 await self.output.put(conversation.start())
-                self._logger.info("DON THAT")
 
             while True:
                 message = await self.input.get()
@@ -601,6 +618,10 @@ class MessageDispatcher:
                 conversation, result = self.active_conversations.get(
                     message.conversation_id, (None, None)
                 )
+
+                if message.command == msg.TcpCommand.NotHandled.value:
+                    await self._connector.reconnect()
+                    continue
 
                 if not conversation:
                     self._logger.error(
@@ -702,12 +723,12 @@ class MessageDispatcher:
                     )
                     await sub.events.enqueue(StopIteration())
 
-
                 if reply.next_message is not None:
                     await self.output.put(reply.next_message)
 
         except asyncio.CancelledError:
             return
+
 
 class Client:
     '''Top level object for interacting with Eventstore.
@@ -718,17 +739,28 @@ class Client:
     '''
 
     def __init__(self, connector, reader, writer, dispatcher, credential=None):
-        self.connected = Event()
-        self.disconnected = Event()
         self.connector = connector
         self.dispatcher = dispatcher
         self.reader = reader
         self.writer = writer
 
+        self.connector.connected.append(self.on_connected)
+        self.connector.disconnected.append(self.on_disconnected)
+
         self.credential = credential
+        self.outstanding_heartbeat = None
+        self.heartbeat_loop = None
 
     async def connect(self):
         await self.connector.start()
+
+    def on_connected(self, *args):
+        logging.info("Got onnected!")
+        self.heartbeat_loop = asyncio.ensure_future(self.send_heartbeats())
+
+    def on_disconnected(self, *args):
+        if self.heartbeat_loop:
+            self.heartbeat_loop.cancel()
 
     async def close(self):
         fut = await self.connector.stop()
@@ -888,9 +920,15 @@ class Client:
 
         return await future
 
-    async def connect_subscription(self, subscription: str, stream: str):
+    async def connect_subscription(
+            self,
+            subscription: str,
+            stream: str,
+            conversation_id: Optional[uuid.UUID] = None
+    ):
         cmd = convo.ConnectPersistentSubscription(
-            subscription, stream, credentials=self.credential
+            subscription, stream, credentials=self.credential,
+            conversation_id=conversation_id
         )
         future = await self.dispatcher.enqueue_conversation(cmd)
 
@@ -904,6 +942,34 @@ class Client:
             loop=self.loop
         )
         await self.dispatcher.enqueue_conversation(cmd)
+
+    async def send_heartbeats(self):
+        heartbeat_id = uuid.uuid4()
+
+        while True:
+            logging.debug("Sending heartbeat %s to server", heartbeat_id)
+            hb = convo.Heartbeat(
+                heartbeat_id, direction=convo.Heartbeat.OUTBOUND
+            )
+            fut = await self.dispatcher.enqueue_conversation(hb)
+
+            try:
+                await asyncio.wait_for(fut, 2)
+                logging.debug("Received heartbeat response from server")
+                self.connector.heartbeat_received(hb.conversation_id)
+                await asyncio.sleep(5)
+            except asyncio.TimeoutError as e:
+                logging.warning("Heartbeat %s timed out", hb.conversation_id)
+                self.connector.heartbeat_failed(e)
+                self.dispatcher.remove(hb.conversation_id)
+            except asyncio.CancelledError:
+                self.dispatcher.remove(hb.conversation_id)
+
+                return
+            except Exception as exn:
+                logging.exception("Heartbeat %s failed", hb.conversation_id)
+                self.dispatcher.remove(hb.conversation_id)
+                self.connector.heartbeat_failed(exn)
 
 
 class ConnectionContextManager:
@@ -927,9 +993,13 @@ class ConnectionContextManager:
         writer = MessageWriter(output_queue, connector)
         dispatcher = MessageDispatcher(connector, input_queue, output_queue)
 
-        credential = msg.Credential(username, password) if username and password else None
+        credential = msg.Credential(
+            username, password
+        ) if username and password else None
 
-        self.client = Client(connector, reader, writer, dispatcher, credential=credential)
+        self.client = Client(
+            connector, reader, writer, dispatcher, credential=credential
+        )
 
     async def __aenter__(self):
         await self.client.connect()
