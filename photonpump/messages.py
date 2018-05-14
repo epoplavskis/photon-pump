@@ -124,7 +124,8 @@ class Credential:
         len_password = int.from_bytes(
             data[offset_username:offset_password], byteorder='big'
         )
-        password = data[offset_password:offset_password + len_password].decode('UTF-8')
+        password = data[offset_password:offset_password + len_password
+                       ].decode('UTF-8')
 
         return cls(username, password)
 
@@ -167,12 +168,14 @@ class OutboundMessage:
             command: TcpCommand,
             payload: Any,
             creds: Credential = None,
-            one_way: bool = False
+            one_way: bool = False,
+            require_master=False
     ) -> None:
         self.conversation_id = conversation_id
         self.command = command
         self.payload = payload
         self.creds = creds
+        self.require_master = require_master
 
         self.data_length = len(payload)
         self.length = HEADER_LENGTH + self.data_length
@@ -185,7 +188,8 @@ class OutboundMessage:
     def header_bytes(self):
         data = bytearray(SIZE_UINT_32 + 2)
         struct.pack_into(
-            '<IBB', data, 0, self.length, self.command.value, 1
+            '<IBB', data, 1
+            if self.require_master else 0, self.length, self.command.value, 1
             if self.creds else 0
         )
         data.extend(self.conversation_id.bytes_le)
@@ -199,8 +203,9 @@ class OutboundMessage:
         return dump(self.header_bytes, self.payload)
 
     def __eq__(self, other):
-        return (isinstance(other, OutboundMessage) and
-                repr(self) == repr(other))
+        return (
+            isinstance(other, OutboundMessage) and repr(self) == repr(other)
+        )
 
 
 class ExpectedVersion(IntEnum):
@@ -323,7 +328,7 @@ def dump(*chunks: bytearray):
         hex = "{0: <47}".format(" ".join("{:02x}".format(x) for x in row))
         dump.append("%06d: %s | %a" % (offset, hex, bytes(row)))
 
-    return "\n".join(dump)
+    return "\n" + "\n".join(dump)
 
 
 def _make_event(record: messages_pb2.ResolvedEvent):
@@ -384,6 +389,7 @@ SubscriptionResult = make_enum(
 
 
 class SubscriptionCreatedResponse:
+
     def __init__(self, result: SubscriptionResult, reason: str):
         self.reason = reason
         self.result = result
