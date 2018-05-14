@@ -152,7 +152,6 @@ async def test_when_a_server_disconnects(event_loop):
     raised_disconnected_event = asyncio.Future(loop=event_loop)
 
     def on_disconnected():
-        print("disconnected")
         raised_disconnected_event.set_result(True)
 
     connector.disconnected.append(on_disconnected)
@@ -204,7 +203,6 @@ async def test_when_three_heartbeats_fail_in_a_row(event_loop):
 
         [hb1, hb2, hb3, connection_closed, reconnect] = await queue.next_event(count=5)
 
-        assert connector.heartbeat_failures == 3
         assert connection_closed.command == ConnectorCommand.HandleConnectionClosed
         assert reconnect.command == ConnectorCommand.Connect
 

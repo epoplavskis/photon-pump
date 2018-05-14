@@ -103,7 +103,6 @@ class Connector(asyncio.streams.FlowControlMixin):
 
     def eof_received(self):
         self.log.info("EOF received, tearing down connection")
-        self.disconnected()
 
     def connection_lost(self, exn=None):
         self.log.info('connection_lost {}'.format(exn))
@@ -271,7 +270,7 @@ class Connector(asyncio.streams.FlowControlMixin):
 
                     return
             except:
-                self.log.exception('hey')
+                self.log.exception('Unexpected error in connector')
 
 
 class StreamingIterator:
@@ -703,9 +702,12 @@ class MessageDispatcher:
                     )
                     await sub.events.enqueue(StopIteration())
 
-        except:
-            self._logger.exception("COCK")
 
+                if reply.next_message is not None:
+                    await self.output.put(reply.next_message)
+
+        except asyncio.CancelledError:
+            return
 
 class Client:
     '''Top level object for interacting with Eventstore.
