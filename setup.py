@@ -34,7 +34,7 @@ class PyTest(TestCommand):
 
 setup(
     name='photon-pump',
-    version='0.4.0',
+    version='0.5.0a1',
     url='http://github.com/madedotcom/photon-pump/',
     license='MIT',
     author='Bob Gregory',

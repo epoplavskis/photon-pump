@@ -23,7 +23,7 @@ async def test_write_message(event_loop):
         writer = MessageWriter(output_queue, connector)
 
         input_queue = asyncio.Queue(maxsize=100)
-        reader = MessageReader(input_queue, connector)
+        _ = MessageReader(input_queue, connector)
 
         wait_for = asyncio.Future(loop=event_loop)
 

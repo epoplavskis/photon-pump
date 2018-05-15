@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from photonpump import Client, connect
+from photonpump import connect
 
 
 @pytest.mark.asyncio

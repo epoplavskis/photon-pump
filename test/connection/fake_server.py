@@ -1,7 +1,5 @@
 import asyncio
 
-from photonpump.connection2 import Event
-
 
 class FakeProtocol(asyncio.Protocol):
 
