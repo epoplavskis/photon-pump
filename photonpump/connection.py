@@ -232,7 +232,7 @@ class Connector(asyncio.streams.FlowControlMixin):
         self.log.warn("Failed to handle a heartbeat")
         self.heartbeat_failures += 1
 
-        if self.heartbeat_failures >= 10:
+        if self.heartbeat_failures >= 3:
             await self.reconnect()
             self.heartbeat_failures = 0
 
@@ -592,8 +592,6 @@ class MessageDispatcher:
     async def _process_messages(self):
         self._connected = True
         try:
-            if self.active_conversations:
-                await asyncio.sleep(2)
             for (conversation, future) in self.active_conversations.values():
                 self._logger.info("Restarting conversation %s", conversation)
                 await self.output.put(conversation.start())
