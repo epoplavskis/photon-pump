@@ -72,7 +72,7 @@ class Connector(asyncio.streams.FlowControlMixin):
         self.transport = None
         self.heartbeat_failures = 0
         self.retry_policy = retry_policy or DiscoveryRetryPolicy(
-            retries_per_node=10
+            retries_per_node=0
         )
         self.target_node = None
 
@@ -107,7 +107,7 @@ class Connector(asyncio.streams.FlowControlMixin):
 
     def connection_lost(self, exn=None):
         self.log.info('connection_lost {}'.format(exn))
-
+        self.retry_policy.record_failure(self.target_node)
         if exn:
             self._put_msg(
                 ConnectorInstruction(
@@ -196,6 +196,7 @@ class Connector(asyncio.streams.FlowControlMixin):
 
     async def _reconnect(self, node):
         if not node:
+            self.target_node = None
             await self.start()
             return
 
@@ -224,13 +225,14 @@ class Connector(asyncio.streams.FlowControlMixin):
             "Failed to connect to host %s with error %s restarting",
             self.target_node, exn
         )
+        self.retry_policy.record_failure(self.target_node)
         await self._reconnect(self.target_node)
 
     async def _on_failed_heartbeat(self, exn):
         self.log.warn("Failed to handle a heartbeat")
         self.heartbeat_failures += 1
 
-        if self.heartbeat_failures >= 3:
+        if self.heartbeat_failures >= 10:
             await self.reconnect()
             self.heartbeat_failures = 0
 
@@ -275,10 +277,8 @@ class Connector(asyncio.streams.FlowControlMixin):
                     await self._on_connector_failed(msg.data)
 
                 if msg.command == ConnectorCommand.Stop:
-                    self.log.info("Connector is stopping, yo")
                     self.stopped(msg.data)
                     msg.future.set_result(None)
-
                     return
             except:
                 self.log.exception('Unexpected error in connector')
@@ -383,7 +383,7 @@ class MessageWriter:
         asyncio.ensure_future(self.stream_writer.drain())
 
     def on_connected(self, _, streamwriter):
-        self._logger.debug('MessageWritter connected')
+        self._logger.debug('MessageWriter connected')
         self._is_connected = True
         self.stream_writer = streamwriter
         self._write_loop = asyncio.ensure_future(
@@ -560,7 +560,6 @@ class MessageDispatcher:
     async def enqueue_conversation(
             self, convo: convo.Conversation
     ) -> asyncio.futures.Future:
-        self._logger.info('enqueue_conversation')
         future = asyncio.futures.Future(loop=self._loop)
         message = convo.start()
 
@@ -591,9 +590,10 @@ class MessageDispatcher:
             del self.active_conversations[id]
 
     async def _process_messages(self):
-        self._logger.debug('hello _process_messages')
         self._connected = True
         try:
+            if self.active_conversations:
+                await asyncio.sleep(2)
             for (conversation, future) in self.active_conversations.values():
                 self._logger.info("Restarting conversation %s", conversation)
                 await self.output.put(conversation.start())
@@ -666,8 +666,6 @@ class MessageDispatcher:
                         'Yielding new events into iterator for %s', conversation
                     )
                     iterator = result.result()
-                    self._logger.debug(iterator)
-                    self._logger.debug(reply.result)
                     await iterator.enqueue_items(reply.result)
 
                 elif reply.action == convo.ReplyAction.CompleteIterator:
@@ -755,7 +753,6 @@ class Client:
         await self.connector.start()
 
     def on_connected(self, *args):
-        logging.info("Got onnected!")
         self.heartbeat_loop = asyncio.ensure_future(self.send_heartbeats())
 
     def on_disconnected(self, *args):
