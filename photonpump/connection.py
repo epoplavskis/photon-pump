@@ -108,6 +108,7 @@ class Connector(asyncio.streams.FlowControlMixin):
     def connection_lost(self, exn=None):
         self.log.info('connection_lost {}'.format(exn))
         self.retry_policy.record_failure(self.target_node)
+
         if exn:
             self._put_msg(
                 ConnectorInstruction(
@@ -149,6 +150,7 @@ class Connector(asyncio.streams.FlowControlMixin):
 
     async def reconnect(self):
         self.target_node = None
+
         if self.transport:
             self.transport.close()
         else:
@@ -198,6 +200,7 @@ class Connector(asyncio.streams.FlowControlMixin):
         if not node:
             self.target_node = None
             await self.start()
+
             return
 
         if self.retry_policy.should_retry(node):
@@ -279,6 +282,7 @@ class Connector(asyncio.streams.FlowControlMixin):
                 if msg.command == ConnectorCommand.Stop:
                     self.stopped(msg.data)
                     msg.future.set_result(None)
+
                     return
             except:
                 self.log.exception('Unexpected error in connector')
@@ -619,6 +623,7 @@ class MessageDispatcher:
 
                 if message.command == msg.TcpCommand.NotHandled.value:
                     await self._connector.reconnect()
+
                     continue
 
                 if not conversation:
@@ -922,7 +927,9 @@ class Client:
             conversation_id: Optional[uuid.UUID] = None
     ):
         cmd = convo.ConnectPersistentSubscription(
-            subscription, stream, credentials=self.credential,
+            subscription,
+            stream,
+            credentials=self.credential,
             conversation_id=conversation_id
         )
         future = await self.dispatcher.enqueue_conversation(cmd)
@@ -966,44 +973,35 @@ class Client:
                 self.dispatcher.remove(hb.conversation_id)
                 self.connector.heartbeat_failed(exn)
 
-
-class ConnectionContextManager:
-
-    def __init__(
-            self,
-            host='localhost',
-            port=1113,
-            discovery_host=None,
-            discovery_port=2113,
-            username=None,
-            password=None,
-            loop=None
-    ):
-        discovery = get_discoverer(host, port, discovery_host, discovery_port)
-        connector = Connector(discovery)
-        input_queue = asyncio.Queue(maxsize=100)
-        output_queue = asyncio.Queue(maxsize=100)
-
-        reader = MessageReader(input_queue, connector)
-        writer = MessageWriter(output_queue, connector)
-        dispatcher = MessageDispatcher(connector, input_queue, output_queue)
-
-        credential = msg.Credential(
-            username, password
-        ) if username and password else None
-
-        self.client = Client(
-            connector, reader, writer, dispatcher, credential=credential
-        )
-
     async def __aenter__(self):
-        await self.client.connect()
+        await self.connect()
 
-        return self.client
+        return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        await self.client.close()
+        await self.close()
 
 
-def connect(*args, **kwargs):
-    return ConnectionContextManager(*args, **kwargs)
+def connect(
+        host='localhost',
+        port=1113,
+        discovery_host=None,
+        discovery_port=2113,
+        username=None,
+        password=None,
+        loop=None
+):
+    discovery = get_discoverer(host, port, discovery_host, discovery_port)
+    connector = Connector(discovery)
+    input_queue = asyncio.Queue(maxsize=100)
+    output_queue = asyncio.Queue(maxsize=100)
+
+    reader = MessageReader(input_queue, connector)
+    writer = MessageWriter(output_queue, connector)
+    dispatcher = MessageDispatcher(connector, input_queue, output_queue)
+
+    credential = msg.Credential(
+        username, password
+    ) if username and password else None
+
+    return Client(connector, reader, writer, dispatcher, credential=credential)
