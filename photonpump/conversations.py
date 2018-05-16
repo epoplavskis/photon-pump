@@ -1,6 +1,6 @@
 import json
 import logging
-from asyncio import Future, TimeoutError, CancelledError
+from asyncio import Future, TimeoutError
 from enum import IntEnum
 from typing import Any, NamedTuple, Sequence, Union, Optional
 from uuid import UUID, uuid4
@@ -49,7 +49,9 @@ class Reply(NamedTuple):
 class Conversation:
 
     def __init__(
-            self, conversation_id: Optional[UUID] = None, credential: Optional[Credential] = None
+            self,
+            conversation_id: Optional[UUID] = None,
+            credential: Optional[Credential] = None
     ) -> None:
         self.conversation_id = conversation_id or uuid4()
         self.result: Future = Future()
@@ -145,18 +147,25 @@ class Heartbeat(Conversation):
 
         if self.direction == Heartbeat.INBOUND:
             return OutboundMessage(
-                self.conversation_id, TcpCommand.HeartbeatResponse, b'',
-                self.credential, one_way=True
+                self.conversation_id,
+                TcpCommand.HeartbeatResponse,
+                b'',
+                self.credential,
+                one_way=True
             )
         else:
             return OutboundMessage(
-                self.conversation_id, TcpCommand.HeartbeatRequest, b'',
-                self.credential, one_way=False
+                self.conversation_id,
+                TcpCommand.HeartbeatRequest,
+                b'',
+                self.credential,
+                one_way=False
             )
 
     def reply(self, msg: InboundMessage):
         self.expect_only(TcpCommand.HeartbeatResponse, msg)
         return Reply(ReplyAction.CompleteScalar, True, None)
+
 
 class Ping(Conversation):
 

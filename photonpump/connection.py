@@ -284,7 +284,7 @@ class Connector(asyncio.streams.FlowControlMixin):
                     msg.future.set_result(None)
 
                     return
-            except:
+            except:  # noqa: E722
                 self.log.exception('Unexpected error in connector')
 
 

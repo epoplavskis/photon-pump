@@ -18,11 +18,10 @@ simple and testable.
 """
 import asyncio
 import uuid
-import logging
 
 import pytest
 from photonpump import messages_pb2 as proto
-from photonpump.connection import MessageDispatcher, Event
+from photonpump.connection import MessageDispatcher
 from photonpump.conversations import (ConnectPersistentSubscription,
                                       IterStreamEvents, Ping)
 from photonpump.exceptions import (NotAuthenticated, PayloadUnreadable,
@@ -31,7 +30,6 @@ from photonpump.exceptions import (NotAuthenticated, PayloadUnreadable,
 from photonpump.messages import (InboundMessage, NewEvent, OutboundMessage,
                                  ReadStreamResult, SubscriptionDropReason,
                                  TcpCommand)
-from testfixtures import LogCapture
 
 from ..data import (persistent_subscription_confirmed,
                     persistent_subscription_dropped,
@@ -461,7 +459,7 @@ async def test_when_connector_reconnected_retry_active_conversations():
 
     in_queue, out_queue, dispatcher, connector = start_dispatcher()
     conversation = ConnectPersistentSubscription("my-sub", "my-stream")
-    future = await dispatcher.enqueue_conversation(conversation)
+    await dispatcher.enqueue_conversation(conversation)
 
     await in_queue.put(persistent_subscription_confirmed(
         conversation.conversation_id, "my-sub"
@@ -502,31 +500,3 @@ async def test_when_enqueueing_a_conversation_before_the_dispatcher_starts():
     message = await output.get()
 
     assert message == conversation.start()
-
-
-@pytest.mark.asyncio
-async def test_when_the_connector_stops():
-    """
-    When the connector stops we should cancel the futures of any
-    waiting clients
-    """
-    connector = FakeConnector()
-    input = TeeQueue()
-    output = TeeQueue()
-    dispatcher = MessageDispatcher(connector, input=input, output=output)
-
-    ping = Ping()
-
-    fut = await dispatcher.enqueue_conversation(ping)
-    connector.stopped(None)
-
-    with pytest.raises(asyncio.CancelledError):
-        await fut
-
-
-async def test_when_the_connector_fails():
-    """
-    When the connector stops with an error, we should raise the error to any
-    waiting client
-    """
-    pass

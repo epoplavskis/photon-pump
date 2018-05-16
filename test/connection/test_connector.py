@@ -12,7 +12,7 @@ import asyncio
 
 import pytest
 
-from photonpump.connection import Connector, ConnectorCommand, ConnectorInstruction
+from photonpump.connection import Connector, ConnectorCommand
 from photonpump.discovery import NodeService, SingleNodeDiscovery, DiscoveryFailed
 
 
@@ -265,7 +265,6 @@ async def test_when_discovery_fails_on_reconnection(event_loop):
 
         def record_failure(self, node):
             self.recorded = node
-
 
     wait_for_stopped = asyncio.Future()
 

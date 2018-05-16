@@ -124,8 +124,9 @@ class Credential:
         len_password = int.from_bytes(
             data[offset_username:offset_password], byteorder='big'
         )
-        password = data[offset_password:offset_password + len_password
-                       ].decode('UTF-8')
+        pass_begin = offset_password
+        pass_end = offset_password + len_password
+        password = data[pass_begin:pass_end].decode('UTF-8')
 
         return cls(username, password)
 

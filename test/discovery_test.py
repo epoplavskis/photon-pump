@@ -1,12 +1,13 @@
+from typing import List
+
 import aiohttp
 import pytest
 from aioresponses import aioresponses
-from typing import List
 
 from photonpump.discovery import (
     ClusterDiscovery, DiscoveredNode, DiscoveryFailed, DiscoveryRetryPolicy,
-    NodeService, NodeState, StaticSeedFinder, Stats, fetch_new_gossip,
-    get_discoverer, read_gossip, select
+    NodeService, NodeState, SingleNodeDiscovery, StaticSeedFinder, Stats,
+    fetch_new_gossip, get_discoverer, read_gossip, select
 )
 
 from . import data
@@ -282,13 +283,33 @@ async def test_single_node_mark_failed():
     The SingleNodeDiscovery should raise DiscoveryFailed if we ask for a node
     after calling mark_failed.
     """
-    pass
+
+    node = NodeService('2.3.4.5', 1234, None)
+    discoverer = SingleNodeDiscovery(node)
+
+    assert await discoverer.discover() == node
+
+    discoverer.mark_failed(node)
+
+    with pytest.raises(DiscoveryFailed):
+        await discoverer.discover()
 
 
 @pytest.mark.asyncio
 async def test_cluster_discovery_mark_failed():
     """
-    ClusterDiscovery should return a different node if we mark the master as
-    failed.
+    ClusterDiscovery should just pass the mark_failed call to the seed source.
     """
-    pass
+
+    class spy_seed_finder(List):
+
+        def mark_failed(self, node):
+            self.append(node)
+
+    node = NodeService('2.3.4.5', 1234, None)
+    finder = spy_seed_finder()
+    discoverer = ClusterDiscovery(finder, None, None)
+
+    discoverer.mark_failed(node)
+
+    assert finder == [node]
