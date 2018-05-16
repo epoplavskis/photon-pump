@@ -415,6 +415,7 @@ class MessageWriter:
                 )
             try:
                 await self.stream_writer.drain()
+                self._logger.trace("Finished drain")
             except Exception as e:
                 self._logger.error(e)
 
