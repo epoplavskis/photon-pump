@@ -466,7 +466,6 @@ class MessageReader:
            the operation that caused them'''
 
         while True:
-            self._logger.debug("Waiting for data")
             data = await self._stream_reader.read(8192)
             self._logger.trace(
                 'Received %d bytes from remote server:\n%s', len(data),
