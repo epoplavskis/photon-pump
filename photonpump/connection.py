@@ -400,6 +400,7 @@ class MessageWriter:
     async def _write_outbound_messages(self):
         if self.next:
             self._logger.debug('Sending message %s', self.next)
+            self._logger.trace('Message body is %r', self.next)
             self.stream_writer.write(self.next.header_bytes)
             self.stream_writer.write(self.next.payload)
 
@@ -407,6 +408,7 @@ class MessageWriter:
             self.next = await self._queue.get()
             try:
                 self._logger.debug('Sending message %s', self.next)
+                self._logger.trace('Message body is %r', self.next)
                 self.stream_writer.write(self.next.header_bytes)
                 self.stream_writer.write(self.next.payload)
             except Exception as e:
@@ -415,7 +417,7 @@ class MessageWriter:
                 )
             try:
                 await self.stream_writer.drain()
-                self._logger.trace("Finished drain")
+                self._logger.debug("Finished drain for %s", self.next)
             except Exception as e:
                 self._logger.error(e)
 
@@ -586,11 +588,10 @@ class MessageDispatcher:
 
         if self._dispatch_loop:
             self._dispatch_loop.cancel()
-        asyncio.ensure_future(self._stop_conversations())
 
     async def _stop_conversations(self):
         for (conversation, fut) in self.active_conversations.values():
-            action = conversation.connector_stopped()
+            action = conversation.stop()
             await self.handle_reply(conversation, fut, action)
         self.active_conversations.clear()
 

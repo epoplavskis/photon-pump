@@ -203,6 +203,12 @@ class OutboundMessage:
     def __repr__(self):
         return dump(self.header_bytes, self.payload)
 
+    def __str__(self):
+        return "%s (%s) of %s flags=%d" % (
+            TcpCommand(self.command).name, self.conversation_id,
+            sizeof_fmt(self.length), 0
+        )
+
     def __eq__(self, other):
         return (
             isinstance(other, OutboundMessage) and repr(self) == repr(other)
