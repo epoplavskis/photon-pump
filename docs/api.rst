@@ -3,10 +3,9 @@ Photonpump API Reference
 
 .. module:: photonpump
 
-.. autoclass:: photonpump.Connection
+.. autoclass:: Connection
    :members:
    :member-order: bysource
 
 .. automodule:: photonpump.messages
     :members:
-
