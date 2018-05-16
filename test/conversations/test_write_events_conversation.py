@@ -1,9 +1,26 @@
+import asyncio
 import json
 from uuid import uuid4
 
 import photonpump.messages as msg
 import photonpump.messages_pb2 as proto
-from photonpump.conversations import WriteEvents
+from photonpump.conversations import ReplyAction, WriteEvents
+
+
+def given_a_write_events_message():
+
+    event_id = uuid4()
+    conversation_id = uuid4()
+
+    event_type = "pony_jumped"
+    data = {'pony_name': 'Burning Sulphur', 'distance': 6}
+    event_data = msg.NewEventData(event_id, event_type, data, None)
+
+    conversation = WriteEvents(
+        "my-stream", [event_data], conversation_id=conversation_id
+    )
+
+    return conversation
 
 
 def test_write_one_event():
@@ -47,16 +64,7 @@ def test_write_one_event():
 
 def test_one_event_response():
 
-    event_id = uuid4()
-    conversation_id = uuid4()
-
-    event_type = "pony_jumped"
-    data = {'pony_name': 'Burning Sulphur', 'distance': 6}
-    event_data = msg.NewEventData(event_id, event_type, data, None)
-
-    conversation = WriteEvents(
-        "my-stream", [event_data], conversation_id=conversation_id
-    )
+    conversation = given_a_write_events_message()
 
     conversation.start()
 
@@ -67,7 +75,7 @@ def test_one_event_response():
 
     reply = conversation.respond_to(
         msg.InboundMessage(
-            conversation_id, msg.TcpCommand.WriteEventsCompleted,
+            conversation.conversation_id, msg.TcpCommand.WriteEventsCompleted,
             payload.SerializeToString()
         )
     )
@@ -78,3 +86,34 @@ def test_one_event_response():
     assert result.first_event_number == 73
     assert result.last_event_number == 73
     assert result.result == msg.OperationResult.Success
+
+
+def test_timeout():
+    """
+    If we time out while waiting for a write events result
+    then we should resubmit the original message.
+    """
+
+    conversation = given_a_write_events_message()
+    conversation.start()
+
+    reply = conversation.timeout()
+
+    assert reply.next_message == conversation.start()
+    assert reply.action == ReplyAction.ResubmitMessage
+
+
+def test_connection_failed():
+    """
+    IF the connection shuts down while we're waiting for a response
+    then all we can do is cancel the result.
+    """
+
+    conversation = given_a_write_events_message()
+    conversation.start()
+
+    reply = conversation.stop()
+
+    assert reply.action == ReplyAction.CancelFuture
+    assert reply.next_message is None
+    assert reply.result is None

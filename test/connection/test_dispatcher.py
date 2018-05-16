@@ -477,6 +477,7 @@ async def test_when_connector_reconnected_retry_active_conversations():
     assert message == conversation.start()
 
 
+@pytest.mark.asyncio
 async def test_when_enqueueing_a_conversation_before_the_dispatcher_starts():
     """
     If we enqueue a conversation before the dispatcher starts reading its
@@ -487,15 +488,40 @@ async def test_when_enqueueing_a_conversation_before_the_dispatcher_starts():
     the other restarted conversations.
     """
 
-    assert False
+    connector = FakeConnector()
+    input = TeeQueue()
+    output = TeeQueue()
+    dispatcher = MessageDispatcher(connector, input=input, output=output)
+
+    conversation = Ping()
+
+    await dispatcher.enqueue_conversation(conversation)
+    assert not any(output.items)
+
+    connector.connected()
+    message = await output.get()
+
+    assert message == conversation.start()
 
 
+@pytest.mark.asyncio
 async def test_when_the_connector_stops():
     """
-    When the connector stops with an error, we should cancel the futures of any
+    When the connector stops we should cancel the futures of any
     waiting clients
     """
-    pass
+    connector = FakeConnector()
+    input = TeeQueue()
+    output = TeeQueue()
+    dispatcher = MessageDispatcher(connector, input=input, output=output)
+
+    ping = Ping()
+
+    fut = await dispatcher.enqueue_conversation(ping)
+    connector.stopped(None)
+
+    with pytest.raises(asyncio.CancelledError):
+        await fut
 
 
 async def test_when_the_connector_fails():

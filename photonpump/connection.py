@@ -585,6 +585,13 @@ class MessageDispatcher:
 
         if self._dispatch_loop:
             self._dispatch_loop.cancel()
+        asyncio.ensure_future(self._stop_conversations())
+
+    async def _stop_conversations(self):
+        for (conversation, fut) in self.active_conversations.values():
+            action = conversation.connector_stopped()
+            await self.handle_reply(conversation, fut, action)
+        self.active_conversations.clear()
 
     def has_conversation(self, id):
         return id in self.active_conversations
@@ -639,96 +646,97 @@ class MessageDispatcher:
                 )
 
                 reply = conversation.respond_to(message)
-
-                self._logger.debug('Reply is %s', reply)
-
-                if reply.action == convo.ReplyAction.CompleteScalar:
-                    result.set_result(reply.result)
-                    del self.active_conversations[message.conversation_id]
-
-                elif reply.action == convo.ReplyAction.CompleteError:
-                    self._logger.warn(
-                        'Conversation %s received an error %s', conversation,
-                        reply.result
-                    )
-                    result.set_exception(reply.result)
-                    del self.active_conversations[message.conversation_id]
-
-                elif reply.action == convo.ReplyAction.BeginIterator:
-                    self._logger.debug(
-                        'Creating new streaming iterator for %s', conversation
-                    )
-                    size, events = reply.result
-                    it = StreamingIterator(size * 2)
-                    result.set_result(it)
-                    await it.enqueue_items(events)
-                    self._logger.debug('Enqueued %d events', len(events))
-
-                elif reply.action == convo.ReplyAction.YieldToIterator:
-                    self._logger.debug(
-                        'Yielding new events into iterator for %s', conversation
-                    )
-                    iterator = result.result()
-                    await iterator.enqueue_items(reply.result)
-
-                elif reply.action == convo.ReplyAction.CompleteIterator:
-                    self._logger.debug(
-                        'Yielding final events into iterator for %s',
-                        conversation
-                    )
-                    iterator = result.result()
-                    await iterator.enqueue_items(reply.result)
-                    await iterator.asend(StopAsyncIteration())
-                    del self.active_conversations[message.conversation_id]
-
-                elif reply.action == convo.ReplyAction.RaiseToIterator:
-                    iterator = result.result()
-                    error = reply.result
-                    self._logger.warning(
-                        "Raising error %s to iterator %s", error, iterator
-                    )
-                    await iterator.asend(error)
-                    del self.active_conversations[message.conversation_id]
-
-                elif reply.action == convo.ReplyAction.BeginPersistentSubscription:
-                    self._logger.debug(
-                        'Starting new iterator for persistent subscription %s',
-                        conversation
-                    )
-                    sub = PersistentSubscription(
-                        reply.result,
-                        StreamingIterator(reply.result.buffer_size), self,
-                        self.output
-                    )
-                    result.set_result(sub)
-
-                elif reply.action == convo.ReplyAction.YieldToSubscription:
-                    self._logger.debug(
-                        'Pushing new event for subscription %s', conversation
-                    )
-                    sub = await result
-                    await sub.events.enqueue(reply.result)
-
-                elif reply.action == convo.ReplyAction.RaiseToSubscription:
-                    sub = await result
-                    self._logger.info(
-                        "Raising error %s to persistent subscription %s",
-                        reply.result, sub
-                    )
-                    await sub.events.enqueue(reply.result)
-
-                elif reply.action == convo.ReplyAction.FinishSubscription:
-                    sub = await result
-                    self._logger.info(
-                        "Completing persistent subscription %s", sub
-                    )
-                    await sub.events.enqueue(StopIteration())
-
-                if reply.next_message is not None:
-                    await self.output.put(reply.next_message)
-
+                await self.handle_reply(conversation, result, reply)
         except asyncio.CancelledError:
             return
+
+    async def handle_reply(
+            self, conversation: convo.Conversation, result: asyncio.Future,
+            reply: convo.ReplyAction
+    ):
+
+        self._logger.debug('Reply is %s', reply)
+
+        if reply.action == convo.ReplyAction.CompleteScalar:
+            result.set_result(reply.result)
+            del self.active_conversations[conversation.conversation_id]
+
+        elif reply.action == convo.ReplyAction.CompleteError:
+            self._logger.warn(
+                'Conversation %s received an error %s', conversation,
+                reply.result
+            )
+            result.set_exception(reply.result)
+            del self.active_conversations[conversation.conversation_id]
+
+        elif reply.action == convo.ReplyAction.BeginIterator:
+            self._logger.debug(
+                'Creating new streaming iterator for %s', conversation
+            )
+            size, events = reply.result
+            it = StreamingIterator(size * 2)
+            result.set_result(it)
+            await it.enqueue_items(events)
+            self._logger.debug('Enqueued %d events', len(events))
+
+        elif reply.action == convo.ReplyAction.YieldToIterator:
+            self._logger.debug(
+                'Yielding new events into iterator for %s', conversation
+            )
+            iterator = result.result()
+            await iterator.enqueue_items(reply.result)
+
+        elif reply.action == convo.ReplyAction.CompleteIterator:
+            self._logger.debug(
+                'Yielding final events into iterator for %s', conversation
+            )
+            iterator = result.result()
+            await iterator.enqueue_items(reply.result)
+            await iterator.asend(StopAsyncIteration())
+            del self.active_conversations[conversation.conversation_id]
+
+        elif reply.action == convo.ReplyAction.RaiseToIterator:
+            iterator = result.result()
+            error = reply.result
+            self._logger.warning(
+                "Raising error %s to iterator %s", error, iterator
+            )
+            await iterator.asend(error)
+            del self.active_conversations[conversation.conversation_id]
+
+        elif reply.action == convo.ReplyAction.BeginPersistentSubscription:
+            self._logger.debug(
+                'Starting new iterator for persistent subscription %s',
+                conversation
+            )
+            sub = PersistentSubscription(
+                reply.result, StreamingIterator(reply.result.buffer_size), self,
+                self.output
+            )
+            result.set_result(sub)
+
+        elif reply.action == convo.ReplyAction.YieldToSubscription:
+            self._logger.debug(
+                'Pushing new event for subscription %s', conversation
+            )
+            sub = await result
+            await sub.events.enqueue(reply.result)
+
+        elif reply.action == convo.ReplyAction.RaiseToSubscription:
+            sub = await result
+            self._logger.info(
+                "Raising error %s to persistent subscription %s", reply.result,
+                sub
+            )
+            await sub.events.enqueue(reply.result)
+
+        elif reply.action == convo.ReplyAction.FinishSubscription:
+            sub = await result
+            self._logger.info("Completing persistent subscription %s", sub)
+            await sub.events.enqueue(StopIteration())
+
+        if reply.next_message is not None:
+            await self.output.put(reply.next_message)
 
 
 class Client:
@@ -956,10 +964,10 @@ class Client:
             fut = await self.dispatcher.enqueue_conversation(hb)
 
             try:
-                await asyncio.wait_for(fut, 2)
+                await asyncio.wait_for(fut, 10)
                 logging.debug("Received heartbeat response from server")
                 self.connector.heartbeat_received(hb.conversation_id)
-                await asyncio.sleep(5)
+                await asyncio.sleep(30)
             except asyncio.TimeoutError as e:
                 logging.warning("Heartbeat %s timed out", hb.conversation_id)
                 self.connector.heartbeat_failed(e)

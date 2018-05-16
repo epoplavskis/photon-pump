@@ -1,6 +1,6 @@
 import json
 import logging
-from asyncio import Future
+from asyncio import Future, TimeoutError, CancelledError
 from enum import IntEnum
 from typing import Any, NamedTuple, Sequence, Union, Optional
 from uuid import UUID, uuid4
@@ -21,19 +21,22 @@ class ReplyAction(IntEnum):
 
     CompleteScalar = 0
     CompleteError = 1
+    CancelFuture = 2
 
-    BeginIterator = 2
-    YieldToIterator = 3
-    CompleteIterator = 4
-    RaiseToIterator = 5
+    BeginIterator = 3
+    YieldToIterator = 4
+    CompleteIterator = 5
+    RaiseToIterator = 6
 
-    BeginVolatileSubscription = 6
-    YieldToSubscription = 7
-    FinishSubscription = 8
-    RaiseToSubscription = 9
+    BeginVolatileSubscription = 7
+    YieldToSubscription = 8
+    FinishSubscription = 9
+    RaiseToSubscription = 10
 
-    BeginPersistentSubscription = 10
-    ContinueSubscription = 11
+    BeginPersistentSubscription = 11
+    ContinueSubscription = 12
+
+    ResubmitMessage = 22
 
 
 class Reply(NamedTuple):
@@ -96,6 +99,12 @@ class Conversation:
             exn = exceptions.NotHandled(self.conversation_id, body.reason)
 
         return self.error(exn)
+
+    def timeout(self):
+        return self.error(TimeoutError())
+
+    def stop(self):
+        return Reply(ReplyAction.CancelFuture, None, None)
 
     def respond_to(self, response: InboundMessage) -> Reply:
         try:
@@ -202,7 +211,6 @@ class WriteEvents(Conversation):
         msg.expected_version = self.expected_version
 
         for event in self.events:
-            print(event.id)
             e = msg.events.add()
             e.event_id = event.id.bytes_le
             e.event_type = event.type
@@ -238,6 +246,9 @@ class WriteEvents(Conversation):
         self._logger.trace("Returning result %s", result)
 
         return Reply(ReplyAction.CompleteScalar, result, None)
+
+    def timeout(self):
+        return Reply(ReplyAction.ResubmitMessage, None, self.start())
 
 
 class ReadStreamEventsBehaviour:
