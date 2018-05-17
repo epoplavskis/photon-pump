@@ -730,9 +730,10 @@ class MessageDispatcher:
 class Client:
     '''Top level object for interacting with Eventstore.
 
-    The connection is the entry point to working with Photon Pump.
+    The client is the entry point to working with Photon Pump.
     It exposes high level methods that wrap the
-    :class:`~photonpump.messages.Operation` types from photonpump.messages.
+    :class:`~photonpump.conversations.Conversation` types from
+    photonpump.conversations.
     '''
 
     def __init__(self, connector, reader, writer, dispatcher, credential=None):
@@ -986,7 +987,47 @@ def connect(
         username=None,
         password=None,
         loop=None
-):
+) -> Client:
+    """ Create a new client.
+
+        Examples:
+            Since the Client is an async context manager, we can use it in a
+            with block for automatic connect/disconnect semantics.
+
+            >>> async with connect(host='127.0.0.1', port=1113) as c:
+            >>>     await c.ping()
+
+            Or we can call connect at a more convenient moment
+
+            >>> c = connect()
+            >>> await c.connect()
+            >>> await c.ping()
+            >>> await c.close()
+
+            For cluster discovery cases, we can provide a discovery host and
+            port. The host may be an IP or DNS entry. If you provide a DNS
+            entry, discovery will choose randomly from the registered IP
+            addresses for the hostname.
+
+            >>> async with connect(discovery_host="eventstore.test") as c:
+            >>>     await c.ping()
+
+            For some operations, you may need to authenticate your requests by
+            providing a username and password to the client.
+
+            >>> async with connect(username='admin', password='changeit') as c:
+            >>>     await c.ping()
+
+        Args:
+            host: The IP or DNS entry to connect with, defaults to 'localhost'.
+            port: The port to connect with, defaults to 1113.
+            discovery_host: The IP or DNS entry to use for cluster discovery.
+            discovery_port: The port to use for cluster discovery, defaults to 2113.
+            username: The username to use when communicating with eventstore.
+            password: The password to use when communicating with eventstore.
+            loop:An Asyncio event loop.
+
+    """
     discovery = get_discoverer(host, port, discovery_host, discovery_port)
     connector = Connector(discovery)
     input_queue = asyncio.Queue(maxsize=100)
