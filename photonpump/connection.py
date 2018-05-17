@@ -265,7 +265,7 @@ class Connector(asyncio.streams.FlowControlMixin):
                     await self._on_transport_closed()
 
                 if msg.command == ConnectorCommand.HandleConnectionFailed:
-                    await self._on_transport_closed()
+                    await self._on_transport_error(msg.data)
 
                 if msg.command == ConnectorCommand.HandleHeartbeatFailed:
                     await self._on_failed_heartbeat(msg.data)
@@ -304,10 +304,7 @@ class StreamingIterator:
         await self.items.put(item)
 
     async def anext(self):
-        try:
-            return await self.__anext__()
-        except StopAsyncIteration:
-            pass
+        return await self.__anext__()
 
     async def __anext__(self):
 
@@ -326,20 +323,13 @@ class StreamingIterator:
 
         return _next
 
-    async def athrow(self, e):
-        await self.items.put(e)
-
     async def asend(self, m):
         await self.items.put(m)
-
-    def cancel(self):
-        self.finished = True
-        self.asend(StopIteration())
 
 
 class PersistentSubscription(convo.PersistentSubscription):
 
-    def __init__(self, subscription, iterator, conn, out_queue=None):
+    def __init__(self, subscription, iterator, conn, out_queue):
         super().__init__(
             subscription.name, subscription.stream,
             subscription.conversation_id, subscription.initial_commit_position,
@@ -360,10 +350,7 @@ class PersistentSubscription(convo.PersistentSubscription):
             payload.SerializeToString(),
         )
 
-        if self.out_queue:
-            await self.out_queue.put(message)
-        else:
-            await self.connection.enqueue_message(message)
+        await self.out_queue.put(message)
 
 
 class MessageWriter:
@@ -381,7 +368,6 @@ class MessageWriter:
         self._logger.warn('Connection lost, stopping loop')
         self._is_connected = False
         self._write_loop.cancel()
-        asyncio.ensure_future(self.stream_writer.drain())
 
     def on_connected(self, _, streamwriter):
         self._logger.debug('MessageWriter connected')

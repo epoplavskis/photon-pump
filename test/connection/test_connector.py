@@ -22,9 +22,10 @@ from photonpump.discovery import (
 async def connector_event(connector_event):
     fut = asyncio.Future()
     def _cb(*args):
-        fut.set_result(None)
+        if not fut.done():
+            fut.set_result(None)
     connector_event.append(_cb)
-    return fut
+    return await fut
 
 
 class TeeQueue:
@@ -359,6 +360,20 @@ async def test_when_restarting_a_running_connector(event_loop):
         assert reconnect.command == ConnectorCommand.Connect
 
 
+@pytest.mark.asyncio
+async def test_when_restarting_a_stopped_connector(event_loop):
+    queue = TeeQueue()
+    addr = NodeService("localhost", 8338, None)
+    connector = Connector(
+        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+    )
 
+    async with EchoServer(addr, event_loop):
+        await connector.reconnect()
+        [connect, connected] = await queue.next_event(count=2)
 
+        assert connect.command == ConnectorCommand.Connect
+        assert connected.command == ConnectorCommand.HandleConnectionOpened
+        await connector_event(connector.connected)
 
+        await connector.stop()
