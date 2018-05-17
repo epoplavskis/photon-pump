@@ -9,11 +9,22 @@ event. These events are handled by the Reader, Writer, and Dispatcher.
 """
 
 import asyncio
+import logging
 
 import pytest
 
 from photonpump.connection import Connector, ConnectorCommand
-from photonpump.discovery import NodeService, SingleNodeDiscovery, DiscoveryFailed
+from photonpump.discovery import (
+    DiscoveryFailed, NodeService, SingleNodeDiscovery
+)
+
+
+async def connector_event(connector_event):
+    fut = asyncio.Future()
+    def _cb(*args):
+        fut.set_result(None)
+    connector_event.append(_cb)
+    return fut
 
 
 class TeeQueue:
@@ -36,26 +47,29 @@ class TeeQueue:
             return await self.teed_queue.get()
         needed = count
         result = []
+
         while needed > 0:
             result.append(await self.teed_queue.get())
             needed -= 1
+
         return result
 
 
 class EchoServerClientProtocol(asyncio.Protocol):
 
-    def __init__(self, cb):
+    def __init__(self, cb, number):
         self.cb = cb
+        self.number = number
 
     def connection_made(self, transport):
         peername = transport.get_extra_info('peername')
-        print('Connection from {}'.format(peername))
+        logging.info('Connection from {} to protocol {}'.format(peername, self.number))
         self.transport = transport
         self.cb(transport)
 
     def data_received(self, data):
         # message = data
-        print('Data received: {!r}'.format(data))
+        logging.info('Protocol {} received data: {!r}'.format(self.number, data))
 
         # print('Send: {!r}'.format(message))
         self.transport.write(data)
@@ -70,6 +84,7 @@ class EchoServer:
         self.host = addr.address
         self.port = addr.port
         self.loop = loop
+        self.protocol_counter = 0
         self.running = False
 
     async def __aenter__(self):
@@ -79,11 +94,16 @@ class EchoServer:
         )
         self._server = await server
         self.running = True
+        logging.info("Echo server is running %s", self._server)
 
         return self
 
     def make_protocol(self):
-        return EchoServerClientProtocol(self.transports.append)
+        self.protocol_counter += 1
+
+        return EchoServerClientProtocol(
+            self.transports.append, self.protocol_counter
+        )
 
     async def __aexit__(self, exc_type, exc, tb):
         self.stop()
@@ -201,7 +221,8 @@ async def test_when_three_heartbeats_fail_in_a_row(event_loop):
         connector.heartbeat_failed()
         connector.heartbeat_failed()
 
-        [hb1, hb2, hb3, connection_closed, reconnect] = await queue.next_event(count=5)
+        [hb1, hb2, hb3, connection_closed,
+         reconnect] = await queue.next_event(count=5)
 
         assert connection_closed.command == ConnectorCommand.HandleConnectionClosed
         assert reconnect.command == ConnectorCommand.Connect
@@ -252,7 +273,6 @@ async def test_when_a_heartbeat_succeeds(event_loop):
 
 @pytest.mark.asyncio
 async def test_when_discovery_fails_on_reconnection(event_loop):
-
     """
     If we can't retry our current node any more, and we can't discover a new one
     then it's game over and we should raise the stopped event.
@@ -275,7 +295,9 @@ async def test_when_discovery_fails_on_reconnection(event_loop):
     addr = NodeService("localhost", 8338, None)
     policy = never_retry()
     connector = Connector(
-        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue,
+        SingleNodeDiscovery(addr),
+        loop=event_loop,
+        ctrl_queue=queue,
         retry_policy=policy
     )
 
@@ -284,7 +306,59 @@ async def test_when_discovery_fails_on_reconnection(event_loop):
     await connector.start()
     [connect, connection_failed] = await queue.next_event(count=2)
 
-    [reconnect, failed, stop] = await asyncio.wait_for(queue.next_event(count=3), 2)
+    [reconnect, failed, stop] = await asyncio.wait_for(
+        queue.next_event(count=3), 2
+    )
     assert failed.command == ConnectorCommand.HandleConnectorFailed
     assert policy.recorded == addr
     assert isinstance(await wait_for_stopped, DiscoveryFailed)
+
+
+@pytest.mark.asyncio
+async def test_when_the_connection_fails_with_an_error(event_loop):
+    queue = TeeQueue()
+    addr = NodeService("localhost", 8338, None)
+    connector = Connector(
+        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+    )
+
+    async with EchoServer(addr, event_loop):
+
+        await connector.start()
+        [connect, connected] = await queue.next_event(count=2)
+
+        exn = ValueError()
+        connector.connection_lost(exn)
+
+        [connection_failed] = await queue.next_event(count=1)
+
+        assert connection_failed.command == ConnectorCommand.HandleConnectionFailed
+        assert connection_failed.data is exn
+
+
+@pytest.mark.asyncio
+async def test_when_restarting_a_running_connector(event_loop):
+    queue = TeeQueue()
+    addr = NodeService("localhost", 8338, None)
+    connector = Connector(
+        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+    )
+
+    async with EchoServer(addr, event_loop):
+        await connector.start()
+        [connect, connected] = await queue.next_event(count=2)
+
+        assert connected.command == ConnectorCommand.HandleConnectionOpened
+        await connector_event(connector.connected)
+
+        await connector.reconnect()
+
+        [closed, reconnect] = await queue.next_event(count=2)
+
+        assert closed.command == ConnectorCommand.HandleConnectionClosed
+        assert reconnect.command == ConnectorCommand.Connect
+
+
+
+
+

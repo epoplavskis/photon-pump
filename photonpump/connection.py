@@ -21,9 +21,6 @@ class Event(list):
         for f in self:
             f(*args, **kwargs)
 
-    def __repr__(self):
-        return 'Event(%s)' % list.__repr__(self)
-
 
 class ConnectorCommand(enum.IntEnum):
     Connect = 0
@@ -466,12 +463,16 @@ class MessageReader:
            the operation that caused them'''
 
         while True:
-            data = await self._stream_reader.read(8192)
-            self._logger.trace(
-                'Received %d bytes from remote server:\n%s', len(data),
-                msg.dump(data)
-            )
-            await self.process(data)
+            try:
+                data = await self._stream_reader.read(8192)
+                self._logger.trace(
+                    'Received %d bytes from remote server:\n%s', len(data),
+                    msg.dump(data)
+                )
+                await self.process(data)
+            except:
+                logging.exception("Unexpected error in message reader")
+                break
 
     async def process(self, chunk: bytes):
         if chunk is None:
