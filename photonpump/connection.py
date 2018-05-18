@@ -657,9 +657,6 @@ class MessageDispatcher:
             self._logger.info("Completing persistent subscription %s", sub)
             await sub.events.enqueue(StopIteration())
 
-        elif reply.action == convo.ReplyAction.ContinueSubscription:
-            raise NotImplementedError("The subsription needs the new output queue you div")
-
         if reply.next_message is not None:
             await output.put(reply.next_message)
 
@@ -925,12 +922,11 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
         )
         self.transport = None
         self.loop = loop or asyncio.get_event_loop()
+        super().__init__(self.loop)
         self.connection_number = connection_number
         self.node = addr
         self.dispatcher = dispatcher
         self.connector = connector
-        self._connection_lost = False
-        self._paused = False
 
     def connection_made(self, transport):
         self._log.debug("Connection made.")
@@ -968,6 +964,8 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
                 await self.output_queue.put(reply)
 
     def connection_lost(self, exn):
+        self._log.debug("Connection lost")
+        super().connection_lost(exn)
         self._connection_lost = True
         self.connector.connection_lost(exn)
 
