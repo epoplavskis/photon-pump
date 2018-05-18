@@ -523,6 +523,7 @@ class MessageDispatcher:
         return future
 
     async def write_to(self, output: asyncio.Queue):
+        self._logger.info("Dispatcher has new message writer")
         self.output = output
         for (conversation, fut) in self.active_conversations.values():
             await output.put(conversation.start())
@@ -636,6 +637,11 @@ class MessageDispatcher:
                 output
             )
             result.set_result(sub)
+
+        elif reply.action == convo.ReplyAction.ContinueSubscription:
+            self._logger.debug("Attaching subscription to a new connection")
+            sub = await result
+            sub.out_queue = output
 
         elif reply.action == convo.ReplyAction.YieldToSubscription:
             self._logger.debug(
@@ -958,10 +964,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
     async def dispatch(self):
         while True:
             next_msg = await self.input_queue.get()
-            reply = await self.dispatcher.dispatch(next_msg, self.output_queue)
-
-            if reply:
-                await self.output_queue.put(reply)
+            await self.dispatcher.dispatch(next_msg, self.output_queue)
 
     def connection_lost(self, exn):
         self._log.debug("Connection lost")
