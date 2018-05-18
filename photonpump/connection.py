@@ -502,24 +502,13 @@ class MessageReader:
 
 class MessageDispatcher:
 
-    def __init__(
-            self,
-            active_conversations,
-            connection_number,
-            input: asyncio.Queue = None,
-            output: asyncio.Queue = None,
-            loop=None
-    ):
+    def __init__(self, loop=None):
+        self.active_conversations = {}
+        self._logger = logging.get_named_logger(MessageDispatcher)
+        self.output = None
         self._loop = loop or asyncio.get_event_loop()
-        self._dispatch_loop = None
-        self.input = input
-        self.output = output or asyncio.Queue()
-        self.active_conversations = active_conversations
-        self._logger = logging.get_named_logger(
-            MessageDispatcher, connection_number
-        )
 
-    async def enqueue_conversation(
+    async def start_conversation(
             self, convo: convo.Conversation
     ) -> asyncio.futures.Future:
         future = asyncio.futures.Future(loop=self._loop)
@@ -528,16 +517,47 @@ class MessageDispatcher:
         if not message.one_way:
             self.active_conversations[convo.conversation_id] = (convo, future)
 
-        if self._connected:
+        if self.output:
             await self.output.put(message)
 
         return future
 
-    def stop(self):
-        self._connected = False
+    async def write_to(self, output: asyncio.Queue):
+        self.output = output
+        for (conversation, fut) in self.active_conversations.values():
+            await output.put(conversation.start())
 
-        if self._dispatch_loop:
-            self._dispatch_loop.cancel()
+    # Todo: Is the output necessary here?
+    async def dispatch(self, message: msg.InboundMessage, output: asyncio.Queue):
+        self._logger.debug("Received message %s", message)
+
+        if message.command == msg.TcpCommand.HeartbeatRequest.value:
+            response = convo.Heartbeat(message.conversation_id)
+            await output.put(response.start())
+            return
+
+        if message.command == msg.TcpCommand.NotHandled.value:
+            await self._connector.reconnect()
+            return
+
+        conversation, result = self.active_conversations.get(
+            message.conversation_id, (None, None)
+        )
+
+        if not conversation:
+            self._logger.error(
+                "No conversation found for message %s", message
+            )
+            return
+
+        self._logger.debug(
+            'Received response to conversation %s: %s', conversation,
+            message
+        )
+
+        reply = conversation.respond_to(message)
+        await self.handle_reply(conversation, result, reply, output)
+ 
 
     async def _stop_conversations(self):
         for (conversation, fut) in self.active_conversations.values():
@@ -552,59 +572,9 @@ class MessageDispatcher:
         if id in self.active_conversations:
             del self.active_conversations[id]
 
-    async def start(self):
-        self._connected = True
-        try:
-            for (conversation, future) in self.active_conversations.values():
-                self._logger.info("Restarting conversation %s", conversation)
-                await self.output.put(conversation.start())
-
-            while True:
-                message = await self.input.get()
-
-                if not message:
-                    self._logger.trace("No message received")
-
-                    continue
-
-                self._logger.debug("Received message %s", message)
-
-                if message.command == msg.TcpCommand.HeartbeatRequest.value:
-                    await self.enqueue_conversation(
-                        convo.Heartbeat(message.conversation_id)
-                    )
-
-                    continue
-
-                conversation, result = self.active_conversations.get(
-                    message.conversation_id, (None, None)
-                )
-
-                if message.command == msg.TcpCommand.NotHandled.value:
-                    await self._connector.reconnect()
-
-                    continue
-
-                if not conversation:
-                    self._logger.error(
-                        "No conversation found for message %s", message
-                    )
-
-                    continue
-
-                self._logger.debug(
-                    'Received response to conversation %s: %s', conversation,
-                    message
-                )
-
-                reply = conversation.respond_to(message)
-                await self.handle_reply(conversation, result, reply)
-        except asyncio.CancelledError:
-            return
-
     async def handle_reply(
             self, conversation: convo.Conversation, result: asyncio.Future,
-            reply: convo.ReplyAction
+            reply: convo.ReplyAction, output: asyncio.Queue
     ):
 
         self._logger.debug('Reply is %s', reply)
@@ -663,7 +633,7 @@ class MessageDispatcher:
             )
             sub = PersistentSubscription(
                 reply.result, StreamingIterator(reply.result.buffer_size), self,
-                self.output
+                output
             )
             result.set_result(sub)
 
@@ -687,8 +657,11 @@ class MessageDispatcher:
             self._logger.info("Completing persistent subscription %s", sub)
             await sub.events.enqueue(StopIteration())
 
+        elif reply.action == convo.ReplyAction.ContinueSubscription:
+            raise NotImplementedError("The subsription needs the new output queue you div")
+
         if reply.next_message is not None:
-            await self.output.put(reply.next_message)
+            await output.put(reply.next_message)
 
 
 class Client:
@@ -700,11 +673,9 @@ class Client:
     photonpump.conversations.
     '''
 
-    def __init__(self, connector, reader, writer, dispatcher, credential=None):
+    def __init__(self, connector, dispatcher, credential=None):
         self.connector = connector
         self.dispatcher = dispatcher
-        self.reader = reader
-        self.writer = writer
 
         self.connector.connected.append(self.on_connected)
         self.connector.disconnected.append(self.on_disconnected)
@@ -724,15 +695,11 @@ class Client:
             self.heartbeat_loop.cancel()
 
     async def close(self):
-        fut = await self.connector.stop()
-        await fut
-        self.dispatcher.stop()
-        await self.writer.close()
-        self.reader.close()
+        await self.connector.stop()
 
     async def ping(self, conversation_id: uuid.UUID = None):
         cmd = convo.Ping(conversation_id=conversation_id or uuid.uuid4())
-        result = await self.dispatcher.enqueue_conversation(cmd)
+        result = await self.dispatcher.start_conversation(cmd)
 
         return await result
 
@@ -752,7 +719,7 @@ class Client:
             expected_version=expected_version,
             require_master=require_master
         )
-        result = await self.dispatcher.enqueue_conversation(conversation)
+        result = await self.dispatcher.start_conversation(conversation)
 
         return await result
 
@@ -769,7 +736,7 @@ class Client:
             expected_version=expected_version,
             require_master=require_master
         )
-        result = await self.dispatcher.enqueue_conversation(cmd)
+        result = await self.dispatcher.start_conversation(cmd)
 
         return await result
 
@@ -783,7 +750,7 @@ class Client:
         correlation_id = correlation_id
         cmd = convo.ReadEvent(stream, resolve_links, require_master)
 
-        result = await self.dispatcher.enqueue_conversation(cmd)
+        result = await self.dispatcher.start_conversation(cmd)
 
         return await result
 
@@ -806,7 +773,7 @@ class Client:
             require_master,
             direction=direction
         )
-        result = await self.dispatcher.enqueue_conversation(cmd)
+        result = await self.dispatcher.start_conversation(cmd)
 
         return await result
 
@@ -824,14 +791,14 @@ class Client:
         cmd = convo.IterStreamEvents(
             stream, from_event, batch_size, resolve_links, direction=direction
         )
-        result = await self.dispatcher.enqueue_conversation(cmd)
+        result = await self.dispatcher.start_conversation(cmd)
         iterator = await result
         async for event in iterator:
             yield event
 
     async def subscribe_volatile(self, stream: str):
         cmd = msg.CreateVolatileSubscription(stream, loop=self.loop)
-        await self.dispatcher.enqueue_conversation(cmd)
+        await self.dispatcher.start_conversation(cmd)
 
         return await cmd.future
 
@@ -877,7 +844,7 @@ class Client:
             consumer_strategy=consumer_strategy
         )
 
-        future = await self.dispatcher.enqueue_conversation(cmd)
+        future = await self.dispatcher.start_conversation(cmd)
 
         return await future
 
@@ -893,7 +860,7 @@ class Client:
             credentials=self.credential,
             conversation_id=conversation_id
         )
-        future = await self.dispatcher.enqueue_conversation(cmd)
+        future = await self.dispatcher.start_conversation(cmd)
 
         return await future
 
@@ -904,7 +871,7 @@ class Client:
             credentials=self.credential,
             loop=self.loop
         )
-        await self.dispatcher.enqueue_conversation(cmd)
+        await self.dispatcher.start_conversation(cmd)
 
     async def send_heartbeats(self):
         heartbeat_id = uuid.uuid4()
@@ -914,7 +881,7 @@ class Client:
             hb = convo.Heartbeat(
                 heartbeat_id, direction=convo.Heartbeat.OUTBOUND
             )
-            fut = await self.dispatcher.enqueue_conversation(hb)
+            fut = await self.dispatcher.start_conversation(hb)
 
             try:
                 await asyncio.wait_for(fut, 10)
@@ -1074,16 +1041,11 @@ def connect(
 
     """
     discovery = get_discoverer(host, port, discovery_host, discovery_port)
-    connector = Connector(discovery)
-    input_queue = asyncio.Queue(maxsize=100)
-    output_queue = asyncio.Queue(maxsize=100)
-
-    reader = MessageReader(input_queue, connector)
-    writer = MessageWriter(output_queue, connector)
-    dispatcher = MessageDispatcher(connector, input_queue, output_queue)
+    dispatcher = MessageDispatcher(loop)
+    connector = Connector(discovery, dispatcher)
 
     credential = msg.Credential(
         username, password
     ) if username and password else None
 
-    return Client(connector, reader, writer, dispatcher, credential=credential)
+    return Client(connector, dispatcher, credential=credential)
