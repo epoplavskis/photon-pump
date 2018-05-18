@@ -20,26 +20,27 @@ import asyncio
 import uuid
 
 import pytest
+
 from photonpump import messages_pb2 as proto
 from photonpump.connection import MessageDispatcher
-from photonpump.conversations import (ConnectPersistentSubscription,
-                                      IterStreamEvents, Ping)
-from photonpump.exceptions import (NotAuthenticated, PayloadUnreadable,
-                                   StreamDeleted, SubscriptionCreationFailed,
-                                   SubscriptionFailed)
-from photonpump.messages import (InboundMessage, NewEvent, OutboundMessage,
-                                 ReadStreamResult, SubscriptionDropReason,
-                                 TcpCommand)
+from photonpump.conversations import (
+    ConnectPersistentSubscription, IterStreamEvents, Ping
+)
+from photonpump.exceptions import (
+    NotAuthenticated, PayloadUnreadable, StreamDeleted,
+    SubscriptionCreationFailed, SubscriptionFailed
+)
+from photonpump.messages import (
+    InboundMessage, NewEvent, OutboundMessage, ReadStreamResult,
+    SubscriptionDropReason, TcpCommand
+)
 
-from ..data import (persistent_subscription_confirmed,
-                    persistent_subscription_dropped,
-                    read_stream_events_completed, read_stream_events_failure,
-                    subscription_event_appeared)
-
-from ..fakes import FakeConnector
-
+from ..data import (
+    persistent_subscription_confirmed, persistent_subscription_dropped,
+    read_stream_events_completed, read_stream_events_failure,
+    subscription_event_appeared
+)
 from .test_connector import TeeQueue
-
 
 
 @pytest.mark.asyncio
@@ -331,9 +332,11 @@ async def test_when_a_persistent_subscription_fails_on_connection():
     conversation = ConnectPersistentSubscription("my-sub", "my-stream")
     future = await dispatcher.start_conversation(conversation)
 
-    await dispatcher.dispatch(persistent_subscription_dropped(
-        conversation.conversation_id, SubscriptionDropReason.AccessDenied
-    ), None)
+    await dispatcher.dispatch(
+        persistent_subscription_dropped(
+            conversation.conversation_id, SubscriptionDropReason.AccessDenied
+        ), None
+    )
 
     with pytest.raises(SubscriptionCreationFailed):
         await asyncio.wait_for(future, 1)
@@ -349,15 +352,19 @@ async def test_when_a_persistent_subscription_fails():
     conversation = ConnectPersistentSubscription("my-sub", "my-stream")
     future = await dispatcher.start_conversation(conversation)
 
-    await dispatcher.dispatch(persistent_subscription_confirmed(
-        conversation.conversation_id, "my-sub"
-    ), None)
+    await dispatcher.dispatch(
+        persistent_subscription_confirmed(
+            conversation.conversation_id, "my-sub"
+        ), None
+    )
 
     subscription = await asyncio.wait_for(future, 1)
 
-    await dispatcher.dispatch(persistent_subscription_dropped(
-        conversation.conversation_id, SubscriptionDropReason.AccessDenied
-    ), None)
+    await dispatcher.dispatch(
+        persistent_subscription_dropped(
+            conversation.conversation_id, SubscriptionDropReason.AccessDenied
+        ), None
+    )
 
     with pytest.raises(SubscriptionFailed):
         await anext(subscription.events)
@@ -373,15 +380,19 @@ async def test_when_a_persistent_subscription_is_unsubscribed():
     conversation = ConnectPersistentSubscription("my-sub", "my-stream")
     future = await dispatcher.start_conversation(conversation)
 
-    await dispatcher.dispatch(persistent_subscription_confirmed(
-        conversation.conversation_id, "my-sub"
-    ), None)
+    await dispatcher.dispatch(
+        persistent_subscription_confirmed(
+            conversation.conversation_id, "my-sub"
+        ), None
+    )
 
     subscription = await asyncio.wait_for(future, 1)
 
-    await dispatcher.dispatch(persistent_subscription_dropped(
-        conversation.conversation_id, SubscriptionDropReason.Unsubscribed
-    ), None)
+    await dispatcher.dispatch(
+        persistent_subscription_dropped(
+            conversation.conversation_id, SubscriptionDropReason.Unsubscribed
+        ), None
+    )
 
     [] = [e async for e in subscription.events]
 
@@ -389,6 +400,7 @@ async def test_when_a_persistent_subscription_is_unsubscribed():
 @pytest.mark.asyncio
 async def test_when_connector_reconnected_retry_active_conversations():
     """
+
     if we give the dispatcher a new output queue, he should restart his active
     conversations.
     """

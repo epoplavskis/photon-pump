@@ -4,7 +4,7 @@ import enum
 import logging
 import struct
 import uuid
-from typing import Any, Dict, NamedTuple, Optional, Sequence, Tuple
+from typing import Any, NamedTuple, Optional, Sequence
 
 from . import conversations as convo
 from . import messages as msg
@@ -426,10 +426,6 @@ class MessageReader:
                 await self.process(data)
             except asyncio.CancelledError:
                 return
-            except:
-                logging.exception("Unexpected error in message reader")
-
-                break
 
     async def process(self, chunk: bytes):
         if chunk is None:
@@ -557,13 +553,6 @@ class MessageDispatcher:
 
         reply = conversation.respond_to(message)
         await self.handle_reply(conversation, result, reply, output)
- 
-
-    async def _stop_conversations(self):
-        for (conversation, fut) in self.active_conversations.values():
-            action = conversation.stop()
-            await self.handle_reply(conversation, fut, action)
-        self.active_conversations.clear()
 
     def has_conversation(self, id):
         return id in self.active_conversations

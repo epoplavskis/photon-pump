@@ -1,15 +1,13 @@
 import asyncio
 import binascii
 import uuid
-from asyncio import Queue
 
 import pytest
 
 from photonpump import messages_pb2 as proto
 from photonpump.connection import MessageReader
 from photonpump.messages import TcpCommand
-from .fakes import FakeConnector
-from .connection.test_connector import TeeQueue
+from .fakes import TeeQueue
 
 
 def read_hex(s):
