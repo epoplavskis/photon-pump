@@ -18,7 +18,7 @@ from photonpump.discovery import (
     DiscoveryFailed, NodeService, SingleNodeDiscovery
 )
 
-from .fakes import EchoServer, TeeQueue, SpyDispatcher
+from ..fakes import EchoServer, TeeQueue, SpyDispatcher
 
 
 async def connector_event(connector_event):
