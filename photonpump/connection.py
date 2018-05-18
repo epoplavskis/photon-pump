@@ -187,9 +187,7 @@ class Connector:
 
     async def _reconnect(self, node):
         if not node:
-            self.target_node = None
             await self.start()
-
             return
 
         if self.retry_policy.should_retry(node):
@@ -376,12 +374,6 @@ class MessageWriter:
                 self._logger.debug("Finished drain for %s", msg)
             except Exception as e:
                 self._logger.error(e)
-
-    async def close(self):
-        if self._is_connected:
-            await self.writer.drain()
-            self.writer.close()
-            self._write_loop.cancel()
 
 
 class MessageReader:
@@ -855,9 +847,9 @@ class Client:
 
         return await future
 
-    async def ack(self, subscription, message_id, correlation_id=None):
-        cmd = msg.AcknowledgeMessages(
-            subscription, [message_id],
+    async def ack(self, subscription, message_ids, correlation_id=None):
+        cmd = msg.PersistentSubscriptionAckEvents(
+            subscription, message_ids,
             correlation_id,
             credentials=self.credential,
             loop=self.loop
