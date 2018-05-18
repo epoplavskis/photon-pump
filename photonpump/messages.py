@@ -1,25 +1,29 @@
+# pyre-strict
 import datetime
 import json
 import math
 import struct
 from collections import namedtuple
 from enum import IntEnum
-from typing import Any, Dict, Sequence
+from typing import Any, Dict, Sequence, Union, ClassVar, Optional
 from uuid import UUID, uuid4
+
+from google.protobuf import descriptor as _descriptor
 
 from . import messages_pb2
 
-HEADER_LENGTH = 1 + 1 + 16
-SIZE_UINT_32 = 4
-_LENGTH = struct.Struct('<I')
-_HEAD = struct.Struct('<BBIIII')
+HEADER_LENGTH: int = 1 + 1 + 16
+SIZE_UINT_32: int = 4
+_LENGTH: struct.Struct = struct.Struct('<I')
+_HEAD: struct.Struct = struct.Struct('<BBIIII')
 
-ROUND_ROBIN = 'RoundRobin'
-DISPATCH_TO_SINGLE = 'DisptchToSingle'
-PINNED = 'Pinned'
+ROUND_ROBIN: str = 'RoundRobin'
+DISPATCH_TO_SINGLE: str = 'DisptchToSingle'
+PINNED: str = 'Pinned'
 
+bytething: Any = Union[bytearray, bytes, memoryview]
 
-def make_enum(descriptor):
+def make_enum(descriptor: _descriptor) -> IntEnum:
     vals = [(x.name, x.number) for x in descriptor.values]
 
     return IntEnum(descriptor.name, vals)
@@ -88,24 +92,24 @@ class OperationFlags(IntEnum):
     Authenticated = 0x01
 
 
-OperationResult = make_enum(messages_pb2._OPERATIONRESULT)
-NotHandledReason = make_enum(messages_pb2._NOTHANDLED_NOTHANDLEDREASON)
-SubscriptionDropReason = make_enum(
+OperationResult: IntEnum = make_enum(messages_pb2._OPERATIONRESULT)
+NotHandledReason: IntEnum = make_enum(messages_pb2._NOTHANDLED_NOTHANDLEDREASON)
+SubscriptionDropReason: IntEnum = make_enum(
     messages_pb2._SUBSCRIPTIONDROPPED_SUBSCRIPTIONDROPREASON
 )
 
 
 class Credential:
 
-    def __init__(self, username, password):
+    def __init__(self, username: str, password: str) -> None:
         self.username = username
         self.password = password
 
         username_bytes = username.encode('UTF-8')
         password_bytes = password.encode('UTF-8')
 
-        self.length = 2 + len(username_bytes) + len(password_bytes)
-        self.bytes = bytearray()
+        self.length: int = 2 + len(username_bytes) + len(password_bytes)
+        self.bytes: bytearray = bytearray()
 
         self.bytes.extend(len(username_bytes).to_bytes(1, byteorder='big'))
         self.bytes.extend(username_bytes)
@@ -113,7 +117,7 @@ class Credential:
         self.bytes.extend(password_bytes)
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: bytething) -> Credential:
         """
         I am so sorry.
         """
@@ -140,21 +144,21 @@ class InboundMessage:
         self.conversation_id = conversation_id
         self.command = command
         self.payload = payload or b''
-        self.data_length = len(payload)
-        self.length = HEADER_LENGTH + self.data_length
+        self.data_length: int = len(payload)
+        self.length: int = HEADER_LENGTH + self.data_length
 
     @property
-    def header_bytes(self):
+    def header_bytes(self) -> bytearray:
         data = bytearray(SIZE_UINT_32 + 2)
         struct.pack_into('<IBB', data, 0, self.length, self.command, 0)
         data.extend(self.conversation_id.bytes_le)
 
         return data
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__() + "\n" + dump(self.header_bytes, self.payload)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "%s (%s) of %s flags=%d" % (
             TcpCommand(self.command).name, self.conversation_id,
             sizeof_fmt(self.length), 0
@@ -167,10 +171,10 @@ class OutboundMessage:
             self,
             conversation_id: UUID,
             command: TcpCommand,
-            payload: Any,
+            payload: bytething,
             creds: Credential = None,
             one_way: bool = False,
-            require_master=False
+            require_master: Bool = False
     ) -> None:
         self.conversation_id = conversation_id
         self.command = command
@@ -178,15 +182,15 @@ class OutboundMessage:
         self.creds = creds
         self.require_master = require_master
 
-        self.data_length = len(payload)
-        self.length = HEADER_LENGTH + self.data_length
+        self.data_length: int  = len(payload)
+        self.length: int = HEADER_LENGTH + self.data_length
 
         if self.creds:
             self.length += creds.length
         self.one_way = one_way
 
     @property
-    def header_bytes(self):
+    def header_bytes(self) -> bytearray:
         data = bytearray(SIZE_UINT_32 + 2)
         struct.pack_into(
             '<IBB', data, 1
@@ -200,16 +204,16 @@ class OutboundMessage:
 
         return data
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return dump(self.header_bytes, self.payload)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "%s (%s) of %s flags=%d" % (
             TcpCommand(self.command).name, self.conversation_id,
             sizeof_fmt(self.length), 0
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> Boolean:
         return (
             isinstance(other, OutboundMessage) and repr(self) == repr(other)
         )
@@ -234,20 +238,20 @@ class ExpectedVersion(IntEnum):
     StreamMustExist = -4
 
 
-JsonDict = Dict[str, Any]
+JsonDict: Any = Dict[str, Any]
 Header = namedtuple(
     'photonpump_result_header',
     ['size', 'cmd', 'flags', 'correlation_id', 'username', 'password']
 )
 
 
-def parse_header(length: bytearray, data: bytearray) -> Header:
+def parse_header(length: bytething, data: bytething) -> Header:
     (size, ) = _LENGTH.unpack(length)
 
     return Header(size, data[0], data[1], UUID(bytes_le=data[2:18]), None, None)
 
 
-def sizeof_fmt(num, suffix='B'):
+def sizeof_fmt(num: float, suffix: str ='B') -> str:
     for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
@@ -256,7 +260,7 @@ def sizeof_fmt(num, suffix='B'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-def print_header(header):
+def print_header(header) -> str:
     return "%s (%s) of %s flags=%d" % (
         TcpCommand(header.cmd).name, header.correlation_id,
         sizeof_fmt(header.size), header.flags
@@ -275,17 +279,26 @@ EventRecord = namedtuple(
     ['stream', 'id', 'event_number', 'type', 'data', 'metadata', 'created']
 )
 
+class EventRecord(NamedTuple):
+    stream: str
+    id: UUID
+    event_number: int
+    type: str
+    data: bytes
+    metadata: Optional[bytes]
+    created: DateTime
 
-def _json(self):
+
+def _json(self) -> Any:
     return json.loads(self.data.decode('UTF-8'))
 
 
-EventRecord.json = _json
+EventRecord.json :ClassVar = _json
 
 
 class Event:
 
-    def __init__(self, event: EventRecord, link: EventRecord) -> None:
+    def __init__(self, event: EventRecord, link: Optional[EventRecord]) -> None:
         self.event = event
         self.link = link
 
@@ -318,7 +331,7 @@ class StreamSlice(list):
         self.events = events
 
 
-def dump(*chunks: bytearray):
+def dump(*chunks: bytearray) -> str:
     data = bytearray()
 
     for chunk in chunks:
@@ -383,13 +396,13 @@ def NewEvent(
     return NewEventData(id or uuid4(), type, data, metadata)
 
 
-ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
+ReadEventResult: IntEnum = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 
-ReadStreamResult = make_enum(
+ReadStreamResult: IntEnum = make_enum(
     messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT
 )
 
-SubscriptionResult = make_enum(
+SubscriptionResult: IntEnum = make_enum(
     messages_pb2.
     _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED_CREATEPERSISTENTSUBSCRIPTIONRESULT
 )
@@ -397,6 +410,6 @@ SubscriptionResult = make_enum(
 
 class SubscriptionCreatedResponse:
 
-    def __init__(self, result: SubscriptionResult, reason: str):
+    def __init__(self, result: SubscriptionResult, reason: str) -> None:
         self.reason = reason
         self.result = result
