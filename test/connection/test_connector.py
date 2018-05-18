@@ -179,14 +179,15 @@ async def test_when_a_server_disconnects(event_loop):
     Usually, when eventstore goes away, we'll get an EOF on the transport.
     If that happens, we should raise a disconnected event.
 
-    We should also place a reconnection message on the queue.
+    We should also place a reconnection message on the control queue.
     """
 
     addr = NodeService("localhost", 8338, None)
     queue = TeeQueue()
 
+    dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
     )
     raised_disconnected_event = asyncio.Future(loop=event_loop)
 
@@ -212,6 +213,7 @@ async def test_when_a_server_disconnects(event_loop):
         reconnect = await queue.next_event()
         assert reconnect.command == ConnectorCommand.Connect
 
+
     assert raised_disconnected_event.result() is True
     await connector.stop()
 
@@ -226,8 +228,9 @@ async def test_when_three_heartbeats_fail_in_a_row(event_loop):
 
     queue = TeeQueue()
     addr = NodeService("localhost", 8338, None)
+    dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
     )
 
     async with EchoServer(addr, event_loop):
@@ -259,8 +262,9 @@ async def test_when_a_heartbeat_succeeds(event_loop):
 
     queue = TeeQueue()
     addr = NodeService("localhost", 8338, None)
+    dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
     )
 
     async with EchoServer(addr, event_loop):
@@ -313,8 +317,10 @@ async def test_when_discovery_fails_on_reconnection(event_loop):
     queue = TeeQueue()
     addr = NodeService("localhost", 8338, None)
     policy = never_retry()
+    dispatcher = SpyDispatcher()
     connector = Connector(
         SingleNodeDiscovery(addr),
+        dispatcher,
         loop=event_loop,
         ctrl_queue=queue,
         retry_policy=policy
@@ -325,8 +331,8 @@ async def test_when_discovery_fails_on_reconnection(event_loop):
     await connector.start()
     [connect, connection_failed] = await queue.next_event(count=2)
 
-    [reconnect, failed, stop] = await asyncio.wait_for(
-        queue.next_event(count=3), 2
+    [reconnect, failed] = await asyncio.wait_for(
+        queue.next_event(count=2), 2
     )
     assert failed.command == ConnectorCommand.HandleConnectorFailed
     assert policy.recorded == addr
@@ -337,8 +343,9 @@ async def test_when_discovery_fails_on_reconnection(event_loop):
 async def test_when_the_connection_fails_with_an_error(event_loop):
     queue = TeeQueue()
     addr = NodeService("localhost", 8338, None)
+    dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
     )
 
     async with EchoServer(addr, event_loop):
@@ -359,8 +366,9 @@ async def test_when_the_connection_fails_with_an_error(event_loop):
 async def test_when_restarting_a_running_connector(event_loop):
     queue = TeeQueue()
     addr = NodeService("localhost", 8338, None)
+    dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
     )
 
     async with EchoServer(addr, event_loop):
@@ -382,8 +390,9 @@ async def test_when_restarting_a_running_connector(event_loop):
 async def test_when_restarting_a_stopped_connector(event_loop):
     queue = TeeQueue()
     addr = NodeService("localhost", 8338, None)
+    dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
     )
 
     async with EchoServer(addr, event_loop):

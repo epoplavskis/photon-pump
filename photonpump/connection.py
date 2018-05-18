@@ -85,7 +85,8 @@ class Connector:
     def connection_made(self, address, protocol):
         self._put_msg(
             ConnectorInstruction(
-                ConnectorCommand.HandleConnectionOpened, None, (address, protocol)
+                ConnectorCommand.HandleConnectionOpened, None,
+                (address, protocol)
             )
         )
 
@@ -121,9 +122,6 @@ class Connector:
             )
         )
 
-    async def _drain_helper(self):
-        pass
-
     async def start(self, target: Optional[NodeService] = None):
         self.state = ConnectorState.Connecting
         await self.ctrl_queue.put(
@@ -133,17 +131,17 @@ class Connector:
     async def stop(self, exn=None):
         self.log.info("Stopping connector")
         self.state = ConnectorState.Stopping
-        future = asyncio.Future()
-        await self.ctrl_queue.put(
-            ConnectorInstruction(ConnectorCommand.Stop, future, exn)
-        )
-        await future
+        self.log.info("In ur stop stopping ur procool")
+
+        if self.active_protocol:
+            await self.active_protocol.stop()
+        self.active_protocol = None
+        self._run_loop.cancel()
+        self.stopped(exn)
 
     async def reconnect(self):
-        self.target_node = None
-
-        if self.transport:
-            self.transport.close()
+        if self.active_protocol:
+            await self.active_protocol.stop()
         else:
             await self.start()
 
@@ -164,8 +162,7 @@ class Connector:
         try:
             self.connection_counter += 1
             protocol = PhotonPumpProtocol(
-                node, self.connection_counter, self.dispatcher,
-                self, self.loop
+                node, self.connection_counter, self.dispatcher, self, self.loop
             )
             await asyncio.wait_for(
                 self.loop.create_connection(
@@ -228,7 +225,7 @@ class Connector:
         self.heartbeat_failures += 1
 
         if self.heartbeat_failures >= 3:
-            await self.reconnect()
+            await self.active_protocol.stop()
             self.heartbeat_failures = 0
 
     async def _on_successful_heartbeat(self, conversation_id):
@@ -243,43 +240,36 @@ class Connector:
 
     async def _run(self):
         while True:
-            try:
-                msg = await self.ctrl_queue.get()
-                self.log.debug("Connector received message %s", msg)
+            self.log.debug("Waiting for next message")
+            msg = await self.ctrl_queue.get()
+            self.log.debug("Connector received message %s", msg)
 
-                if msg.command == ConnectorCommand.Connect:
-                    await self._attempt_connect(msg.data)
+            if msg.command == ConnectorCommand.Connect:
+                await self._attempt_connect(msg.data)
 
-                if msg.command == ConnectorCommand.HandleConnectFailure:
-                    await self._on_connect_failed(msg.data)
+            if msg.command == ConnectorCommand.HandleConnectFailure:
+                await self._on_connect_failed(msg.data)
 
-                if msg.command == ConnectorCommand.HandleConnectionOpened:
-                    await self._on_transport_received(*msg.data)
+            if msg.command == ConnectorCommand.HandleConnectionOpened:
+                await self._on_transport_received(*msg.data)
 
-                if msg.command == ConnectorCommand.HandleConnectionClosed:
-                    await self._on_transport_closed()
+            if msg.command == ConnectorCommand.HandleConnectionClosed:
+                await self._on_transport_closed()
 
-                if msg.command == ConnectorCommand.HandleConnectionFailed:
-                    await self._on_transport_error(msg.data)
+            if msg.command == ConnectorCommand.HandleConnectionFailed:
+                await self._on_transport_error(msg.data)
 
-                if msg.command == ConnectorCommand.HandleHeartbeatFailed:
-                    await self._on_failed_heartbeat(msg.data)
+            if msg.command == ConnectorCommand.HandleHeartbeatFailed:
+                await self._on_failed_heartbeat(msg.data)
 
-                if msg.command == ConnectorCommand.HandleHeartbeatSuccess:
-                    await self._on_successful_heartbeat(msg.data)
+            if msg.command == ConnectorCommand.HandleHeartbeatSuccess:
+                await self._on_successful_heartbeat(msg.data)
 
-                if msg.command == ConnectorCommand.HandleConnectorFailed:
-                    await self._on_connector_failed(msg.data)
+            if msg.command == ConnectorCommand.HandleConnectorFailed:
+                await self._on_connector_failed(msg.data)
 
-                if msg.command == ConnectorCommand.Stop:
-                    await self.active_protocol.stop()
-                    self.active_protocol = None
-                    self.stopped(msg.data)
-                    msg.future.set_result(None)
-
-                    return
-            except:  # noqa: E722
-                self.log.exception('Unexpected error in connector')
+            if msg.command == ConnectorCommand.Stop:
+                raise NotImplementedError("WAT DO?")
 
 
 class StreamingIterator:
@@ -435,9 +425,7 @@ class MessageReader:
                 )
                 await self.process(data)
             except asyncio.CancelledError:
-                pass
-            except GeneratorExit:
-                pass
+                return
             except:
                 logging.exception("Unexpected error in message reader")
 
@@ -477,8 +465,7 @@ class MessageReader:
 
             message_bytes_required = self.length - self.message_offset
             self._logger.insane(
-                '%d of message remaining before copy',
-                message_bytes_required
+                '%d of message remaining before copy', message_bytes_required
             )
 
             if message_bytes_required > 0:
@@ -966,6 +953,10 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
             connector,
             loop=None
     ):
+        self._log = logging.get_named_logger(
+            PhotonPumpProtocol, connection_number
+        )
+        self.transport = None
         self.loop = loop or asyncio.get_event_loop()
         self.connection_number = connection_number
         self.node = addr
@@ -975,12 +966,16 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
         self._paused = False
 
     def connection_made(self, transport):
+        self._log.debug("Connection made.")
         self.input_queue = asyncio.Queue(loop=self.loop)
         self.output_queue = asyncio.Queue(loop=self.loop)
+        self.transport = transport
 
         stream_reader = asyncio.StreamReader(loop=self.loop)
         stream_reader.set_transport(transport)
-        stream_writer = asyncio.StreamWriter(transport, self, stream_reader, self.loop)
+        stream_writer = asyncio.StreamWriter(
+            transport, self, stream_reader, self.loop
+        )
 
         self.reader = MessageReader(
             stream_reader, self.connection_number, self.input_queue
@@ -1001,17 +996,30 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
         while True:
             next_msg = await self.input_queue.get()
             reply = await self.dispatcher.dispatch(next_msg, self.output_queue)
+
             if reply:
                 await self.output_queue.put(reply)
 
     def connection_lost(self, exn):
         self._connection_lost = True
+        self.connector.connection_lost(exn)
 
     async def stop(self):
+        self._log.debug("Stopping")
         try:
             self.read_loop.cancel()
             self.write_loop.cancel()
-            await asyncio.gather(self.read_loop, self.write_loop)
+            self.dispatch_loop.cancel()
+            self._log.debug("Waiting for coroutines to end")
+            await asyncio.gather(
+                self.read_loop,
+                self.write_loop,
+                self.dispatch_loop,
+                loop=self.loop,
+                return_exceptions=True
+            )
+            self.transport.close()
+            self._log.debug("Closed the transport")
         except asyncio.CancelledError:
             pass
 
