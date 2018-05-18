@@ -491,7 +491,6 @@ class MessageReader:
                 )
                 self._logger.trace('Received message %r', message)
                 await self.queue.put(message)
-                self._logger.debug("Received message and put it on the queue")
                 self.length = -1
                 self.message_offset = 0
                 self.conversation_id = None
