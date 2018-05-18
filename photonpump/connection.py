@@ -4,7 +4,7 @@ import enum
 import logging
 import struct
 import uuid
-from typing import Any, NamedTuple, Optional, Sequence
+from typing import Any, Dict, NamedTuple, Optional, Sequence, Tuple
 
 from . import conversations as convo
 from . import messages as msg
@@ -51,11 +51,19 @@ class ConnectorInstruction(NamedTuple):
     data: Optional[Any]
 
 
-class Connector(asyncio.streams.FlowControlMixin):
+class Connector:
 
     def __init__(
-            self, discovery, retry_policy=None, ctrl_queue=None, loop=None
+            self,
+            discovery,
+            dispatcher,
+            retry_policy=None,
+            ctrl_queue=None,
+            connect_timeout=5,
+            loop=None
     ):
+        self.connection_counter = 0
+        self.dispatcher = dispatcher
         self.loop = loop or asyncio.get_event_loop()
         self.discovery = discovery
         self.connected = Event()
@@ -64,27 +72,20 @@ class Connector(asyncio.streams.FlowControlMixin):
         self.ctrl_queue = ctrl_queue or asyncio.Queue(loop=self.loop)
         self.log = logging.getLogger("photonpump.connection.Connector")
         self._run_loop = asyncio.ensure_future(self._run())
-        self.reader = None
-        self.writer = None
-        self.transport = None
         self.heartbeat_failures = 0
+        self.connect_timeout = connect_timeout
+        self.active_protocol = None
         self.retry_policy = retry_policy or DiscoveryRetryPolicy(
             retries_per_node=0
         )
-        self.target_node = None
-
-        self._connection_lost = False
-        self._paused = False
-        self.state = ConnectorState.Begin
-        self.connect_timeout = 5
 
     def _put_msg(self, msg):
         asyncio.ensure_future(self.ctrl_queue.put(msg))
 
-    def connection_made(self, transport):
+    def connection_made(self, address, protocol):
         self._put_msg(
             ConnectorInstruction(
-                ConnectorCommand.HandleConnectionOpened, None, transport
+                ConnectorCommand.HandleConnectionOpened, None, (address, protocol)
             )
         )
 
@@ -95,12 +96,6 @@ class Connector(asyncio.streams.FlowControlMixin):
                 ConnectorCommand.HandleHeartbeatSuccess, None, conversation_id
             )
         )
-
-    def data_received(self, data):
-        self.reader.feed_data(data)
-
-    def eof_received(self):
-        self.log.info("EOF received, tearing down connection")
 
     def connection_lost(self, exn=None):
         self.log.info('connection_lost {}'.format(exn))
@@ -142,8 +137,7 @@ class Connector(asyncio.streams.FlowControlMixin):
         await self.ctrl_queue.put(
             ConnectorInstruction(ConnectorCommand.Stop, future, exn)
         )
-
-        return future
+        await future
 
     async def reconnect(self):
         self.target_node = None
@@ -168,9 +162,14 @@ class Connector(asyncio.streams.FlowControlMixin):
                 return
         self.log.info("Connecting to %s:%s", node.address, node.port)
         try:
+            self.connection_counter += 1
+            protocol = PhotonPumpProtocol(
+                node, self.connection_counter, self.dispatcher,
+                self, self.loop
+            )
             await asyncio.wait_for(
                 self.loop.create_connection(
-                    lambda: self, node.address, node.port
+                    lambda: protocol, node.address, node.port
                 ), self.connect_timeout
             )
         except Exception as e:
@@ -180,18 +179,14 @@ class Connector(asyncio.streams.FlowControlMixin):
                 )
             )
 
-    async def _on_transport_received(self, transport):
+    async def _on_transport_received(self, address, protocol):
         self.log.info(
-            "PhotonPump is connected to eventstore instance at %s",
-            str(transport.get_extra_info('peername', 'ERROR'))
+            "PhotonPump is connected to eventstore instance at %s via %s",
+            address, protocol
         )
-        self.transport = transport
-        self.reader = reader = asyncio.StreamReader(loop=self.loop)
-        reader.set_transport(transport)
-        self.writer = writer = asyncio.StreamWriter(
-            transport, self, reader, self.loop
-        )
-        self.connected(reader, writer)
+        self.active_protocol = protocol
+        await self.dispatcher.write_to(protocol.output_queue)
+        self.connected(address)
 
     async def _reconnect(self, node):
         if not node:
@@ -259,7 +254,7 @@ class Connector(asyncio.streams.FlowControlMixin):
                     await self._on_connect_failed(msg.data)
 
                 if msg.command == ConnectorCommand.HandleConnectionOpened:
-                    await self._on_transport_received(msg.data)
+                    await self._on_transport_received(*msg.data)
 
                 if msg.command == ConnectorCommand.HandleConnectionClosed:
                     await self._on_transport_closed()
@@ -277,6 +272,8 @@ class Connector(asyncio.streams.FlowControlMixin):
                     await self._on_connector_failed(msg.data)
 
                 if msg.command == ConnectorCommand.Stop:
+                    await self.active_protocol.stop()
+                    self.active_protocol = None
                     self.stopped(msg.data)
                     msg.future.set_result(None)
 
@@ -355,59 +352,45 @@ class PersistentSubscription(convo.PersistentSubscription):
 
 class MessageWriter:
 
-    def __init__(self, queue, connector):
-        connector.connected.append(self.on_connected)
-        connector.disconnected.append(self.on_connection_lost)
-        self._queue = queue
-        self._is_connected = False
-        self.next = None
-        self._write_loop = None
-        self._logger = logging.get_named_logger(MessageWriter)
-
-    def on_connection_lost(self):
-        self._logger.warn('Connection lost, stopping loop')
-        self._is_connected = False
-        self._write_loop.cancel()
-
-    def on_connected(self, _, streamwriter):
-        self._logger.debug('MessageWriter connected')
-        self._is_connected = True
-        self.stream_writer = streamwriter
-        self._write_loop = asyncio.ensure_future(
-            self._write_outbound_messages()
+    def __init__(
+            self,
+            writer: asyncio.StreamWriter,
+            connection_number: int,
+            output_queue: asyncio.Queue,
+            loop=None
+    ):
+        self._logger = logging.get_named_logger(
+            MessageWriter, connection_number
         )
+        self.writer = writer
+        self._queue = output_queue
 
     async def enqueue_message(self, message: msg.OutboundMessage):
         await self._queue.put(message)
 
-    async def _write_outbound_messages(self):
-        if self.next:
-            self._logger.debug('Sending message %s', self.next)
-            self._logger.trace('Message body is %r', self.next)
-            self.stream_writer.write(self.next.header_bytes)
-            self.stream_writer.write(self.next.payload)
+    async def start(self):
 
-        while self._is_connected:
-            self.next = await self._queue.get()
+        while True:
+            msg = await self._queue.get()
             try:
-                self._logger.debug('Sending message %s', self.next)
-                self._logger.trace('Message body is %r', self.next)
-                self.stream_writer.write(self.next.header_bytes)
-                self.stream_writer.write(self.next.payload)
+                self._logger.debug('Sending message %s', msg)
+                self._logger.trace('Message body is %r', msg)
+                self.writer.write(msg.header_bytes)
+                self.writer.write(msg.payload)
             except Exception as e:
                 self._logger.error(
                     'Failed to send message %s', e, exc_info=True
                 )
             try:
-                await self.stream_writer.drain()
-                self._logger.debug("Finished drain for %s", self.next)
+                await self.writer.drain()
+                self._logger.debug("Finished drain for %s", msg)
             except Exception as e:
                 self._logger.error(e)
 
     async def close(self):
         if self._is_connected:
-            await self.stream_writer.drain()
-            self.stream_writer.close()
+            await self.writer.drain()
+            self.writer.close()
             self._write_loop.cancel()
 
 
@@ -416,48 +399,48 @@ class MessageReader:
     MESSAGE_MIN_SIZE = SIZE_UINT_32 + HEADER_LENGTH
     HEAD_PACK = struct.Struct('<IBB')
 
-    def __init__(self, queue, connector):
-        self.queue = queue
+    def __init__(
+            self,
+            reader: asyncio.StreamReader,
+            connection_number: int,
+            queue,
+            loop=None
+    ):
+        self._loop = loop or asyncio.get_event_loop()
         self.header_bytes = array.array('B', [0] * (self.MESSAGE_MIN_SIZE))
         self.header_bytes_required = (self.MESSAGE_MIN_SIZE)
+        self.queue = queue
         self.length = 0
         self.message_offset = 0
         self.conversation_id = None
         self.message_buffer = None
-        self._logger = logging.get_named_logger(MessageReader)
-        self._stream_reader = None
+        self._logger = logging.get_named_logger(
+            MessageReader, connection_number
+        )
+        self.reader = reader
 
-        connector.connected.append(self.on_connected)
-        connector.disconnected.append(self.on_connection_lost)
+    def feed_data(self, data):
+        self.reader.feed_data(data)
 
-    def close(self):
-        self._reader_loop.cancel()
-
-    def on_connection_lost(self):
-        self._is_connected = False
-        self._reader_loop.cancel()
-
-    def on_connected(self, streamreader, _):
-        self._logger.debug('MessageReader connected')
-        self._is_connected = True
-        self._stream_reader = streamreader
-
-        self._reader_loop = asyncio.ensure_future(self._read_inbound_messages())
-
-    async def _read_inbound_messages(self):
+    async def start(self):
         '''Loop forever reading messages and invoking
            the operation that caused them'''
 
         while True:
             try:
-                data = await self._stream_reader.read(8192)
+                data = await self.reader.read(8192)
                 self._logger.trace(
                     'Received %d bytes from remote server:\n%s', len(data),
                     msg.dump(data)
                 )
                 await self.process(data)
+            except asyncio.CancelledError:
+                pass
+            except GeneratorExit:
+                pass
             except:
                 logging.exception("Unexpected error in message reader")
+
                 break
 
     async def process(self, chunk: bytes):
@@ -494,7 +477,7 @@ class MessageReader:
 
             message_bytes_required = self.length - self.message_offset
             self._logger.insane(
-                '%d bytes of message remaining before copy',
+                '%d of message remaining before copy',
                 message_bytes_required
             )
 
@@ -521,6 +504,7 @@ class MessageReader:
                 )
                 self._logger.trace('Received message %r', message)
                 await self.queue.put(message)
+                self._logger.debug("Received message and put it on the queue")
                 self.length = -1
                 self.message_offset = 0
                 self.conversation_id = None
@@ -533,7 +517,8 @@ class MessageDispatcher:
 
     def __init__(
             self,
-            connector,
+            active_conversations,
+            connection_number,
             input: asyncio.Queue = None,
             output: asyncio.Queue = None,
             loop=None
@@ -542,13 +527,10 @@ class MessageDispatcher:
         self._dispatch_loop = None
         self.input = input
         self.output = output or asyncio.Queue()
-        self.active_conversations = {}
-        self._logger = logging.get_named_logger(MessageDispatcher)
-        self._connected = False
-        self._connector = connector
-
-        connector.connected.append(self.start)
-        connector.disconnected.append(self.stop)
+        self.active_conversations = active_conversations
+        self._logger = logging.get_named_logger(
+            MessageDispatcher, connection_number
+        )
 
     async def enqueue_conversation(
             self, convo: convo.Conversation
@@ -563,11 +545,6 @@ class MessageDispatcher:
             await self.output.put(message)
 
         return future
-
-    def start(self, *args):
-        self._dispatch_loop = asyncio.ensure_future(
-            self._process_messages(), loop=self._loop
-        )
 
     def stop(self):
         self._connected = False
@@ -588,7 +565,7 @@ class MessageDispatcher:
         if id in self.active_conversations:
             del self.active_conversations[id]
 
-    async def _process_messages(self):
+    async def start(self):
         self._connected = True
         try:
             for (conversation, future) in self.active_conversations.values():
@@ -977,6 +954,66 @@ class Client:
 
     async def __aexit__(self, exc_type, exc, tb):
         await self.close()
+
+
+class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
+
+    def __init__(
+            self,
+            addr: NodeService,
+            connection_number: int,
+            dispatcher: MessageDispatcher,
+            connector,
+            loop=None
+    ):
+        self.loop = loop or asyncio.get_event_loop()
+        self.connection_number = connection_number
+        self.node = addr
+        self.dispatcher = dispatcher
+        self.connector = connector
+        self._connection_lost = False
+        self._paused = False
+
+    def connection_made(self, transport):
+        self.input_queue = asyncio.Queue(loop=self.loop)
+        self.output_queue = asyncio.Queue(loop=self.loop)
+
+        stream_reader = asyncio.StreamReader(loop=self.loop)
+        stream_reader.set_transport(transport)
+        stream_writer = asyncio.StreamWriter(transport, self, stream_reader, self.loop)
+
+        self.reader = MessageReader(
+            stream_reader, self.connection_number, self.input_queue
+        )
+        self.writer = MessageWriter(
+            stream_writer, self.connection_number, self.output_queue
+        )
+
+        self.write_loop = asyncio.ensure_future(self.writer.start())
+        self.read_loop = asyncio.ensure_future(self.reader.start())
+        self.dispatch_loop = asyncio.ensure_future(self.dispatch())
+        self.connector.connection_made(self.node, self)
+
+    def data_received(self, data):
+        self.reader.feed_data(data)
+
+    async def dispatch(self):
+        while True:
+            next_msg = await self.input_queue.get()
+            reply = await self.dispatcher.dispatch(next_msg, self.output_queue)
+            if reply:
+                await self.output_queue.put(reply)
+
+    def connection_lost(self, exn):
+        self._connection_lost = True
+
+    async def stop(self):
+        try:
+            self.read_loop.cancel()
+            self.write_loop.cancel()
+            await asyncio.gather(self.read_loop, self.write_loop)
+        except asyncio.CancelledError:
+            pass
 
 
 def connect(

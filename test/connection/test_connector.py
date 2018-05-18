@@ -13,7 +13,8 @@ import logging
 
 import pytest
 
-from photonpump.connection import Connector, ConnectorCommand
+from photonpump.conversations import Ping
+from photonpump.connection import Connector, ConnectorCommand, MessageDispatcher
 from photonpump.discovery import (
     DiscoveryFailed, NodeService, SingleNodeDiscovery
 )
@@ -70,7 +71,7 @@ class EchoServerClientProtocol(asyncio.Protocol):
 
     def data_received(self, data):
         # message = data
-        logging.info('Protocol {} received data: {!r}'.format(self.number, data))
+        logging.info('ServerProtocol {} received data: {!r}'.format(self.number, data))
 
         # print('Send: {!r}'.format(message))
         self.transport.write(data)
@@ -119,39 +120,56 @@ class EchoServer:
         self.running = False
 
 
+class SpyDispatcher:
+
+    def __init__(self):
+        self.received = TeeQueue()
+        self.pending_messages = None
+        self.active_conversations = {}
+
+    async def dispatch(self, msg, _):
+        logging.info("Received inbound message %s", msg)
+        await self.received.put(msg)
+
+    async def start_conversation(self, conversation):
+        if self.pending_messages:
+            await self.pending_messages.put(conversation.start())
+        self.active_conversations[conversation.conversation_id] = (conversation, None)
+
+    async def write_to(self, output):
+        self.pending_messages = output
+        for (conversation, _) in self.active_conversations.values():
+            await self.pending_messages.put(conversation.start())
+
+
+
+
 @pytest.mark.asyncio
 async def test_when_connecting_to_a_server(event_loop):
     """
-    When we connect to a server, we should receive an event
-    with a reader/writer pair as the callback args.
+    When we connect to a server, the protocol should begin sending the
+    pending messages held by the dispatcher.
+
+    When it receives an InboundMessage from the MessageReader, it should call
+    the "dispatch" method of the Dispatcher.
     """
 
     addr = NodeService("localhost", 8338, None)
 
     async with EchoServer(addr, event_loop):
 
-        connector = Connector(SingleNodeDiscovery(addr), loop=event_loop)
-        events = []
-        wait_for = asyncio.Future(loop=event_loop)
+        dispatcher = SpyDispatcher()
+        connector = Connector(SingleNodeDiscovery(addr), dispatcher, loop=event_loop)
 
-        def on_connected(reader, writer):
-            print("Called!")
-            events.append((reader, writer))
-            wait_for.set_result(None)
+        ping = Ping()
 
-        connector.connected.append(on_connected)
+        await dispatcher.start_conversation(ping)
+
         await connector.start()
+        await connector_event(connector.connected)
+        reply = await dispatcher.received.get()
 
-        await asyncio.wait_for(wait_for, 2)
-        assert len(events) == 1
-        print(events[0])
-
-        reader, writer = events[0]
-        writer.write("Hello".encode())
-
-        received = await asyncio.wait_for(reader.read(100), 1)
-        assert received.decode() == "Hello"
-
+        assert reply.payload == ping.start().payload
         await connector.stop()
 
 
