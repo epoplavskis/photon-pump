@@ -188,6 +188,7 @@ class Connector:
     async def _reconnect(self, node):
         if not node:
             await self.start()
+
             return
 
         if self.retry_policy.should_retry(node):
@@ -283,9 +284,19 @@ class StreamingIterator:
     async def enqueue_items(self, items):
 
         for item in items:
+            if self.items.full():
+                logging.info(
+                    "StreamingIterator of size %d is full", self.items.maxsize
+                )
+
             await self.items.put(item)
 
     async def enqueue(self, item):
+        if self.items.full():
+            logging.info(
+                "StreamingIterator of size %d is full", self.items.maxsize
+            )
+
         await self.items.put(item)
 
     async def anext(self):
@@ -418,6 +429,9 @@ class MessageReader:
                 await self.process(data)
             except asyncio.CancelledError:
                 return
+            except:
+                logging.exception("Unhandled error in Message Reader")
+                raise
 
     async def process(self, chunk: bytes):
         if chunk is None:
@@ -510,22 +524,27 @@ class MessageDispatcher:
         return future
 
     async def write_to(self, output: asyncio.Queue):
-        self._logger.info("Dispatcher has new message writer")
+        self._logger.info(
+            "Dispatcher has new message writer. Re-sending %s conversations",
+            len(self.active_conversations)
+        )
         self.output = output
+
         for (conversation, fut) in self.active_conversations.values():
             await output.put(conversation.start())
 
     # Todo: Is the output necessary here?
-    async def dispatch(self, message: msg.InboundMessage, output: asyncio.Queue):
+    async def dispatch(
+            self, message: msg.InboundMessage, output: asyncio.Queue
+    ):
         self._logger.debug("Received message %s", message)
 
         if message.command == msg.TcpCommand.HeartbeatRequest.value:
-            response = convo.Heartbeat(message.conversation_id)
-            await output.put(response.start())
-            return
+            response = convo.Heartbeat(message.conversation_id).start()
+            self._logger.trace("Enqueueing heartbeat response")
+            await output.put(response)
+            self._logger.trace("Enqueued")
 
-        if message.command == msg.TcpCommand.NotHandled.value:
-            await self._connector.reconnect()
             return
 
         conversation, result = self.active_conversations.get(
@@ -533,14 +552,12 @@ class MessageDispatcher:
         )
 
         if not conversation:
-            self._logger.error(
-                "No conversation found for message %s", message
-            )
+            self._logger.error("No conversation found for message %s", message)
+
             return
 
         self._logger.debug(
-            'Received response to conversation %s: %s', conversation,
-            message
+            'Received response to conversation %s: %s', conversation, message
         )
 
         reply = conversation.respond_to(message)
@@ -849,7 +866,8 @@ class Client:
 
     async def ack(self, subscription, message_ids, correlation_id=None):
         cmd = msg.PersistentSubscriptionAckEvents(
-            subscription, message_ids,
+            subscription,
+            message_ids,
             correlation_id,
             credentials=self.credential,
             loop=self.loop
