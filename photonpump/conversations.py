@@ -1,8 +1,8 @@
 import json
 import logging
-from asyncio import Future
+from asyncio import Future, TimeoutError
 from enum import IntEnum
-from typing import Any, NamedTuple, Sequence, Union
+from typing import Any, NamedTuple, Sequence, Union, Optional
 from uuid import UUID, uuid4
 
 from google.protobuf.text_format import MessageToString
@@ -21,19 +21,22 @@ class ReplyAction(IntEnum):
 
     CompleteScalar = 0
     CompleteError = 1
+    CancelFuture = 2
 
-    BeginIterator = 2
-    YieldToIterator = 3
-    CompleteIterator = 4
-    RaiseToIterator = 5
+    BeginIterator = 3
+    YieldToIterator = 4
+    CompleteIterator = 5
+    RaiseToIterator = 6
 
-    BeginVolatileSubscription = 6
-    YieldToSubscription = 7
-    FinishSubscription = 8
-    RaiseToSubscription = 9
+    BeginVolatileSubscription = 7
+    YieldToSubscription = 8
+    FinishSubscription = 9
+    RaiseToSubscription = 10
 
-    BeginPersistentSubscription = 10
-    ContinueSubscription = 11
+    BeginPersistentSubscription = 11
+    ContinueSubscription = 12
+
+    ResubmitMessage = 22
 
 
 class Reply(NamedTuple):
@@ -46,7 +49,9 @@ class Reply(NamedTuple):
 class Conversation:
 
     def __init__(
-            self, conversation_id: UUID = None, credential: Credential = None
+            self,
+            conversation_id: Optional[UUID] = None,
+            credential: Optional[Credential] = None
     ) -> None:
         self.conversation_id = conversation_id or uuid4()
         self.result: Future = Future()
@@ -56,6 +61,15 @@ class Conversation:
 
     def __str__(self):
         return "<Conversation %s (%s)>" % (type(self), self.conversation_id)
+
+    def __eq__(self, other):
+        if not isinstance(other, Conversation):
+            return False
+
+        return self.conversation_id == other.conversation_id
+
+    def start(self) -> OutboundMessage:
+        pass
 
     def reply(self, response: InboundMessage) -> Reply:
         pass
@@ -88,18 +102,26 @@ class Conversation:
 
         return self.error(exn)
 
+    def timeout(self):
+        return self.error(TimeoutError())
+
+    def stop(self):
+        return Reply(ReplyAction.CancelFuture, None, None)
+
     def respond_to(self, response: InboundMessage) -> Reply:
         try:
             if response.command is TcpCommand.BadRequest:
                 return self.conversation_error(exceptions.BadRequest, response)
-            elif response.command is TcpCommand.NotAuthenticated:
+
+            if response.command is TcpCommand.NotAuthenticated:
                 return self.conversation_error(
                     exceptions.NotAuthenticated, response
                 )
-            elif response.command is TcpCommand.NotHandled:
+
+            if response.command is TcpCommand.NotHandled:
                 return self.unhandled_message(response)
-            else:
-                return self.reply(response)
+
+            return self.reply(response)
         except Exception as exn:
             self._logger.error('Failed to read server response', exc_info=True)
 
@@ -114,14 +136,35 @@ class Conversation:
 
 class Heartbeat(Conversation):
 
-    def __init__(self, conversation_id: UUID) -> None:
+    INBOUND = 0
+    OUTBOUND = 1
+
+    def __init__(self, conversation_id: UUID, direction=INBOUND) -> None:
         super().__init__(conversation_id)
+        self.direction = direction
 
     def start(self):
-        return OutboundMessage(
-            self.conversation_id, TcpCommand.HeartbeatResponse, b'',
-            self.credential
-        )
+
+        if self.direction == Heartbeat.INBOUND:
+            return OutboundMessage(
+                self.conversation_id,
+                TcpCommand.HeartbeatResponse,
+                b'',
+                self.credential,
+                one_way=True
+            )
+        else:
+            return OutboundMessage(
+                self.conversation_id,
+                TcpCommand.HeartbeatRequest,
+                b'',
+                self.credential,
+                one_way=False
+            )
+
+    def reply(self, msg: InboundMessage):
+        self.expect_only(TcpCommand.HeartbeatResponse, msg)
+        return Reply(ReplyAction.CompleteScalar, True, None)
 
 
 class Ping(Conversation):
@@ -131,7 +174,9 @@ class Ping(Conversation):
             self.conversation_id, TcpCommand.Ping, b'', self.credential
         )
 
-    def reply(self, _: InboundMessage):
+    def reply(self, msg: InboundMessage):
+        self.expect_only(TcpCommand.Pong, msg)
+
         return Reply(ReplyAction.CompleteScalar, True, None)
 
 
@@ -175,7 +220,6 @@ class WriteEvents(Conversation):
         msg.expected_version = self.expected_version
 
         for event in self.events:
-            print(event.id)
             e = msg.events.add()
             e.event_id = event.id.bytes_le
             e.event_type = event.type
@@ -211,6 +255,9 @@ class WriteEvents(Conversation):
         self._logger.trace("Returning result %s", result)
 
         return Reply(ReplyAction.CompleteScalar, result, None)
+
+    def timeout(self):
+        return Reply(ReplyAction.ResubmitMessage, None, self.start())
 
 
 class ReadStreamEventsBehaviour:
@@ -283,7 +330,7 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
             event_number: int,
             resolve_links: bool = True,
             require_master: bool = False,
-            conversation_id: UUID = None,
+            conversation_id: Optional[UUID] = None,
             credentials=None
     ) -> None:
 
@@ -563,7 +610,7 @@ class CreateVolatileSubscription(Conversation):
         self.resolve_links = resolve_links
         self.state = CreateVolatileSubscription.State.init
 
-    def error(self, exn):
+    def error(self, exn) -> Reply:
         if self.state == CreateVolatileSubscription.State.init:
             return Reply(ReplyAction.CompleteError, exn, None)
 
@@ -789,14 +836,29 @@ class ConnectPersistentSubscription(Conversation):
         body = proto.SubscriptionDropped()
         body.ParseFromString(response.payload)
 
-        if self.state == CreateVolatileSubscription.State.init:
+        if (self.state == ConnectPersistentSubscription.State.live and
+                body.reason == messages.SubscriptionDropReason.Unsubscribed):
+
+            return Reply(ReplyAction.FinishSubscription, None, None)
+
+        if self.state == ConnectPersistentSubscription.State.live:
             return self.error(
-                exceptions.SubscriptionCreationFailed(
+                exceptions.SubscriptionFailed(
                     self.conversation_id, body.reason
                 )
             )
 
-        return Reply(ReplyAction.FinishSubscription, None, None)
+        return self.error(
+            exceptions.SubscriptionCreationFailed(
+                self.conversation_id, body.reason
+            )
+        )
+
+    def error(self, exn) -> Reply:
+        if self.state == CreateVolatileSubscription.State.init:
+            return Reply(ReplyAction.CompleteError, exn, None)
+
+        return Reply(ReplyAction.RaiseToSubscription, exn, None)
 
     def reply(self, response: InboundMessage):
 

@@ -1,0 +1,17 @@
+0.5 Todo
+
+* Decide on an approach for retrying connections; may defer to 0.6
+* Implement remaining tests
+* Move binary-dump level messages to TRACE
+* Heartbeats - how do we ensure that we only have a single heartbeat conversation waiting at a time?
+
+0.6 Todo
+
+* Strict type checking for messages.py
+* Timeout and retry for message responses.
+* Clean shutdown
+* Extract polymorphic Reply types and kill handle_reply
+
+0.7 Todo
+
+* Extract the protocol again so that we move mutable state out of the connector

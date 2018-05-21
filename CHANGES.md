@@ -1,3 +1,9 @@
+## [0.5a] - 2018-04-27
+### Breaking changes
+ - Dropped the ConnectionContextManager class.
+ - "Connection" class is now "Client" and acts as a context manager in its own right
+ - Rewrote the connection module completely.
+
 ## [0.4] - 2018-04-27
 ### Fixes
 - Added cluster discovery for HA scenarios.

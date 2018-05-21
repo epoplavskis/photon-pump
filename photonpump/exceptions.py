@@ -122,5 +122,9 @@ class SubscriptionCreationFailed(ConversationException):
     pass
 
 
+class SubscriptionFailed(ConversationException):
+    pass
+
+
 class UnexpectedCommand(ConversationException):
     pass

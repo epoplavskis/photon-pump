@@ -1,12 +1,13 @@
+from typing import List
+
 import aiohttp
 import pytest
 from aioresponses import aioresponses
-from typing import List
 
 from photonpump.discovery import (
     ClusterDiscovery, DiscoveredNode, DiscoveryFailed, DiscoveryRetryPolicy,
-    NodeService, NodeState, StaticSeedFinder, Stats, fetch_new_gossip,
-    get_discoverer, read_gossip, select
+    NodeService, NodeState, SingleNodeDiscovery, StaticSeedFinder, Stats,
+    fetch_new_gossip, get_discoverer, read_gossip, select
 )
 
 from . import data
@@ -121,8 +122,8 @@ async def test_fetch_gossip():
         mock.get(
             'http://10.10.10.10:2113/gossip', status=200, payload=data.GOSSIP
         )
-        session = aiohttp.ClientSession()
-        gossip = await fetch_new_gossip(session, node)
+        async with aiohttp.ClientSession() as session:
+            gossip = await fetch_new_gossip(session, node)
 
     assert len(gossip) == 3
 
@@ -133,8 +134,8 @@ async def test_aiohttp_failure():
 
     with aioresponses() as mock:
         mock.get('http://10.10.10.10:2113/gossip', status=502)
-        session = aiohttp.ClientSession()
-        gossip = await fetch_new_gossip(session, node)
+        async with aiohttp.ClientSession() as session:
+            gossip = await fetch_new_gossip(session, node)
 
     assert not gossip
 
@@ -190,6 +191,7 @@ async def test_discovery_with_a_static_seed():
         assert await discoverer.discover() == NodeService(
             second_node_ip, 1113, None
         )
+        discoverer.close()
 
 
 @pytest.mark.asyncio
@@ -204,7 +206,7 @@ async def test_discovery_failure_for_static_seed():
             super().__init__()
             self.stats = Stats()
 
-        async def should_retry(self, _):
+        def should_retry(self, _):
             return True
 
         async def wait(self, seed):
@@ -213,9 +215,10 @@ async def test_discovery_failure_for_static_seed():
     seed = NodeService('1.2.3.4', 2113, None)
     gossip = data.make_gossip('2.3.4.5')
     retry = always_succeed()
+    session = aiohttp.ClientSession()
     with aioresponses() as mock:
         successful_discoverer = ClusterDiscovery(
-            StaticSeedFinder([seed]), aiohttp.ClientSession(), retry
+            StaticSeedFinder([seed]), session, retry
         )
 
         mock.get('http://1.2.3.4:2113/gossip', status=500)
@@ -230,6 +233,7 @@ async def test_discovery_failure_for_static_seed():
         assert stats.successes == 1
         assert stats.failures == 1
         assert stats.consecutive_failures == 0
+        await session.close()
 
 
 @pytest.mark.asyncio
@@ -245,8 +249,6 @@ async def test_repeated_discovery_failure_for_static_seed():
             super().__init__()
 
         def should_retry(self, _):
-            print("FUKC YOU")
-
             return False
 
         async def wait(self, seed):
@@ -273,3 +275,41 @@ async def test_repeated_discovery_failure_for_static_seed():
             assert stats.successes == 0
             assert stats.failures == 1
             assert stats.consecutive_failures == 1
+
+
+@pytest.mark.asyncio
+async def test_single_node_mark_failed():
+    """
+    The SingleNodeDiscovery should raise DiscoveryFailed if we ask for a node
+    after calling mark_failed.
+    """
+
+    node = NodeService('2.3.4.5', 1234, None)
+    discoverer = SingleNodeDiscovery(node)
+
+    assert await discoverer.discover() == node
+
+    discoverer.mark_failed(node)
+
+    with pytest.raises(DiscoveryFailed):
+        await discoverer.discover()
+
+
+@pytest.mark.asyncio
+async def test_cluster_discovery_mark_failed():
+    """
+    ClusterDiscovery should just pass the mark_failed call to the seed source.
+    """
+
+    class spy_seed_finder(List):
+
+        def mark_failed(self, node):
+            self.append(node)
+
+    node = NodeService('2.3.4.5', 1234, None)
+    finder = spy_seed_finder()
+    discoverer = ClusterDiscovery(finder, None, None)
+
+    discoverer.mark_failed(node)
+
+    assert finder == [node]
