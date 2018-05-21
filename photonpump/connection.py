@@ -284,18 +284,16 @@ class StreamingIterator:
     async def enqueue_items(self, items):
 
         for item in items:
-            if self.items.full():
-                logging.info(
-                    "StreamingIterator of size %d is full", self.items.maxsize
-                )
+            logging.info(
+                "StreamingIterator has size %d", self.items.qsize()
+            )
 
             await self.items.put(item)
 
     async def enqueue(self, item):
-        if self.items.full():
-            logging.info(
-                "StreamingIterator of size %d is full", self.items.maxsize
-            )
+        logging.info(
+            "StreamingIterator has length %d", self.items.qsize()
+        )
 
         await self.items.put(item)
 
