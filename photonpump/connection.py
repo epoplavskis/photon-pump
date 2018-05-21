@@ -274,7 +274,7 @@ class Connector:
 class StreamingIterator:
 
     def __init__(self, size):
-        self.items = asyncio.Queue(maxsize=size)
+        self.items = asyncio.Queue()
         self.finished = False
         self.fut = None
 
