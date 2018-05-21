@@ -5,7 +5,7 @@ from photonpump import exceptions
 from photonpump import messages_pb2 as proto
 from photonpump.conversations import CreatePersistentSubscription, ReplyAction
 from photonpump.messages import (
-    InboundMessage, SubscriptionResult, TcpCommand, dump
+    InboundMessage, SubscriptionResult, TcpCommand
 )
 
 
@@ -119,10 +119,8 @@ E8 07 70 0A 78 00 82 01 0A 52 6F 75 6E 64 52 6F
 62 69 6E
 """
     )
-    print(dump(expected_bytes))
 
     actual_bytes = (request.header_bytes + request.payload)[4:]
-    print(dump(actual_bytes))
 
     assert actual_bytes == expected_bytes
     assert len(actual_bytes) == len(expected_bytes)

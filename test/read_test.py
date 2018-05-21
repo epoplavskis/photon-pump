@@ -148,7 +148,7 @@ async def test_streaming_read(event_loop):
 @pytest.mark.asyncio
 async def test_async_comprehension(event_loop):
 
-    async def embiggen(e):
+    def embiggen(e):
         data = e.json()
         data['Height'] *= 10
         data['Distance'] *= 10

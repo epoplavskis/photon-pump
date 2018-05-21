@@ -1,23 +1,18 @@
 import array
 import asyncio
+import enum
 import logging
-import random
 import struct
 import uuid
-from typing import Sequence
+from typing import Any, NamedTuple, Optional, Sequence
 
 from . import conversations as convo
-from . import discovery
 from . import messages as msg
 from . import messages_pb2 as proto
-
-__version__ = '0.1.0'
+from .discovery import DiscoveryRetryPolicy, NodeService, get_discoverer
 
 HEADER_LENGTH = 1 + 1 + 16
 SIZE_UINT_32 = 4
-
-#: 1 byte command + 1 byte auth + UUID correlation length
-FLAGS_NONE = 0x00
 
 
 class Event(list):
@@ -26,8 +21,394 @@ class Event(list):
         for f in self:
             f(*args, **kwargs)
 
-    def __repr__(self):
-        return 'Event(%s)' % list.__repr__(self)
+
+class ConnectorCommand(enum.IntEnum):
+    Connect = 0
+    HandleConnectFailure = 1
+    HandleConnectionOpened = 2
+    HandleConnectionClosed = 3
+    HandleConnectionFailed = 4
+
+    HandleHeartbeatFailed = 5
+    HandleHeartbeatSuccess = 6
+
+    HandleConnectorFailed = -2
+
+    Stop = -1
+
+
+class ConnectorState(enum.IntEnum):
+    Begin = 0
+    Connecting = 1
+    Connected = 2
+    Stopping = 3
+    Stopped = 4
+
+
+class ConnectorInstruction(NamedTuple):
+    command: ConnectorCommand
+    future: Optional[asyncio.Future]
+    data: Optional[Any]
+
+
+class Connector(asyncio.streams.FlowControlMixin):
+
+    def __init__(
+            self, discovery, retry_policy=None, ctrl_queue=None, loop=None
+    ):
+        self.loop = loop or asyncio.get_event_loop()
+        self.discovery = discovery
+        self.connected = Event()
+        self.disconnected = Event()
+        self.stopped = Event()
+        self.ctrl_queue = ctrl_queue or asyncio.Queue(loop=self.loop)
+        self.log = logging.getLogger("photonpump.connection.Connector")
+        self._run_loop = asyncio.ensure_future(self._run())
+        self.reader = None
+        self.writer = None
+        self.transport = None
+        self.heartbeat_failures = 0
+        self.retry_policy = retry_policy or DiscoveryRetryPolicy(
+            retries_per_node=0
+        )
+        self.target_node = None
+
+        self._connection_lost = False
+        self._paused = False
+        self.state = ConnectorState.Begin
+        self.connect_timeout = 5
+
+    def _put_msg(self, msg):
+        asyncio.ensure_future(self.ctrl_queue.put(msg))
+
+    def connection_made(self, transport):
+        self._put_msg(
+            ConnectorInstruction(
+                ConnectorCommand.HandleConnectionOpened, None, transport
+            )
+        )
+
+    def heartbeat_received(self, conversation_id):
+        self.retry_policy.record_success(self.target_node)
+        self._put_msg(
+            ConnectorInstruction(
+                ConnectorCommand.HandleHeartbeatSuccess, None, conversation_id
+            )
+        )
+
+    def data_received(self, data):
+        self.reader.feed_data(data)
+
+    def eof_received(self):
+        self.log.info("EOF received, tearing down connection")
+
+    def connection_lost(self, exn=None):
+        self.log.info('connection_lost {}'.format(exn))
+        self.retry_policy.record_failure(self.target_node)
+
+        if exn:
+            self._put_msg(
+                ConnectorInstruction(
+                    ConnectorCommand.HandleConnectionFailed, None, exn
+                )
+            )
+        else:
+            self._put_msg(
+                ConnectorInstruction(
+                    ConnectorCommand.HandleConnectionClosed, None, None
+                )
+            )
+
+    def heartbeat_failed(self, exn=None):
+        self._put_msg(
+            ConnectorInstruction(
+                ConnectorCommand.HandleHeartbeatFailed, None, exn
+            )
+        )
+
+    async def _drain_helper(self):
+        pass
+
+    async def start(self, target: Optional[NodeService] = None):
+        self.state = ConnectorState.Connecting
+        await self.ctrl_queue.put(
+            ConnectorInstruction(ConnectorCommand.Connect, None, target)
+        )
+
+    async def stop(self, exn=None):
+        self.log.info("Stopping connector")
+        self.state = ConnectorState.Stopping
+        future = asyncio.Future()
+        await self.ctrl_queue.put(
+            ConnectorInstruction(ConnectorCommand.Stop, future, exn)
+        )
+
+        return future
+
+    async def reconnect(self):
+        self.target_node = None
+
+        if self.transport:
+            self.transport.close()
+        else:
+            await self.start()
+
+    async def _attempt_connect(self, node):
+        if not node:
+            try:
+                self.log.debug("Performing node discovery")
+                node = self.target_node = await self.discovery.discover()
+            except Exception as e:
+                await self.ctrl_queue.put(
+                    ConnectorInstruction(
+                        ConnectorCommand.HandleConnectorFailed, None, e
+                    )
+                )
+
+                return
+        self.log.info("Connecting to %s:%s", node.address, node.port)
+        try:
+            await asyncio.wait_for(
+                self.loop.create_connection(
+                    lambda: self, node.address, node.port
+                ), self.connect_timeout
+            )
+        except Exception as e:
+            await self.ctrl_queue.put(
+                ConnectorInstruction(
+                    ConnectorCommand.HandleConnectFailure, None, e
+                )
+            )
+
+    async def _on_transport_received(self, transport):
+        self.log.info(
+            "PhotonPump is connected to eventstore instance at %s",
+            str(transport.get_extra_info('peername', 'ERROR'))
+        )
+        self.transport = transport
+        self.reader = reader = asyncio.StreamReader(loop=self.loop)
+        reader.set_transport(transport)
+        self.writer = writer = asyncio.StreamWriter(
+            transport, self, reader, self.loop
+        )
+        self.connected(reader, writer)
+
+    async def _reconnect(self, node):
+        if not node:
+            self.target_node = None
+            await self.start()
+
+            return
+
+        if self.retry_policy.should_retry(node):
+            await self.retry_policy.wait(node)
+            await self.start(target=node)
+        else:
+            self.log.error(
+                "Reached maximum number of retry attempts on node %s", node
+            )
+            self.discovery.mark_failed(node)
+            await self.start()
+
+    async def _on_transport_closed(self):
+        self.log.info("Connection closed gracefully, restarting")
+        self.disconnected()
+        await self._reconnect(self.target_node)
+
+    async def _on_transport_error(self, exn):
+        self.log.info("Connection closed with error, restarting %s", exn)
+        self.disconnected()
+        await self._reconnect(self.target_node)
+
+    async def _on_connect_failed(self, exn):
+        self.log.info(
+            "Failed to connect to host %s with error %s restarting",
+            self.target_node, exn
+        )
+        self.retry_policy.record_failure(self.target_node)
+        await self._reconnect(self.target_node)
+
+    async def _on_failed_heartbeat(self, exn):
+        self.log.warn("Failed to handle a heartbeat")
+        self.heartbeat_failures += 1
+
+        if self.heartbeat_failures >= 3:
+            await self.reconnect()
+            self.heartbeat_failures = 0
+
+    async def _on_successful_heartbeat(self, conversation_id):
+        self.log.debug(
+            "Received heartbeat from conversation %s", conversation_id
+        )
+        self.heartbeat_failures = 0
+
+    async def _on_connector_failed(self, exn):
+        self.log.error("Connector failed to find a connection")
+        await self.stop(exn=exn)
+
+    async def _run(self):
+        while True:
+            try:
+                msg = await self.ctrl_queue.get()
+                self.log.debug("Connector received message %s", msg)
+
+                if msg.command == ConnectorCommand.Connect:
+                    await self._attempt_connect(msg.data)
+
+                if msg.command == ConnectorCommand.HandleConnectFailure:
+                    await self._on_connect_failed(msg.data)
+
+                if msg.command == ConnectorCommand.HandleConnectionOpened:
+                    await self._on_transport_received(msg.data)
+
+                if msg.command == ConnectorCommand.HandleConnectionClosed:
+                    await self._on_transport_closed()
+
+                if msg.command == ConnectorCommand.HandleConnectionFailed:
+                    await self._on_transport_error(msg.data)
+
+                if msg.command == ConnectorCommand.HandleHeartbeatFailed:
+                    await self._on_failed_heartbeat(msg.data)
+
+                if msg.command == ConnectorCommand.HandleHeartbeatSuccess:
+                    await self._on_successful_heartbeat(msg.data)
+
+                if msg.command == ConnectorCommand.HandleConnectorFailed:
+                    await self._on_connector_failed(msg.data)
+
+                if msg.command == ConnectorCommand.Stop:
+                    self.stopped(msg.data)
+                    msg.future.set_result(None)
+
+                    return
+            except:  # noqa: E722
+                self.log.exception('Unexpected error in connector')
+
+
+class StreamingIterator:
+
+    def __init__(self, size):
+        self.items = asyncio.Queue(maxsize=size)
+        self.finished = False
+        self.fut = None
+
+    async def __aiter__(self):
+        return self
+
+    async def enqueue_items(self, items):
+
+        for item in items:
+            await self.items.put(item)
+
+    async def enqueue(self, item):
+        await self.items.put(item)
+
+    async def anext(self):
+        return await self.__anext__()
+
+    async def __anext__(self):
+
+        if self.finished and self.items.empty():
+            raise StopAsyncIteration()
+        try:
+            _next = await self.items.get()
+        except Exception as e:
+            raise StopAsyncIteration()
+
+        if isinstance(_next, StopIteration):
+            raise StopAsyncIteration()
+
+        if isinstance(_next, Exception):
+            raise _next
+
+        return _next
+
+    async def asend(self, m):
+        await self.items.put(m)
+
+
+class PersistentSubscription(convo.PersistentSubscription):
+
+    def __init__(self, subscription, iterator, conn, out_queue):
+        super().__init__(
+            subscription.name, subscription.stream,
+            subscription.conversation_id, subscription.initial_commit_position,
+            subscription.last_event_number, subscription.buffer_size,
+            subscription.auto_ack
+        )
+        self.connection = conn
+        self.events = iterator
+        self.out_queue = out_queue
+
+    async def ack(self, event):
+        payload = proto.PersistentSubscriptionAckEvents()
+        payload.subscription_id = self.name
+        payload.processed_event_ids.append(event.original_event_id.bytes_le)
+        message = msg.OutboundMessage(
+            self.conversation_id,
+            msg.TcpCommand.PersistentSubscriptionAckEvents,
+            payload.SerializeToString(),
+        )
+
+        await self.out_queue.put(message)
+
+
+class MessageWriter:
+
+    def __init__(self, queue, connector):
+        connector.connected.append(self.on_connected)
+        connector.disconnected.append(self.on_connection_lost)
+        self._queue = queue
+        self._is_connected = False
+        self.next = None
+        self._write_loop = None
+        self._logger = logging.get_named_logger(MessageWriter)
+
+    def on_connection_lost(self):
+        self._logger.warn('Connection lost, stopping loop')
+        self._is_connected = False
+        self._write_loop.cancel()
+
+    def on_connected(self, _, streamwriter):
+        self._logger.debug('MessageWriter connected')
+        self._is_connected = True
+        self.stream_writer = streamwriter
+        self._write_loop = asyncio.ensure_future(
+            self._write_outbound_messages()
+        )
+
+    async def enqueue_message(self, message: msg.OutboundMessage):
+        await self._queue.put(message)
+
+    async def _write_outbound_messages(self):
+        if self.next:
+            self._logger.debug('Sending message %s', self.next)
+            self._logger.trace('Message body is %r', self.next)
+            self.stream_writer.write(self.next.header_bytes)
+            self.stream_writer.write(self.next.payload)
+
+        while self._is_connected:
+            self.next = await self._queue.get()
+            try:
+                self._logger.debug('Sending message %s', self.next)
+                self._logger.trace('Message body is %r', self.next)
+                self.stream_writer.write(self.next.header_bytes)
+                self.stream_writer.write(self.next.payload)
+            except Exception as e:
+                self._logger.error(
+                    'Failed to send message %s', e, exc_info=True
+                )
+            try:
+                await self.stream_writer.drain()
+                self._logger.debug("Finished drain for %s", self.next)
+            except Exception as e:
+                self._logger.error(e)
+
+    async def close(self):
+        if self._is_connected:
+            await self.stream_writer.drain()
+            self.stream_writer.close()
+            self._write_loop.cancel()
 
 
 class MessageReader:
@@ -35,7 +416,7 @@ class MessageReader:
     MESSAGE_MIN_SIZE = SIZE_UINT_32 + HEADER_LENGTH
     HEAD_PACK = struct.Struct('<IBB')
 
-    def __init__(self, queue):
+    def __init__(self, queue, connector):
         self.queue = queue
         self.header_bytes = array.array('B', [0] * (self.MESSAGE_MIN_SIZE))
         self.header_bytes_required = (self.MESSAGE_MIN_SIZE)
@@ -44,6 +425,40 @@ class MessageReader:
         self.conversation_id = None
         self.message_buffer = None
         self._logger = logging.get_named_logger(MessageReader)
+        self._stream_reader = None
+
+        connector.connected.append(self.on_connected)
+        connector.disconnected.append(self.on_connection_lost)
+
+    def close(self):
+        self._reader_loop.cancel()
+
+    def on_connection_lost(self):
+        self._is_connected = False
+        self._reader_loop.cancel()
+
+    def on_connected(self, streamreader, _):
+        self._logger.debug('MessageReader connected')
+        self._is_connected = True
+        self._stream_reader = streamreader
+
+        self._reader_loop = asyncio.ensure_future(self._read_inbound_messages())
+
+    async def _read_inbound_messages(self):
+        '''Loop forever reading messages and invoking
+           the operation that caused them'''
+
+        while True:
+            try:
+                data = await self._stream_reader.read(8192)
+                self._logger.trace(
+                    'Received %d bytes from remote server:\n%s', len(data),
+                    msg.dump(data)
+                )
+                await self.process(data)
+            except:
+                logging.exception("Unexpected error in message reader")
+                break
 
     async def process(self, chunk: bytes):
         if chunk is None:
@@ -114,507 +529,246 @@ class MessageReader:
                 self.message_buffer = None
 
 
-class ConnectionHandler:
-
-    CONNECT = 1
-    DISCONNECT = 2
-    RECONNECT = 3  # Unused
-    OK = 4
-    HANGUP = 5
-
-    def __init__(self, loop, logger, protocol, max_attempts=3):
-        self.queue = asyncio.Queue(maxsize=1)
-        self._loop = loop
-        self._logger = logger or logging.get_named_logger(ConnectionHandler)
-        self._protocol = protocol
-        self._last_message = None
-        self._current_attempts = 0
-        self._max_attempts = max_attempts
-        self._run_loop = None
-        self.transport = None
-
-    async def connect(self):
-        fut = asyncio.Future()
-        await self.queue.put((ConnectionHandler.CONNECT, fut))
-        await fut
-
-    def hangup(self):
-        self._logger.debug('Connection hanging up')
-
-        if self.transport:
-            self.transport.write_eof()
-        self._run_loop.cancel()
-
-    async def ok(self):
-        if self._last_message == ConnectionHandler.OK:
-            return
-        await self.queue.put((ConnectionHandler.OK, None))
-
-    def run(self, discoverer):
-        self._run_loop = asyncio.ensure_future(
-            self._run(discoverer), loop=self._loop
-        )
-
-    async def _run(self, discoverer):
-        while True:
-            msg, reply = await self.queue.get()
-            try:
-
-                if msg == ConnectionHandler.OK:
-                    self._logger.debug('Eventstore connection is OK')
-                    self._current_attempts = 0
-                elif msg == ConnectionHandler.CONNECT:
-                    try:
-                        node = await discoverer.discover()
-                        await self._attempt_connect(
-                            node.address, node.port, reply
-                        )
-                    except discovery.DiscoveryFailed as e:
-                        reply.set_exception(e)
-                elif msg == ConnectionHandler.HANGUP:
-                    self.transport.close()
-                    self._run_loop.cancel()
-
-                    return
-
-                self._last_message = msg
-            except discovery.DiscoveryFailed:
-                self.hangup()
-
-    async def _attempt_connect(self, host, port, reply):
-        self._current_attempts += 1
-        self._logger.info(
-            'Attempting connection to %s:%d attempt %d of %d', host, port,
-            self._current_attempts, self._max_attempts
-        )
-
-        if self._last_message == ConnectionHandler.CONNECT:
-            sleep_time = random.uniform(0, self._current_attempts)
-            self._logger.debug('Sleeping for %d secs', sleep_time)
-            await asyncio.sleep(sleep_time)
-        try:
-            self._last_message = ConnectionHandler.CONNECT
-            self.transport, _ = await self._loop.create_connection(
-                lambda: self._protocol, host, port
-            )
-            reply.set_result(None)
-        except Exception as e:
-            self._logger.warn(e, exc_info=True)
-
-            if self._current_attempts == self._max_attempts:
-                reply.set_exception(e)
-            await self._attempt_connect(host, port, reply)
-
-
-class StreamingIterator:
-
-    def __init__(self, size):
-        self.items = asyncio.Queue(maxsize=size)
-        self.finished = False
-        self.fut = None
-
-    async def __aiter__(self):
-        return self
-
-    async def enqueue_items(self, items):
-
-        for item in items:
-            await self.items.put(item)
-
-    async def enqueue(self, item):
-        await self.items.put(item)
-
-    async def __anext__(self):
-
-        if self.finished and self.items.empty():
-            raise StopAsyncIteration()
-        try:
-            _next = await self.items.get()
-        except Exception as e:
-            raise StopAsyncIteration()
-
-        if isinstance(_next, StopIteration):
-            raise StopAsyncIteration()
-
-        if isinstance(_next, Exception):
-            raise _next
-
-        return _next
-
-    async def athrow(self, e):
-        await self.items.put(e)
-
-    async def asend(self, m):
-        await self.items.put(m)
-
-    def cancel(self):
-        self.finished = True
-        self.asend(StopIteration())
-
-
-class PersistentSubscription(convo.PersistentSubscription):
-
-    def __init__(self, subscription, iterator, conn):
-        super().__init__(
-            subscription.name, subscription.stream,
-            subscription.conversation_id, subscription.initial_commit_position,
-            subscription.last_event_number, subscription.buffer_size,
-            subscription.auto_ack
-        )
-        self.connection = conn
-        self.events = iterator
-
-    async def ack(self, event):
-        payload = proto.PersistentSubscriptionAckEvents()
-        payload.subscription_id = self.name
-        payload.processed_event_ids.append(event.original_event_id.bytes_le)
-        message = msg.OutboundMessage(
-            self.conversation_id,
-            msg.TcpCommand.PersistentSubscriptionAckEvents,
-            payload.SerializeToString(),
-        )
-        await self.connection.enqueue_message(message)
-
-
-class EventstoreProtocol(asyncio.streams.FlowControlMixin):
-
-    def __init__(self, discoverer, queue, pending, logger=None, loop=None):
-        self._loop = loop or asyncio.get_event_loop()
-        self._discoverer = discoverer
-        self._is_connecting = False
-        self._logger = logger or logging.get_named_logger(EventstoreProtocol)
-        self._queue = queue
-        self._pending_operations = pending
-        self._pending_responses = asyncio.Queue(maxsize=128, loop=self._loop)
-        self._read_loop = None
-        self._write_loop = None
-        self._message_reader = MessageReader(self._pending_responses)
-        self._dispatch_loop = None
-        self._connection_lost = False
-        self._paused = False
-        self.next = None
-        self._reader = None
-        self._connectHandler = ConnectionHandler(self._loop, self._logger, self)
-        self._connectHandler.run(self._discoverer)
-        self._reconnection_convos = []
-
-    def on_connection_complete(self, fut: asyncio.Future):
-        try:
-            fut.result()
-        except discovery.DiscoveryFailed as e:
-            self._logger.error("Failed to connecct.")
-            self.close(hangup=True, exn=e)
-
-    def connection_made(self, transport):
-        self._transport = transport
-        self._running = True
-        self._is_connected = True
-        self.is_connecting = False
-        self._logger.info(
-            'PhotonPump is connected to eventstore instance at ' +
-            str(transport.get_extra_info('peername', 'ERROR'))
-        )
-
-        self._reader = asyncio.StreamReader(loop=self._loop)
-        self._reader.set_transport(transport)
-
-        self._writer = asyncio.StreamWriter(
-            self._transport, self, None, self._loop
-        )
-
-        self._read_loop = asyncio.ensure_future(
-            self._read_inbound_messages(), loop=self._loop
-        )
-        self._write_loop = asyncio.ensure_future(
-            self._write_outbound_messages(), loop=self._loop
-        )
-        self._dispatch_loop = asyncio.ensure_future(
-            self._process_responses(), loop=self._loop
-        )
-
-        for cmd in self._reconnection_convos:
-            self._logger.info(
-                'PhotonPump is reconnecting to subscription {}'.format(
-                    cmd.name
-                )
-            )
-            asyncio.ensure_future(
-                self.enqueue_conversation(cmd), loop=self._loop
-            )
-
-    def eof_received(self):
-        self._logger.log(
-            logging.INFO,
-            'EOF received in EventstoreProtocol, closing connection'
-        )
-
-        if self._is_connected:
-            self.close()
-
-        if not self.is_connecting:
-            fut = asyncio.ensure_future(self.connect(), loop=self._loop)
-            fut.add_done_callback(self.on_connection_complete)
-
-    def data_received(self, data):
-        ''' Process data received from Eventstore.  '''
-        self._reader.feed_data(data)
-
-    def connection_lost(self, exc):
-        if exc is None:
-            self._reader.feed_eof()
-
-        else:
-            self._logger.error('Lost connection to Eventstore %s' % exc)
-            self.close()
-
-            if not self.is_connecting:
-                fut = asyncio.ensure_future(self.connect(), loop=self._loop)
-                fut.add_done_callback(self.on_connection_complete)
-
-    async def enqueue_conversation(
-            self, conversation: convo.Conversation, retry_on_reconnect=False
-    ):
-        '''Enqueue an operation.
-
-        The operation will be added to the `pending` dict, and
-            pushed onto the queue for sending.
-
-        Args:
-            message: The operation to send.
-        '''
-
-        if retry_on_reconnect:
-            self._reconnection_convos.append(conversation)
-
-        message = conversation.start()
-
-        if not message.one_way:
-            future = asyncio.Future(loop=self._loop)
-            self._pending_operations[conversation.conversation_id] = (conversation, future)
-        try:
-            await self._queue.put(message)
-        except Exception as e:
-            self._logger.error(e)
-
-        return future
-
-    async def connect(self):
-        await self._connectHandler.connect()
-
-    async def enqueue_message(self, message: msg.OutboundMessage):
-        await self._queue.put(message)
-
-    async def _write_outbound_messages(self):
-        if self.next:
-            self._writer.write(self.next.header_bytes)
-            self._writer.write(self.next.payload)
-
-        while self._is_connected:
-            self._logger.debug('Sending message %s', self.next)
-            self.next = await self._queue.get()
-            try:
-                self._writer.write(self.next.header_bytes)
-                self._writer.write(self.next.payload)
-            except Exception as e:
-                self._logger.error(
-                    'Failed to send message %s', e, exc_info=True
-                )
-            try:
-                await self._writer.drain()
-            except Exception as e:
-                self._logger.error(e)
-
-    async def _read_inbound_messages(self):
-        '''Loop forever reading messages and invoking
-           the operation that caused them'''
-
-        while True:
-            data = await self._reader.read(8192)
-            self._logger.trace(
-                'Received %d bytes from remote server:\n%s', len(data),
-                msg.dump(data)
-            )
-            await self._connectHandler.ok()
-            await self._message_reader.process(data)
-
-    async def _process_responses(self):
-        log = logging.get_named_logger(EventstoreProtocol, 'dispatcher')
-
-        while True:
-            message = await self._pending_responses.get()
-
-            if not message:
-                log.trace('No message received')
-
-                continue
-
-            log.debug('Received message %s', message)
-
-            if message.command == msg.TcpCommand.HeartbeatRequest.value:
-                await self.enqueue_conversation(
-                    convo.Heartbeat(message.conversation_id)
-                )
-
-                continue
-
-            conversation, result = self._pending_operations.get(
-                message.conversation_id, (None, None)
-            )
-
-            if conversation is None:
-                log.error('No conversations can handle message %s', message)
-
-                continue
-            log.debug(
-                'Received response to conversation %s: %s', conversation,
-                message
-            )
-
-            reply = conversation.respond_to(message)
-            log.debug('Reply is %s', reply)
-
-            if reply.action == convo.ReplyAction.CompleteScalar:
-                result.set_result(reply.result)
-                del self._pending_operations[message.conversation_id]
-
-            elif reply.action == convo.ReplyAction.CompleteError:
-                result.set_exception(reply.result)
-                del self._pending_operations[message.conversation_id]
-
-            elif reply.action == convo.ReplyAction.BeginIterator:
-                log.debug(
-                    'Creating new streaming iterator for %s', conversation
-                )
-                size, events = reply.result
-                it = StreamingIterator(size * 2)
-                result.set_result(it)
-                await it.enqueue_items(events)
-                log.debug('Enqueued %d events', len(events))
-
-            elif reply.action == convo.ReplyAction.YieldToIterator:
-                log.debug(
-                    'Yielding new events into iterator for %s', conversation
-                )
-                iterator = result.result()
-                log.debug(iterator)
-                log.debug(reply.result)
-                await iterator.enqueue_items(reply.result)
-
-            elif reply.action == convo.ReplyAction.CompleteIterator:
-                log.debug(
-                    'Yielding final events into iterator for %s', conversation
-                )
-                iterator = result.result()
-                log.debug(iterator)
-                log.debug(reply.result)
-                await iterator.enqueue_items(reply.result)
-                await iterator.asend(StopAsyncIteration())
-                del self._pending_operations[message.conversation_id]
-
-            elif reply.action == convo.ReplyAction.BeginPersistentSubscription:
-                log.debug(
-                    'Starting new iterator for persistent subscription %s',
-                    conversation
-                )
-                try:
-                    sub = PersistentSubscription(
-                        reply.result,
-                        StreamingIterator(reply.result.buffer_size), self
-                    )
-                    log.debug('foo')
-                    result.set_result(sub)
-                except Exception as e:
-                    log.error(e, exc_info=True)
-
-            elif reply.action == convo.ReplyAction.ContinueSubscription:
-                log.debug(
-                    'Received new confirmation for subscription %s',
-                    conversation
-                )
-
-            elif reply.action == convo.ReplyAction.YieldToSubscription:
-                log.debug('Pushing new event for subscription %s', conversation)
-                log.debug(result)
-                sub = await result
-                log.debug(sub)
-                await sub.events.enqueue(reply.result)
-
-            if reply.next_message is not None:
-                await self._queue.put(reply.next_message)
-
-    def close(self, hangup=False, exn=None):
-        '''Close the underlying StreamWriter and cancel pending Operations.'''
-        self._logger.info('Closing connection')
-        self.running = False
-
-        if hangup:
-            self._connectHandler.hangup()
-
-            for (_, (_, op)) in self._pending_operations.items():
-                print(op)
-
-                if exn:
-                    op.set_exception(exn)
-                else:
-                    op.cancel()
-
-        if (self._read_loop):
-            self._read_loop.cancel()
-            self._dispatch_loop.cancel()
-            self._write_loop.cancel()
-            self._transport.close()
-
-        self._is_connected = False
-
-
-class Connection:
-    '''Top level object for interacting with Eventstore.
-
-    The connection is the entry point to working with Photon Pump.
-    It exposes high level methods that wrap the
-    :class:`~photonpump.messages.Operation` types from photonpump.messages.
-    '''
+class MessageDispatcher:
 
     def __init__(
             self,
-            host='127.0.0.1',
-            port=1113,
-            discovery_host=None,
-            discovery_port=2113,
-            username=None,
-            password=None,
+            connector,
+            input: asyncio.Queue = None,
+            output: asyncio.Queue = None,
             loop=None
     ):
-        self.connected = Event()
-        self.disconnected = Event()
-        self.host = host
-        self.port = port
-        self.loop = loop
-        self.conversations = {}
-        self.queue = asyncio.Queue(maxsize=100)
-        self.discoverer = discovery.get_discoverer(
-            host, port, discovery_host, discovery_port
-        )
-        self.protocol = EventstoreProtocol(
-            self.discoverer, self.queue, self.conversations, loop=self.loop
+        self._loop = loop or asyncio.get_event_loop()
+        self._dispatch_loop = None
+        self.input = input
+        self.output = output or asyncio.Queue()
+        self.active_conversations = {}
+        self._logger = logging.get_named_logger(MessageDispatcher)
+        self._connected = False
+        self._connector = connector
+
+        connector.connected.append(self.start)
+        connector.disconnected.append(self.stop)
+
+    async def enqueue_conversation(
+            self, convo: convo.Conversation
+    ) -> asyncio.futures.Future:
+        future = asyncio.futures.Future(loop=self._loop)
+        message = convo.start()
+
+        if not message.one_way:
+            self.active_conversations[convo.conversation_id] = (convo, future)
+
+        if self._connected:
+            await self.output.put(message)
+
+        return future
+
+    def start(self, *args):
+        self._dispatch_loop = asyncio.ensure_future(
+            self._process_messages(), loop=self._loop
         )
 
-        if username and password:
-            self.credential = msg.Credential(username, password)
-        else:
-            self.credential = None
+    def stop(self):
+        self._connected = False
+
+        if self._dispatch_loop:
+            self._dispatch_loop.cancel()
+
+    async def _stop_conversations(self):
+        for (conversation, fut) in self.active_conversations.values():
+            action = conversation.stop()
+            await self.handle_reply(conversation, fut, action)
+        self.active_conversations.clear()
+
+    def has_conversation(self, id):
+        return id in self.active_conversations
+
+    def remove(self, id):
+        if id in self.active_conversations:
+            del self.active_conversations[id]
+
+    async def _process_messages(self):
+        self._connected = True
+        try:
+            for (conversation, future) in self.active_conversations.values():
+                self._logger.info("Restarting conversation %s", conversation)
+                await self.output.put(conversation.start())
+
+            while True:
+                message = await self.input.get()
+
+                if not message:
+                    self._logger.trace("No message received")
+
+                    continue
+
+                self._logger.debug("Received message %s", message)
+
+                if message.command == msg.TcpCommand.HeartbeatRequest.value:
+                    await self.enqueue_conversation(
+                        convo.Heartbeat(message.conversation_id)
+                    )
+
+                    continue
+
+                conversation, result = self.active_conversations.get(
+                    message.conversation_id, (None, None)
+                )
+
+                if message.command == msg.TcpCommand.NotHandled.value:
+                    await self._connector.reconnect()
+
+                    continue
+
+                if not conversation:
+                    self._logger.error(
+                        "No conversation found for message %s", message
+                    )
+
+                    continue
+
+                self._logger.debug(
+                    'Received response to conversation %s: %s', conversation,
+                    message
+                )
+
+                reply = conversation.respond_to(message)
+                await self.handle_reply(conversation, result, reply)
+        except asyncio.CancelledError:
+            return
+
+    async def handle_reply(
+            self, conversation: convo.Conversation, result: asyncio.Future,
+            reply: convo.ReplyAction
+    ):
+
+        self._logger.debug('Reply is %s', reply)
+
+        if reply.action == convo.ReplyAction.CompleteScalar:
+            result.set_result(reply.result)
+            del self.active_conversations[conversation.conversation_id]
+
+        elif reply.action == convo.ReplyAction.CompleteError:
+            self._logger.warn(
+                'Conversation %s received an error %s', conversation,
+                reply.result
+            )
+            result.set_exception(reply.result)
+            del self.active_conversations[conversation.conversation_id]
+
+        elif reply.action == convo.ReplyAction.BeginIterator:
+            self._logger.debug(
+                'Creating new streaming iterator for %s', conversation
+            )
+            size, events = reply.result
+            it = StreamingIterator(size * 2)
+            result.set_result(it)
+            await it.enqueue_items(events)
+            self._logger.debug('Enqueued %d events', len(events))
+
+        elif reply.action == convo.ReplyAction.YieldToIterator:
+            self._logger.debug(
+                'Yielding new events into iterator for %s', conversation
+            )
+            iterator = result.result()
+            await iterator.enqueue_items(reply.result)
+
+        elif reply.action == convo.ReplyAction.CompleteIterator:
+            self._logger.debug(
+                'Yielding final events into iterator for %s', conversation
+            )
+            iterator = result.result()
+            await iterator.enqueue_items(reply.result)
+            await iterator.asend(StopAsyncIteration())
+            del self.active_conversations[conversation.conversation_id]
+
+        elif reply.action == convo.ReplyAction.RaiseToIterator:
+            iterator = result.result()
+            error = reply.result
+            self._logger.warning(
+                "Raising error %s to iterator %s", error, iterator
+            )
+            await iterator.asend(error)
+            del self.active_conversations[conversation.conversation_id]
+
+        elif reply.action == convo.ReplyAction.BeginPersistentSubscription:
+            self._logger.debug(
+                'Starting new iterator for persistent subscription %s',
+                conversation
+            )
+            sub = PersistentSubscription(
+                reply.result, StreamingIterator(reply.result.buffer_size), self,
+                self.output
+            )
+            result.set_result(sub)
+
+        elif reply.action == convo.ReplyAction.YieldToSubscription:
+            self._logger.debug(
+                'Pushing new event for subscription %s', conversation
+            )
+            sub = await result
+            await sub.events.enqueue(reply.result)
+
+        elif reply.action == convo.ReplyAction.RaiseToSubscription:
+            sub = await result
+            self._logger.info(
+                "Raising error %s to persistent subscription %s", reply.result,
+                sub
+            )
+            await sub.events.enqueue(reply.result)
+
+        elif reply.action == convo.ReplyAction.FinishSubscription:
+            sub = await result
+            self._logger.info("Completing persistent subscription %s", sub)
+            await sub.events.enqueue(StopIteration())
+
+        if reply.next_message is not None:
+            await self.output.put(reply.next_message)
+
+
+class Client:
+    '''Top level object for interacting with Eventstore.
+
+    The client is the entry point to working with Photon Pump.
+    It exposes high level methods that wrap the
+    :class:`~photonpump.conversations.Conversation` types from
+    photonpump.conversations.
+    '''
+
+    def __init__(self, connector, reader, writer, dispatcher, credential=None):
+        self.connector = connector
+        self.dispatcher = dispatcher
+        self.reader = reader
+        self.writer = writer
+
+        self.connector.connected.append(self.on_connected)
+        self.connector.disconnected.append(self.on_disconnected)
+
+        self.credential = credential
+        self.outstanding_heartbeat = None
+        self.heartbeat_loop = None
 
     async def connect(self):
-        await self.protocol.connect()
-        self.connected()
+        await self.connector.start()
 
-    def close(self):
-        self.protocol.close(True)
-        self.disconnected()
+    def on_connected(self, *args):
+        self.heartbeat_loop = asyncio.ensure_future(self.send_heartbeats())
+
+    def on_disconnected(self, *args):
+        if self.heartbeat_loop:
+            self.heartbeat_loop.cancel()
+
+    async def close(self):
+        fut = await self.connector.stop()
+        await fut
+        self.dispatcher.stop()
+        await self.writer.close()
+        self.reader.close()
 
     async def ping(self, conversation_id: uuid.UUID = None):
         cmd = convo.Ping(conversation_id=conversation_id or uuid.uuid4())
-        result = await self.protocol.enqueue_conversation(cmd)
+        result = await self.dispatcher.enqueue_conversation(cmd)
 
         return await result
 
@@ -634,7 +788,7 @@ class Connection:
             expected_version=expected_version,
             require_master=require_master
         )
-        result = await self.protocol.enqueue_conversation(conversation)
+        result = await self.dispatcher.enqueue_conversation(conversation)
 
         return await result
 
@@ -651,7 +805,7 @@ class Connection:
             expected_version=expected_version,
             require_master=require_master
         )
-        result = await self.protocol.enqueue_conversation(cmd)
+        result = await self.dispatcher.enqueue_conversation(cmd)
 
         return await result
 
@@ -665,7 +819,7 @@ class Connection:
         correlation_id = correlation_id
         cmd = convo.ReadEvent(stream, resolve_links, require_master)
 
-        result = await self.protocol.enqueue_conversation(cmd)
+        result = await self.dispatcher.enqueue_conversation(cmd)
 
         return await result
 
@@ -688,7 +842,7 @@ class Connection:
             require_master,
             direction=direction
         )
-        result = await self.protocol.enqueue_conversation(cmd)
+        result = await self.dispatcher.enqueue_conversation(cmd)
 
         return await result
 
@@ -706,14 +860,14 @@ class Connection:
         cmd = convo.IterStreamEvents(
             stream, from_event, batch_size, resolve_links, direction=direction
         )
-        result = await self.protocol.enqueue_conversation(cmd)
+        result = await self.dispatcher.enqueue_conversation(cmd)
         iterator = await result
         async for event in iterator:
             yield event
 
     async def subscribe_volatile(self, stream: str):
         cmd = msg.CreateVolatileSubscription(stream, loop=self.loop)
-        await self.protocol.enqueue_conversation(cmd)
+        await self.dispatcher.enqueue_conversation(cmd)
 
         return await cmd.future
 
@@ -759,15 +913,23 @@ class Connection:
             consumer_strategy=consumer_strategy
         )
 
-        future = await self.protocol.enqueue_conversation(cmd)
+        future = await self.dispatcher.enqueue_conversation(cmd)
 
         return await future
 
-    async def connect_subscription(self, subscription: str, stream: str):
+    async def connect_subscription(
+            self,
+            subscription: str,
+            stream: str,
+            conversation_id: Optional[uuid.UUID] = None
+    ):
         cmd = convo.ConnectPersistentSubscription(
-            subscription, stream, credentials=self.credential
+            subscription,
+            stream,
+            credentials=self.credential,
+            conversation_id=conversation_id
         )
-        future = await self.protocol.enqueue_conversation(cmd, True)
+        future = await self.dispatcher.enqueue_conversation(cmd)
 
         return await future
 
@@ -778,39 +940,105 @@ class Connection:
             credentials=self.credential,
             loop=self.loop
         )
-        await self.protocol.enqueue_conversation(cmd)
+        await self.dispatcher.enqueue_conversation(cmd)
 
+    async def send_heartbeats(self):
+        heartbeat_id = uuid.uuid4()
 
-class ConnectionContextManager:
+        while True:
+            logging.debug("Sending heartbeat %s to server", heartbeat_id)
+            hb = convo.Heartbeat(
+                heartbeat_id, direction=convo.Heartbeat.OUTBOUND
+            )
+            fut = await self.dispatcher.enqueue_conversation(hb)
 
-    def __init__(
-            self,
-            host=None,
-            port=1113,
-            discovery_host=None,
-            discovery_port=2113,
-            username=None,
-            password=None,
-            loop=None
-    ):
-        self.conn = Connection(
-            host=host,
-            port=port,
-            discovery_host=discovery_host,
-            discovery_port=discovery_port,
-            username=username,
-            password=password,
-            loop=loop
-        )
+            try:
+                await asyncio.wait_for(fut, 10)
+                logging.debug("Received heartbeat response from server")
+                self.connector.heartbeat_received(hb.conversation_id)
+                await asyncio.sleep(30)
+            except asyncio.TimeoutError as e:
+                logging.warning("Heartbeat %s timed out", hb.conversation_id)
+                self.connector.heartbeat_failed(e)
+                self.dispatcher.remove(hb.conversation_id)
+            except asyncio.CancelledError:
+                self.dispatcher.remove(hb.conversation_id)
+
+                return
+            except Exception as exn:
+                logging.exception("Heartbeat %s failed", hb.conversation_id)
+                self.dispatcher.remove(hb.conversation_id)
+                self.connector.heartbeat_failed(exn)
 
     async def __aenter__(self):
-        await self.conn.connect()
+        await self.connect()
 
-        return self.conn
+        return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        self.conn.close()
+        await self.close()
 
 
-def connect(*args, **kwargs):
-    return ConnectionContextManager(*args, **kwargs)
+def connect(
+        host='localhost',
+        port=1113,
+        discovery_host=None,
+        discovery_port=2113,
+        username=None,
+        password=None,
+        loop=None
+) -> Client:
+    """ Create a new client.
+
+        Examples:
+            Since the Client is an async context manager, we can use it in a
+            with block for automatic connect/disconnect semantics.
+
+            >>> async with connect(host='127.0.0.1', port=1113) as c:
+            >>>     await c.ping()
+
+            Or we can call connect at a more convenient moment
+
+            >>> c = connect()
+            >>> await c.connect()
+            >>> await c.ping()
+            >>> await c.close()
+
+            For cluster discovery cases, we can provide a discovery host and
+            port. The host may be an IP or DNS entry. If you provide a DNS
+            entry, discovery will choose randomly from the registered IP
+            addresses for the hostname.
+
+            >>> async with connect(discovery_host="eventstore.test") as c:
+            >>>     await c.ping()
+
+            For some operations, you may need to authenticate your requests by
+            providing a username and password to the client.
+
+            >>> async with connect(username='admin', password='changeit') as c:
+            >>>     await c.ping()
+
+        Args:
+            host: The IP or DNS entry to connect with, defaults to 'localhost'.
+            port: The port to connect with, defaults to 1113.
+            discovery_host: The IP or DNS entry to use for cluster discovery.
+            discovery_port: The port to use for cluster discovery, defaults to 2113.
+            username: The username to use when communicating with eventstore.
+            password: The password to use when communicating with eventstore.
+            loop:An Asyncio event loop.
+
+    """
+    discovery = get_discoverer(host, port, discovery_host, discovery_port)
+    connector = Connector(discovery)
+    input_queue = asyncio.Queue(maxsize=100)
+    output_queue = asyncio.Queue(maxsize=100)
+
+    reader = MessageReader(input_queue, connector)
+    writer = MessageWriter(output_queue, connector)
+    dispatcher = MessageDispatcher(connector, input_queue, output_queue)
+
+    credential = msg.Credential(
+        username, password
+    ) if username and password else None
+
+    return Client(connector, reader, writer, dispatcher, credential=credential)
