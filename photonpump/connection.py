@@ -273,8 +273,8 @@ class Connector:
 
 class StreamingIterator:
 
-    def __init__(self, size):
-        self.items = asyncio.Queue()
+    def __init__(self, size=0):
+        self.items = asyncio.Queue(size)
         self.finished = False
         self.fut = None
 
@@ -284,17 +284,9 @@ class StreamingIterator:
     async def enqueue_items(self, items):
 
         for item in items:
-            logging.info(
-                "StreamingIterator has size %d", self.items.qsize()
-            )
-
             await self.items.put(item)
 
     async def enqueue(self, item):
-        logging.info(
-            "StreamingIterator has length %d", self.items.qsize()
-        )
-
         await self.items.put(item)
 
     async def anext(self):
@@ -539,9 +531,7 @@ class MessageDispatcher:
 
         if message.command == msg.TcpCommand.HeartbeatRequest.value:
             response = convo.Heartbeat(message.conversation_id).start()
-            self._logger.trace("Enqueueing heartbeat response")
             await output.put(response)
-            self._logger.trace("Enqueued")
 
             return
 
@@ -627,8 +617,10 @@ class MessageDispatcher:
                 'Starting new iterator for persistent subscription %s',
                 conversation
             )
+            # Until we figure things out, we'll run subscriptions with unbounded queues
+            # cos otherwise we block in irritating places.
             sub = PersistentSubscription(
-                reply.result, StreamingIterator(reply.result.buffer_size), self,
+                reply.result, StreamingIterator(0), self,
                 output
             )
             result.set_result(sub)
