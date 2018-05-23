@@ -1,8 +1,9 @@
-## [0.5a] - 2018-04-27
+## [0.5] - 2018-04-27
 ### Breaking changes
  - Dropped the ConnectionContextManager class.
  - "Connection" class is now "Client" and acts as a context manager in its own right
  - Rewrote the connection module completely.
+ - PersistentSubscriptions no longer use a maxsize parameter when creating a streaming iterator. This is a workaround for https://github.com/madedotcom/photon-pump/issues/49
 
 ## [0.4] - 2018-04-27
 ### Fixes
