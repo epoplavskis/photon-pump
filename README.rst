@@ -1,3 +1,6 @@
+.. image:: https://travis-ci.org/madedotcom/photon-pump.svg?branch=master
+    :target: https://travis-ci.org/madedotcom/photon-pump
+
 Photon-pump is a fast, user-friendly client for Eventstore_.
 
 It emphasises a modular design, hidden behind an interface that's written for humans.
@@ -17,9 +20,9 @@ Basic Usage
 Working with connections
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Usually you will want to interact with photon pump via the :class:`~photonpump.Connection` class. The :class:`~photonpump.Connection` is a full-duplex client that can handle many requests and responses in parallel. It is recommended that you create a single connection per application. 
+Usually you will want to interact with photon pump via the :class:`~photonpump.Connection` class. The :class:`~photonpump.Connection` is a full-duplex client that can handle many requests and responses in parallel. It is recommended that you create a single connection per application.
 
-First you will need to create a connection: 
+First you will need to create a connection:
 
     >>> import asyncio
     >>> from photonpump import connect
@@ -177,7 +180,7 @@ This extends to asynchronous comprehensions:
     >>>         data['Distance'] = data * 0.3048
     >>>         yield data
     >>>
-    >>> jumps = (event async for event in conn.iter('ponies') 
+    >>> jumps = (event async for event in conn.iter('ponies')
     >>>             if event.type == 'PonyJumped')
     >>> async for jump in feet_to_metres(jumps):
     >>>     print (event)
@@ -211,7 +214,7 @@ The cluster discovery interrogates eventstore gossip to find the active master. 
 
     >>> async def connect_to_cluster(hostname_or_ip, port=2113):
     >>>     with connect(discovery_host=hostname_or_ip, discovery_port=2113) as c:
-    >>>         await c.ping() 
+    >>>         await c.ping()
 
 If you provide both a `host` and `discovery_host`, photonpump will prefer discovery.
 
