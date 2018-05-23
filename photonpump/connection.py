@@ -962,8 +962,11 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
             try:
                 next_msg = await self.input_queue.get()
                 await self.dispatcher.dispatch(next_msg, self.output_queue)
+            except asyncio.CancelledError:
+                break
             except:
                 logging.exception("Dispatch loop failed")
+                break
 
     def connection_lost(self, exn):
         self._log.debug("Connection lost")
