@@ -1,12 +1,13 @@
+import asyncio
 import binascii
 import uuid
-from asyncio import Queue
 
 import pytest
 
 from photonpump import messages_pb2 as proto
 from photonpump.connection import MessageReader
 from photonpump.messages import TcpCommand
+from .fakes import TeeQueue
 
 
 def read_hex(s):
@@ -73,131 +74,138 @@ fc 9d cd d8 94 b9 d6 ea 08 50 a4 e6 a4 d6 8e 2c
 )
 
 
+class message_reader:
+
+    async def __aenter__(self):
+        messages = TeeQueue()
+        stream = asyncio.StreamReader()
+        reader = MessageReader(stream, 1, messages)
+        self.read_loop = asyncio.ensure_future(reader.start())
+        return reader, messages
+
+    async def __aexit__(self, *args, **kwargs):
+        self.read_loop.cancel()
+        try:
+            await self.read_loop
+        except asyncio.CancelledError:
+            pass
+
+
 @pytest.mark.asyncio
 async def test_read_event():
-    messages = Queue()
+    async with message_reader() as (stream, messages):
 
-    reader = MessageReader(messages)
-    await reader.process(ReadEventResult)
+        stream.feed_data(ReadEventResult)
 
-    received = await messages.get()
+        received = await messages.get()
 
-    assert received.command == TcpCommand.ReadEventCompleted
-    assert received.length == 156
+        assert received.command == TcpCommand.ReadEventCompleted
+        assert received.length == 156
 
-    body = proto.ReadEventCompleted()
-    body.ParseFromString(received.payload)
+        body = proto.ReadEventCompleted()
+        body.ParseFromString(received.payload)
 
-    event = body.event.event
-    assert event.event_number == 0
-    assert event.event_type == 'thing_happened'
+        event = body.event.event
+        assert event.event_number == 0
+        assert event.event_type == 'thing_happened'
 
 
 @pytest.mark.asyncio
 async def test_read_heartbeat_request_single_call():
 
-    messages = Queue()
+    async with message_reader() as (stream, messages):
+        stream.feed_data(heartbeat_data)
 
-    reader = MessageReader(messages)
-    await reader.process(heartbeat_data)
+        received = await messages.get()
 
-    received = await messages.get()
-
-    assert received.payload == b''
-    assert received.command == TcpCommand.HeartbeatRequest
-    assert received.length == 18
-    assert received.conversation_id == heartbeat_id
+        assert received.payload == b''
+        assert received.command == TcpCommand.HeartbeatRequest
+        assert received.length == 18
+        assert received.conversation_id == heartbeat_id
 
 
 @pytest.mark.asyncio
 async def test_read_header_multiple_calls():
-    messages = Queue()
+    async with message_reader() as (stream, messages):
+        stream.feed_data(heartbeat_data[0:2])
+        stream.feed_data(heartbeat_data[2:7])
+        stream.feed_data([])
+        stream.feed_data(heartbeat_data[7:14])
+        stream.feed_data(heartbeat_data[14:])
 
-    reader = MessageReader(messages)
-    await reader.process(heartbeat_data[0:2])
-    await reader.process(heartbeat_data[2:7])
-    await reader.process([])
-    await reader.process(heartbeat_data[7:14])
-    await reader.process(heartbeat_data[14:])
+        received = await messages.get()
 
-    received = await messages.get()
-
-    assert received.payload == b''
-    assert received.command == TcpCommand.HeartbeatRequest
-    assert received.length == 18
-    assert received.conversation_id == heartbeat_id
+        assert received.payload == b''
+        assert received.command == TcpCommand.HeartbeatRequest
+        assert received.length == 18
+        assert received.conversation_id == heartbeat_id
 
 
 @pytest.mark.asyncio
 async def test_a_message_with_a_payload():
-    messages = Queue()
+    async with message_reader() as (stream, messages):
 
-    reader = MessageReader(messages)
-    await reader.process(persistent_stream_event_appeared)
+        stream.feed_data(persistent_stream_event_appeared)
 
-    received = await messages.get()
-    assert received.conversation_id == uuid.UUID(
-        'f192d72f-7abd-4ae4-ae05-f206873c749d'
-    )
-    assert received.command == TcpCommand.PersistentSubscriptionStreamEventAppeared
+        received = await messages.get()
+        assert received.conversation_id == uuid.UUID(
+            'f192d72f-7abd-4ae4-ae05-f206873c749d'
+        )
+        assert received.command == TcpCommand.PersistentSubscriptionStreamEventAppeared
 
 
 @pytest.mark.asyncio
 async def test_two_messages_one_call():
 
-    messages = Queue()
+    async with message_reader() as (stream, messages):
+        stream.feed_data(heartbeat_data + persistent_stream_event_appeared)
 
-    reader = MessageReader(messages)
-    await reader.process(heartbeat_data + persistent_stream_event_appeared)
+        heartbeat = await messages.get()
+        event = await messages.get()
 
-    heartbeat = await messages.get()
-    event = await messages.get()
-
-    assert heartbeat.conversation_id == heartbeat_id
-    assert event.conversation_id == uuid.UUID(
-        'f192d72f-7abd-4ae4-ae05-f206873c749d'
-    )
+        assert heartbeat.conversation_id == heartbeat_id
+        assert event.conversation_id == uuid.UUID(
+            'f192d72f-7abd-4ae4-ae05-f206873c749d'
+        )
 
 
 @pytest.mark.asyncio
 async def test_three_messages_two_calls():
-    messages = Queue()
 
-    reader = MessageReader(messages)
     data = heartbeat_data + persistent_stream_event_appeared + heartbeat_data
 
-    await reader.process(data[0:250])
-    assert messages.qsize() == 1
+    async with message_reader() as (stream, messages):
 
-    await reader.process(data[250:])
-    assert messages.qsize() == 3
+        stream.feed_data(data[0:250])
+        await messages.next_event()
+        assert len(messages.items) == 1
 
-    heartbeat_1 = await messages.get()
-    event = await messages.get()
+        stream.feed_data(data[250:])
+        await messages.next_event(count=2)
 
-    assert heartbeat_1.conversation_id == heartbeat_id
-    assert event.conversation_id == uuid.UUID(
-        'f192d72f-7abd-4ae4-ae05-f206873c749d'
-    )
+        [first_heartbeat, event, second_heartbeat] = messages.items
+
+        assert first_heartbeat.conversation_id == heartbeat_id == second_heartbeat.conversation_id
+        assert event.conversation_id == uuid.UUID(
+            'f192d72f-7abd-4ae4-ae05-f206873c749d'
+        )
 
 
 @pytest.mark.asyncio
 async def test_two_messages_three_calls():
-    messages = Queue()
 
-    reader = MessageReader(messages)
     data = heartbeat_data + persistent_stream_event_appeared
 
-    await reader.process(data[0:125])
-    assert messages.qsize() == 1
+    async with message_reader() as (stream, messages):
 
-    await reader.process(data[125:])
-    assert messages.qsize() == 2
+        stream.feed_data(data[0:125])
+        stream.feed_data(data[125:])
+        heartbeat = await messages.get()
+        event = await messages.get()
 
-    heartbeat = await messages.get()
-    event = await messages.get()
+        assert heartbeat.conversation_id == heartbeat_id
+        assert event.conversation_id == uuid.UUID(
+            'f192d72f-7abd-4ae4-ae05-f206873c749d'
+        )
 
-    assert heartbeat.conversation_id == heartbeat_id
-    assert event.conversation_id == uuid.UUID(
-        'f192d72f-7abd-4ae4-ae05-f206873c749d'
-    )
+        assert len(messages.items) == 2

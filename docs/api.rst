@@ -1,9 +1,10 @@
 Photonpump API Reference
 ========================
 
-.. module:: photonpump
+.. automodule:: photonpump.connection
+    :members: connect
 
-.. autoclass:: Connection
+.. autoclass:: photonpump.connection.Client
    :members:
    :member-order: bysource
 

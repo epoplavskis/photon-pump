@@ -4,3 +4,5 @@ all_tests:
 	pytest
 lint:
 	flake8
+continous_test:
+	ptw

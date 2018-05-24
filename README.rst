@@ -4,6 +4,8 @@
 .. image:: https://codecov.io/gh/madedotcom/photon-pump/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/madedotcom/photon-pump
 
+.. image:: https://img.shields.io/readthedocs/photon-pump.png
+    :target: http://photon-pump.readthedocs.io/en/latest/
 
 Photon-pump is a fast, user-friendly client for Eventstore_.
 
@@ -18,13 +20,15 @@ Photon pump is available on the `cheese shop`_. ::
 
 You will need to install lib-protobuf 3.2.0 or above.
 
+Documentation is available on `Read the docs`_. ::
+
 Basic Usage
 -----------
 
 Working with connections
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Usually you will want to interact with photon pump via the :class:`~photonpump.Connection` class. The :class:`~photonpump.Connection` is a full-duplex client that can handle many requests and responses in parallel. It is recommended that you create a single connection per application.
+Usually you will want to interact with photon pump via the :class:`~photonpump.Client` class. The :class:`~photonpump.Client` is a full-duplex client that can handle many requests and responses in parallel. It is recommended that you create a single connection per application.
 
 First you will need to create a connection:
 
@@ -34,19 +38,25 @@ First you will need to create a connection:
     >>> loop = asyncio.get_event_loop()
     >>>
     >>> async with connect(loop=loop) as c:
-    >>> await c.ping()
+    >>>     await c.ping()
 
 
-The :func:`photonpump.connect` function returns an async context manager so that the connection will be automatically closed when you are finished. Alternatively, you can create a connection directly:
+The :func:`photonpump.connect` function returns an async context manager so that the connection will be automatically closed when you are finished. Alternatively you can create a client and manage its lifetime yourself.
 
-    >>> import photonpump
-    >>> conn = photonpump.Connection(loop=loop)
-    >>> await conn.connect()
+    >>> import asyncio
+    >>> from photonpump import connect
+    >>>
+    >>> loop = asyncio.get_event_loop()
+    >>>
+    >>> client = connect(loop=loop)
+    >>> await client.connect()
+    >>> await client.ping()
+    >>> await client.close()
 
 Reading and Writing single events
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A connection can be used for both reading and writing events. You can publish a single event with the :meth:`~photonpump.Connection.publish_event` method:
+A connection can be used for both reading and writing events. You can publish a single event with the :meth:`~photonpump.Client.publish_event` method:
 
     >>> # When publishing events, you must provide the stream name.
     >>> stream = 'ponies'
@@ -58,7 +68,7 @@ A connection can be used for both reading and writing events. You can publish a 
     >>>     'Distance': 13
     >>>     })
 
-We can fetch a single event with the complementary :meth:`~photonpump.Connection.get_event` method if we know its `event number` and the stream where it was published:
+We can fetch a single event with the complementary :meth:`~photonpump.Client.get_event` method if we know its `event number` and the stream where it was published:
 
     >>> event_number = result.last_event_number
     >>> event = await conn.get_event(stream, event_number)
@@ -125,7 +135,7 @@ Assuming that your event was published as json, you can load the body with the :
 Reading and Writing in Batches
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We can read and write several events in a request using the :meth:`~photonpump.Connection.get` and :meth:`~photonpump.Connection.publish` methods of our :class:`~photonpump.Connection`. the :func:`photonpump.message.NewEvent` function is a helper for constructing events.
+We can read and write several events in a request using the :meth:`~photonpump.Client.get` and :meth:`~photonpump.Client.publish` methods of our :class:`~photonpump.Client`. the :func:`photonpump.message.NewEvent` function is a helper for constructing events.
 
     >>> stream = 'more_ponies'
     >>> events = [
@@ -170,7 +180,7 @@ We can get events from a stream in slices by setting the `from_event_number` and
 Reading with Asynchronous Generators
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We can page through a stream manually by using the `from_event_number` argument of :meth:`~photonpump.Connection.get`, but it's simpler to use the :meth:`~photonpump.Connection.iter` method, which returns an asynchronous generator. By default, `iter` will read from the beginning to the end of a stream, and then stop. As with `get`, you can set the :class:`~photon.messages.StreamDirection`, or use `from_event` to control the result:
+We can page through a stream manually by using the `from_event_number` argument of :meth:`~photonpump.Client.get`, but it's simpler to use the :meth:`~photonpump.Client.iter` method, which returns an asynchronous generator. By default, `iter` will read from the beginning to the end of a stream, and then stop. As with `get`, you can set the :class:`~photon.messages.StreamDirection`, or use `from_event` to control the result:
 
     >>> async for event in conn.iter(stream):
     >>>     print (event)
@@ -224,4 +234,4 @@ If you provide both a `host` and `discovery_host`, photonpump will prefer discov
 
 .. _Eventstore: http://geteventstore.com
 .. _cheese shop: https://pypi.python.org/pypi/photon-pump
-
+.. _Read the docs: http://photon-pump.readthedocs.io/en/latest/ 
