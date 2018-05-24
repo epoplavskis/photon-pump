@@ -113,8 +113,6 @@ class MagicConversation:
                 )
             )
 
-        return None
-
     async def unhandled_message(self, response, queue) -> None:
         body = proto.NotHandled()
         body.ParseFromString(response.payload)
