@@ -4,6 +4,8 @@
 .. image:: https://codecov.io/gh/madedotcom/photon-pump/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/madedotcom/photon-pump
 
+.. image:: https://img.shields.io/readthedocs/photon-pump.png
+    :target: http://photon-pump.readthedocs.io/en/latest/
 
 Photon-pump is a fast, user-friendly client for Eventstore_.
 
