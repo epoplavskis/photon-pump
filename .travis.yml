@@ -18,3 +18,6 @@ install:
 script:
   - py.test
   - flake8 --exit-zero
+
+after_success:
+  - codecov
