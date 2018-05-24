@@ -20,7 +20,7 @@ Photon pump is available on the `cheese shop`_. ::
 
 You will need to install lib-protobuf 3.2.0 or above.
 
-Documenation is available on `Read the docs`_. ::
+Documentation is available on `Read the docs`_. ::
 
 Basic Usage
 -----------
