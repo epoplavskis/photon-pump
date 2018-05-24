@@ -397,6 +397,6 @@ SubscriptionResult = make_enum(
 
 class SubscriptionCreatedResponse:
 
-    def __init__(self, result: SubscriptionResult, reason: str):
+    def __init__(self, result: SubscriptionResult, reason: str) -> None:
         self.reason = reason
         self.result = result
