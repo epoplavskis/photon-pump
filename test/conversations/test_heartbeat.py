@@ -1,5 +1,7 @@
+import pytest
 from uuid import uuid4
 
+from ..fakes import TeeQueue
 from photonpump.conversations import Heartbeat, Ping, ReplyAction
 from photonpump.messages import HEADER_LENGTH, InboundMessage, TcpCommand
 
@@ -48,25 +50,32 @@ def test_when_server_responds_to_heartbeat():
     assert reply.next_message is None
 
 
-def test_ping_conversation():
+@pytest.mark.asyncio
+async def test_ping_conversation():
 
     conversation = Ping()
-    request = conversation.start()
+    output = TeeQueue()
+    await conversation.start(output)
+
+    request = await output.get()
 
     assert request.length == HEADER_LENGTH
     assert request.command == TcpCommand.Ping
     assert request.payload == b''
 
+    assert not conversation.is_complete
 
-def test_ping_response():
 
+@pytest.mark.asyncio
+async def test_ping_response():
+
+    output = TeeQueue()
     conversation = Ping()
-    conversation.start()
+    await conversation.start(output)
 
-    reply = conversation.respond_to(
-        InboundMessage(conversation.conversation_id, TcpCommand.Pong, b'')
+    await conversation.respond_to(
+        InboundMessage(conversation.conversation_id, TcpCommand.Pong, b''),
+        output
     )
 
-    assert reply.action == ReplyAction.CompleteScalar
-    assert reply.result is True
-    assert reply.next_message is None
+    assert conversation.is_complete

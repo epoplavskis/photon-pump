@@ -1,16 +1,25 @@
 from uuid import uuid4
 
+import pytest
+
 from photonpump.conversations import Ping
 from photonpump.messages import Credential
 
+from ..fakes import TeeQueue
 
-def test_authenticated_request():
+
+@pytest.mark.asyncio
+async def test_authenticated_request():
+
+    output = TeeQueue()
 
     conversation_id = uuid4()
     credentials = Credential("username", "password")
     convo = Ping(conversation_id, credentials)
 
-    request = convo.start()
+    await convo.start(output)
+
+    request = await output.get()
 
     assert request.header_bytes == b''.join(
         [
