@@ -182,6 +182,7 @@ class Connector:
             address, protocol
         )
         self.active_protocol = protocol
+        self.log.info(self.dispatcher)
         await self.dispatcher.write_to(protocol.output_queue)
         self.connected(address)
 
@@ -529,7 +530,7 @@ class MessageDispatcher:
         )
         self.output = output
 
-        for (conversation, fut) in self.active_conversations.values():
+        for (conversation, _) in self.active_conversations.values():
             if isinstance(conversation, convo.MagicConversation):
                 await conversation.start(self.output)
             else:

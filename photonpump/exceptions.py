@@ -122,7 +122,7 @@ class SubscriptionCreationFailed(ConversationException):
     pass
 
 
-class SubscriptionFailed(ConversationException):
+class SubscriptionCreationFailed(ConversationException):
     pass
 
 

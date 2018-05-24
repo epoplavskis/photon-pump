@@ -55,11 +55,13 @@ async def test_when_connecting_to_a_server(event_loop):
 
         ping = Ping()
 
-        result = await dispatcher.start_conversation(ping)
+        await dispatcher.start_conversation(ping)
 
         await connector.start()
         await connector_event(connector.connected)
-        await result
+        roundtripped_message = await dispatcher.received.get()
+
+        assert roundtripped_message.conversation_id == ping.conversation_id
 
         await connector.stop()
 

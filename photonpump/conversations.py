@@ -83,6 +83,8 @@ class MagicConversation:
         pass
 
     def expect_only(self, command: TcpCommand, response: InboundMessage):
+        logging.error(command)
+        logging.error(response)
         if response.command != command:
             raise exceptions.UnexpectedCommand(command, response.command)
 
@@ -279,6 +281,7 @@ class Ping(MagicConversation):
     async def error(self, exn: Exception) -> None:
         self.is_complete = True
         self.result.set_exception(exn)
+
 
 class WriteEvents(Conversation):
     """Command class for writing a sequence of events to a single
