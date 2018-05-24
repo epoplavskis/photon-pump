@@ -46,9 +46,6 @@ class Reply(NamedTuple):
     result: Any
     next_message: OutboundMessage
 
-    async def apply(self, future: Future, reply_to: Queue):
-        pass
-
 
 class MagicConversation:
 
