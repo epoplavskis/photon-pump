@@ -558,7 +558,10 @@ class MessageDispatcher:
 
         if isinstance(conversation, convo.MagicConversation):
             await conversation.respond_to(message, output)
+            if conversation.is_complete:
+                del self.active_conversations[conversation.conversation_id]
             return
+
 
 
         self._logger.debug(
@@ -580,8 +583,6 @@ class MessageDispatcher:
     ):
 
         self._logger.debug('Reply is %s', reply)
-
-        await reply.apply(result, output)
 
         if reply.action == convo.ReplyAction.CompleteScalar:
             result.set_result(reply.result)

@@ -79,7 +79,7 @@ class MagicConversation:
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         pass
 
-    async def error(self, message: InboundMessage) -> None:
+    async def error(self, exn: Exception) -> None:
         pass
 
     def expect_only(self, command: TcpCommand, response: InboundMessage):
@@ -105,7 +105,7 @@ class MagicConversation:
         except Exception as exn:
             self._logger.error('Failed to read server response', exc_info=True)
 
-            return self.error(
+            return await self.error(
                 exceptions.PayloadUnreadable(
                     self.conversation_id, response.payload, exn
                 )
@@ -260,8 +260,8 @@ class Heartbeat(Conversation):
 class Ping(MagicConversation):
 
     async def start(self, output: Queue) -> Future:
+        self.started_at = time.perf_counter()
         if output:
-            self.started_at = time.perf_counter()
             await output.put(
                 OutboundMessage(
                     self.conversation_id, TcpCommand.Ping, b'', self.credential
@@ -270,11 +270,15 @@ class Ping(MagicConversation):
 
         return self.result
 
-    async def reply(self, msg: InboundMessage, output: Queue) -> None:
-        self.expect_only(TcpCommand.Pong, msg)
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        self.expect_only(TcpCommand.Pong, message)
         responded_at = time.perf_counter()
         self.result.set_result(self.started_at - responded_at)
+        self.is_complete = True
 
+    async def error(self, exn: Exception) -> None:
+        self.is_complete = True
+        self.result.set_exception(exn)
 
 class WriteEvents(Conversation):
     """Command class for writing a sequence of events to a single

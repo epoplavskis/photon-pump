@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from photonpump.connection import Event
+from photonpump.conversations import MagicConversation
 
 
 class TeeQueue:
@@ -119,7 +120,10 @@ class SpyDispatcher:
         self.pending_messages = output
 
         for (conversation, _) in self.active_conversations.values():
-            await self.pending_messages.put(conversation.start())
+            if isinstance(conversation, convo.MagicConversation):
+                await conversation.start(output)
+            else:
+                await self.pending_messages.put(conversation.start())
 
 
 class FakeConnector():
