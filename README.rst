@@ -1,6 +1,10 @@
 .. image:: https://travis-ci.org/madedotcom/photon-pump.svg?branch=master
     :target: https://travis-ci.org/madedotcom/photon-pump
 
+.. image:: https://codecov.io/gh/madedotcom/photon-pump/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/madedotcom/photon-pump
+
+
 Photon-pump is a fast, user-friendly client for Eventstore_.
 
 It emphasises a modular design, hidden behind an interface that's written for humans.
