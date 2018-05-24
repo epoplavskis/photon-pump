@@ -62,10 +62,10 @@ class MagicConversation:
         self.one_way = False
 
     def __str__(self):
-        return "<Conversation %s (%s)>" % (type(self), self.conversation_id)
+        return "<%s %s>" % (type(self).__name__, self.conversation_id)
 
     def __eq__(self, other):
-        if not isinstance(other, Conversation):
+        if not isinstance(other, MagicConversation):
             return False
 
         return self.conversation_id == other.conversation_id
