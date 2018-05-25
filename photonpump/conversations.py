@@ -77,7 +77,8 @@ class MagicConversation:
         pass
 
     async def error(self, exn: Exception) -> None:
-        pass
+        self.is_complete = True
+        self.result.set_exception(exn)
 
     def expect_only(self, command: TcpCommand, response: InboundMessage):
         if response.command != command:
@@ -272,9 +273,6 @@ class Heartbeat(TimerConversation):
         self.expect_only(TcpCommand.HeartbeatResponse, message)
         await super().reply(message, output)
 
-    async def error(self, exn: Exception) -> None:
-        self.is_complete = True
-        self.result.set_exception(exn)
 
 
 class Ping(TimerConversation):
@@ -297,10 +295,6 @@ class Ping(TimerConversation):
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(TcpCommand.Pong, message)
         await super().reply(message, output)
-
-    async def error(self, exn: Exception) -> None:
-        self.is_complete = True
-        self.result.set_exception(exn)
 
 
 class WriteEvents(Conversation):
@@ -798,7 +792,7 @@ class CreateVolatileSubscription(Conversation):
             return self.reply_from_live(response)
 
 
-class CreatePersistentSubscription(Conversation):
+class CreatePersistentSubscription(MagicConversation):
 
     def __init__(
             self,
@@ -839,7 +833,10 @@ class CreatePersistentSubscription(Conversation):
         self.subscriber_max_count = subscriber_max_count
         self.consumer_strategy = consumer_strategy
 
-    def start(self) -> OutboundMessage:
+    async def start(self, output: Queue) -> None:
+        if not output:
+            return
+
         msg = proto.CreatePersistentSubscription()
         msg.subscription_group_name = self.name
         msg.event_stream_id = self.stream
@@ -858,35 +855,35 @@ class CreatePersistentSubscription(Conversation):
         msg.subscriber_max_count = self.subscriber_max_count
         msg.named_consumer_strategy = self.consumer_strategy
 
-        return OutboundMessage(
+        await output.put(OutboundMessage(
             self.conversation_id, TcpCommand.CreatePersistentSubscription,
             msg.SerializeToString(), self.credential
-        )
+        ))
 
-    def reply(self, response: InboundMessage) -> Reply:
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(
-            TcpCommand.CreatePersistentSubscriptionCompleted, response
+            TcpCommand.CreatePersistentSubscriptionCompleted, message
         )
 
         result = proto.CreatePersistentSubscriptionCompleted()
-        result.ParseFromString(response.payload)
+        result.ParseFromString(message.payload)
 
         if result.result == SubscriptionResult.Success:
-            return Reply(ReplyAction.CompleteScalar, None, None)
+            self.result.set_result(None)
 
-        if result.result == SubscriptionResult.AccessDenied:
-            return self.error(
+        elif result.result == SubscriptionResult.AccessDenied:
+            await self.error(
                 exceptions.AccessDenied(
                     self.conversation_id,
                     type(self).__name__, result.reason
                 )
             )
-
-        return self.error(
-            exceptions.SubscriptionCreationFailed(
-                self.conversation_id, result.reason
+        else:
+            await self.error(
+                exceptions.SubscriptionCreationFailed(
+                    self.conversation_id, result.reason
+                )
             )
-        )
 
 
 class ConnectPersistentSubscription(Conversation):
