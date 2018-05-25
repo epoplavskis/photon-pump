@@ -1,8 +1,9 @@
 import json
 import logging
-from asyncio import Future, TimeoutError
+import time
+from asyncio import Future, Queue, TimeoutError
 from enum import IntEnum
-from typing import Any, NamedTuple, Sequence, Union, Optional
+from typing import Any, NamedTuple, Optional, Sequence, Union
 from uuid import UUID, uuid4
 
 from google.protobuf.text_format import MessageToString
@@ -44,6 +45,91 @@ class Reply(NamedTuple):
     action: ReplyAction
     result: Any
     next_message: OutboundMessage
+
+
+class MagicConversation:
+
+    def __init__(
+            self,
+            conversation_id: Optional[UUID] = None,
+            credential: Optional[Credential] = None
+    ) -> None:
+        self.conversation_id = conversation_id or uuid4()
+        self.result: Future = Future()
+        self.is_complete = False
+        self.credential = credential
+        self._logger = logging.get_named_logger(Conversation)
+        self.one_way = False
+
+    def __str__(self):
+        return "<%s %s>" % (type(self).__name__, self.conversation_id)
+
+    def __eq__(self, other):
+        if not isinstance(other, MagicConversation):
+            return False
+
+        return self.conversation_id == other.conversation_id
+
+    async def start(self, output: Queue) -> Future:
+        pass
+
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        pass
+
+    async def error(self, exn: Exception) -> None:
+        pass
+
+    def expect_only(self, command: TcpCommand, response: InboundMessage):
+        logging.error(command)
+        logging.error(response)
+        if response.command != command:
+            raise exceptions.UnexpectedCommand(command, response.command)
+
+    async def respond_to(self, response: InboundMessage, output: Queue) -> None:
+        try:
+            if response.command is TcpCommand.BadRequest:
+                return await self.conversation_error(
+                    exceptions.BadRequest, response, output
+                )
+
+            if response.command is TcpCommand.NotAuthenticated:
+                return await self.conversation_error(
+                    exceptions.NotAuthenticated, response, output
+                )
+
+            if response.command is TcpCommand.NotHandled:
+                return await self.unhandled_message(response, output)
+
+            return await self.reply(response, output)
+        except Exception as exn:
+            self._logger.error('Failed to read server response', exc_info=True)
+
+            return await self.error(
+                exceptions.PayloadUnreadable(
+                    self.conversation_id, response.payload, exn
+                )
+            )
+
+    async def unhandled_message(self, response, queue) -> None:
+        body = proto.NotHandled()
+        body.ParseFromString(response.payload)
+
+        if body.reason == NotHandledReason.NotReady:
+            exn = exceptions.NotReady(self.conversation_id)
+        elif body.reason == NotHandledReason.TooBusy:
+            exn = exceptions.TooBusy(self.conversation_id)
+        elif body.reason == NotHandledReason.NotMaster:
+            exn = exceptions.NotMaster(self.conversation_id)
+        else:
+            exn = exceptions.NotHandled(self.conversation_id, body.reason)
+
+        return await self.error(exn)
+
+    async def conversation_error(self, exn_type, response, queue) -> None:
+        error = response.payload.decode('UTF-8')
+        exn = exn_type(self.conversation_id, error)
+
+        return await self.error(exn)
 
 
 class Conversation:
@@ -164,20 +250,32 @@ class Heartbeat(Conversation):
 
     def reply(self, msg: InboundMessage):
         self.expect_only(TcpCommand.HeartbeatResponse, msg)
-        return Reply(ReplyAction.CompleteScalar, True, None)
-
-
-class Ping(Conversation):
-
-    def start(self):
-        return OutboundMessage(
-            self.conversation_id, TcpCommand.Ping, b'', self.credential
-        )
-
-    def reply(self, msg: InboundMessage):
-        self.expect_only(TcpCommand.Pong, msg)
 
         return Reply(ReplyAction.CompleteScalar, True, None)
+
+
+class Ping(MagicConversation):
+
+    async def start(self, output: Queue) -> Future:
+        self.started_at = time.perf_counter()
+        if output:
+            await output.put(
+                OutboundMessage(
+                    self.conversation_id, TcpCommand.Ping, b'', self.credential
+                )
+            )
+
+        return self.result
+
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        self.expect_only(TcpCommand.Pong, message)
+        responded_at = time.perf_counter()
+        self.result.set_result(self.started_at - responded_at)
+        self.is_complete = True
+
+    async def error(self, exn: Exception) -> None:
+        self.is_complete = True
+        self.result.set_exception(exn)
 
 
 class WriteEvents(Conversation):

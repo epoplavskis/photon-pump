@@ -1,9 +1,13 @@
 from uuid import uuid4
 
+import pytest
+
 import photonpump.exceptions as exn
 import photonpump.messages as msg
 import photonpump.messages_pb2 as proto
 from photonpump.conversations import Ping, ReplyAction, WriteEvents
+
+from ..fakes import TeeQueue
 
 
 def test_bad_request():
@@ -60,65 +64,82 @@ def test_not_authenticated():
     assert reply.result.message == error_message
 
 
-def test_notready_message():
+@pytest.mark.asyncio
+async def test_notready_message():
 
+    output = TeeQueue()
     payload = proto.NotHandled()
     payload.reason = msg.NotHandledReason.NotReady
     conversation = Ping()
-    reply = conversation.respond_to(
-        msg.InboundMessage(
-            uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()
+
+    with pytest.raises(exn.NotReady):
+        await conversation.respond_to(
+            msg.InboundMessage(
+                uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()
+            ), output
         )
-    )
 
-    error = reply.result
-    assert reply.action == ReplyAction.CompleteError
-    assert isinstance(error, exn.NotReady)
-    assert error.conversation_id == conversation.conversation_id
+        await conversation.result
+
+    assert conversation.is_complete
 
 
-def test_too_busy_message():
+@pytest.mark.asyncio
+async def test_too_busy_message():
+
+    output = TeeQueue()
 
     payload = proto.NotHandled()
     payload.reason = msg.NotHandledReason.TooBusy
+
     conversation = Ping()
-    reply = conversation.respond_to(
+    await conversation.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()
-        )
+        ),
+        output
     )
 
-    assert reply.action == ReplyAction.CompleteError
-    error = reply.result
-    assert isinstance(error, exn.TooBusy)
-    assert error.conversation_id == conversation.conversation_id
+    with pytest.raises(exn.TooBusy) as exc:
+        await conversation.result
+        assert exc.conversatio_id == conversation.conversation_id
 
 
-def test_not_master():
+@pytest.mark.asyncio
+async def test_not_master():
 
+    output = TeeQueue()
     payload = proto.NotHandled()
     payload.reason = msg.NotHandledReason.NotMaster
+
     conversation = Ping()
-    reply = conversation.respond_to(
+    await conversation.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()
-        )
+        ),
+        output
     )
 
-    assert reply.action == ReplyAction.CompleteError
-    error = reply.result
-    assert isinstance(error, exn.NotMaster)
-    assert error.conversation_id == conversation.conversation_id
+    with pytest.raises(exn.NotMaster) as exc:
+        await conversation.result
+        assert exc.conversation_id == conversation.conversation_id
 
+@pytest.mark.asyncio
+async def test_decode_error():
+    """
+    If we give the conversation an invalid payload, it should
+    raise PayloadUnreadable.
+    """
 
-def test_decode_error():
-
+    output = TeeQueue()
     conversation = Ping()
-    reply = conversation.respond_to(
-        msg.InboundMessage(uuid4(), msg.TcpCommand.NotHandled, b'\x08\2A')
+    await conversation.respond_to(
+        msg.InboundMessage(uuid4(), msg.TcpCommand.NotHandled, b'\x08\2A'),
+        output
     )
 
-    assert reply.action == ReplyAction.CompleteError
-    error = reply.result
-    assert isinstance(error, exn.PayloadUnreadable)
-    assert error.conversation_id == conversation.conversation_id
+    with pytest.raises(exn.PayloadUnreadable) as exc:
+        await conversation.result
+        assert exc.conversation_id == conversation.conversation_id
+
+    assert conversation.is_complete

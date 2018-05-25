@@ -182,6 +182,7 @@ class Connector:
             address, protocol
         )
         self.active_protocol = protocol
+        self.log.info(self.dispatcher)
         await self.dispatcher.write_to(protocol.output_queue)
         self.connected(address)
 
@@ -500,18 +501,27 @@ class MessageDispatcher:
         self._loop = loop or asyncio.get_event_loop()
 
     async def start_conversation(
-            self, convo: convo.Conversation
+            self, conversation: convo.Conversation
     ) -> asyncio.futures.Future:
-        future = asyncio.futures.Future(loop=self._loop)
-        message = convo.start()
+        if isinstance(conversation, convo.MagicConversation):
 
-        if not message.one_way:
-            self.active_conversations[convo.conversation_id] = (convo, future)
+            if not conversation.one_way:
+                self.active_conversations[conversation.conversation_id] = (conversation, None)
+            future = await conversation.start(self.output)
+            return future
 
-        if self.output:
-            await self.output.put(message)
+        else:
 
-        return future
+            future = asyncio.futures.Future(loop=self._loop)
+            message = conversation.start()
+
+            if not message.one_way:
+                self.active_conversations[conversation.conversation_id] = (conversation, future)
+
+            if self.output:
+                await self.output.put(message)
+
+            return future
 
     async def write_to(self, output: asyncio.Queue):
         self._logger.info(
@@ -520,8 +530,11 @@ class MessageDispatcher:
         )
         self.output = output
 
-        for (conversation, fut) in self.active_conversations.values():
-            await output.put(conversation.start())
+        for (conversation, _) in self.active_conversations.values():
+            if isinstance(conversation, convo.MagicConversation):
+                await conversation.start(self.output)
+            else:
+                await output.put(conversation.start())
 
     # Todo: Is the output necessary here?
     async def dispatch(
@@ -544,10 +557,17 @@ class MessageDispatcher:
 
             return
 
+        if isinstance(conversation, convo.MagicConversation):
+            await conversation.respond_to(message, output)
+            if conversation.is_complete:
+                del self.active_conversations[conversation.conversation_id]
+            return
+
+
+
         self._logger.debug(
             'Received response to conversation %s: %s', conversation, message
         )
-
         reply = conversation.respond_to(message)
         await self.handle_reply(conversation, result, reply, output)
 

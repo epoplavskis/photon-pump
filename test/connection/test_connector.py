@@ -10,6 +10,7 @@ event. These events are handled by the Reader, Writer, and Dispatcher.
 
 import asyncio
 
+import logging
 import pytest
 
 from photonpump.connection import Connector, ConnectorCommand
@@ -58,9 +59,10 @@ async def test_when_connecting_to_a_server(event_loop):
 
         await connector.start()
         await connector_event(connector.connected)
-        reply = await dispatcher.received.get()
+        roundtripped_message = await dispatcher.received.get()
 
-        assert reply.payload == ping.start().payload
+        assert roundtripped_message.conversation_id == ping.conversation_id
+
         await connector.stop()
 
 

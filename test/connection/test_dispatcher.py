@@ -60,27 +60,8 @@ async def test_when_enqueuing_a_conversation():
 
     msg = await output.get()
 
-    assert msg == conversation.start()
+    assert msg.command == TcpCommand.Ping
     assert dispatcher.has_conversation(conversation.conversation_id)
-
-
-@pytest.mark.asyncio
-async def test_when_receiving_a_response_to_ping():
-    """
-    When ping responds, we should set a result and remove the
-    conversation from the active_conversations list.
-    """
-    conversation = Ping()
-
-    dispatcher = MessageDispatcher()
-
-    future = await dispatcher.start_conversation(conversation)
-    await dispatcher.dispatch(
-        InboundMessage(conversation.conversation_id, TcpCommand.Pong, bytes()),
-        None
-    )
-    await asyncio.wait_for(future, 1)
-    assert not dispatcher.has_conversation(conversation.conversation_id)
 
 
 @pytest.mark.asyncio
