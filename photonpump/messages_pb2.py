@@ -2,64 +2,58 @@
 # source: messages.proto
 
 import sys
-_b = sys.version_info[0] < 3 and (lambda x: x) or (lambda x: x.encode('latin1'))
+
+_b = sys.version_info[0] < 3 and (lambda x: x) or (lambda x: x.encode("latin1"))
 from google.protobuf.internal import enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf import descriptor_pb2
+
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor.FileDescriptor(
-    name='messages.proto',
-    package='EventStore.Client.Messages',
-    syntax='proto2',
+    name="messages.proto",
+    package="EventStore.Client.Messages",
+    syntax="proto2",
     serialized_pb=_b(
-        '\n\x0emessages.proto\x12\x1a\x45ventStore.Client.Messages\"\x8a\x01\n\x08NewEvent\x12\x10\n\x08\x65vent_id\x18\x01 \x02(\x0c\x12\x12\n\nevent_type\x18\x02 \x02(\t\x12\x19\n\x11\x64\x61ta_content_type\x18\x03 \x02(\x05\x12\x1d\n\x15metadata_content_type\x18\x04 \x02(\x05\x12\x0c\n\x04\x64\x61ta\x18\x05 \x02(\x0c\x12\x10\n\x08metadata\x18\x06 \x01(\x0c\"\xe4\x01\n\x0b\x45ventRecord\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x14\n\x0c\x65vent_number\x18\x02 \x02(\x05\x12\x10\n\x08\x65vent_id\x18\x03 \x02(\x0c\x12\x12\n\nevent_type\x18\x04 \x02(\t\x12\x19\n\x11\x64\x61ta_content_type\x18\x05 \x02(\x05\x12\x1d\n\x15metadata_content_type\x18\x06 \x02(\x05\x12\x0c\n\x04\x64\x61ta\x18\x07 \x02(\x0c\x12\x10\n\x08metadata\x18\x08 \x01(\x0c\x12\x0f\n\x07\x63reated\x18\t \x01(\x03\x12\x15\n\rcreated_epoch\x18\n \x01(\x03\"\x85\x01\n\x14ResolvedIndexedEvent\x12\x36\n\x05\x65vent\x18\x01 \x02(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x35\n\x04link\x18\x02 \x01(\x0b\x32\'.EventStore.Client.Messages.EventRecord\"\xb1\x01\n\rResolvedEvent\x12\x36\n\x05\x65vent\x18\x01 \x02(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x35\n\x04link\x18\x02 \x01(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x17\n\x0f\x63ommit_position\x18\x03 \x02(\x03\x12\x18\n\x10prepare_position\x18\x04 \x02(\x03\"\x8e\x01\n\x0bWriteEvents\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x34\n\x06\x65vents\x18\x03 \x03(\x0b\x32$.EventStore.Client.Messages.NewEvent\x12\x16\n\x0erequire_master\x18\x04 \x02(\x08\"\xce\x01\n\x14WriteEventsCompleted\x12;\n\x06result\x18\x01 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x1a\n\x12\x66irst_event_number\x18\x03 \x02(\x05\x12\x19\n\x11last_event_number\x18\x04 \x02(\x05\x12\x18\n\x10prepare_position\x18\x05 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x06 \x01(\x03\"n\n\x0c\x44\x65leteStream\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x16\n\x0erequire_master\x18\x03 \x02(\x08\x12\x13\n\x0bhard_delete\x18\x04 \x01(\x08\"\x98\x01\n\x15\x44\x65leteStreamCompleted\x12;\n\x06result\x18\x01 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x18\n\x10prepare_position\x18\x03 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x04 \x01(\x03\"]\n\x10TransactionStart\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x16\n\x0erequire_master\x18\x03 \x02(\x08\"\x81\x01\n\x19TransactionStartCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t\"x\n\x10TransactionWrite\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12\x34\n\x06\x65vents\x18\x02 \x03(\x0b\x32$.EventStore.Client.Messages.NewEvent\x12\x16\n\x0erequire_master\x18\x03 \x02(\x08\"\x81\x01\n\x19TransactionWriteCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t\"C\n\x11TransactionCommit\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12\x16\n\x0erequire_master\x18\x02 \x02(\x08\"\xec\x01\n\x1aTransactionCommitCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\x1a\n\x12\x66irst_event_number\x18\x04 \x02(\x05\x12\x19\n\x11last_event_number\x18\x05 \x02(\x05\x12\x18\n\x10prepare_position\x18\x06 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x07 \x01(\x03\"l\n\tReadEvent\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x14\n\x0c\x65vent_number\x18\x02 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x16\n\x0erequire_master\x18\x04 \x02(\x08\"\xa0\x02\n\x12ReadEventCompleted\x12N\n\x06result\x18\x01 \x02(\x0e\x32>.EventStore.Client.Messages.ReadEventCompleted.ReadEventResult\x12?\n\x05\x65vent\x18\x02 \x02(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent\x12\r\n\x05\x65rror\x18\x03 \x01(\t\"j\n\x0fReadEventResult\x12\x0b\n\x07Success\x10\x00\x12\x0c\n\x08NotFound\x10\x01\x12\x0c\n\x08NoStream\x10\x02\x12\x11\n\rStreamDeleted\x10\x03\x12\t\n\x05\x45rror\x10\x04\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x05\"\x8b\x01\n\x10ReadStreamEvents\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x19\n\x11\x66rom_event_number\x18\x02 \x02(\x05\x12\x11\n\tmax_count\x18\x03 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x04 \x02(\x08\x12\x16\n\x0erequire_master\x18\x05 \x02(\x08\"\xa2\x03\n\x19ReadStreamEventsCompleted\x12@\n\x06\x65vents\x18\x01 \x03(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent\x12V\n\x06result\x18\x02 \x02(\x0e\x32\x46.EventStore.Client.Messages.ReadStreamEventsCompleted.ReadStreamResult\x12\x19\n\x11next_event_number\x18\x03 \x02(\x05\x12\x19\n\x11last_event_number\x18\x04 \x02(\x05\x12\x18\n\x10is_end_of_stream\x18\x05 \x02(\x08\x12\x1c\n\x14last_commit_position\x18\x06 \x02(\x03\x12\r\n\x05\x65rror\x18\x07 \x01(\t\"n\n\x10ReadStreamResult\x12\x0b\n\x07Success\x10\x00\x12\x0c\n\x08NoStream\x10\x01\x12\x11\n\rStreamDeleted\x10\x02\x12\x0f\n\x0bNotModified\x10\x03\x12\t\n\x05\x45rror\x10\x04\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x05\"\x87\x01\n\rReadAllEvents\x12\x17\n\x0f\x63ommit_position\x18\x01 \x02(\x03\x12\x18\n\x10prepare_position\x18\x02 \x02(\x03\x12\x11\n\tmax_count\x18\x03 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x04 \x02(\x08\x12\x16\n\x0erequire_master\x18\x05 \x02(\x08\"\xf9\x02\n\x16ReadAllEventsCompleted\x12\x17\n\x0f\x63ommit_position\x18\x01 \x02(\x03\x12\x18\n\x10prepare_position\x18\x02 \x02(\x03\x12\x39\n\x06\x65vents\x18\x03 \x03(\x0b\x32).EventStore.Client.Messages.ResolvedEvent\x12\x1c\n\x14next_commit_position\x18\x04 \x02(\x03\x12\x1d\n\x15next_prepare_position\x18\x05 \x02(\x03\x12Y\n\x06result\x18\x06 \x01(\x0e\x32@.EventStore.Client.Messages.ReadAllEventsCompleted.ReadAllResult:\x07Success\x12\r\n\x05\x65rror\x18\x07 \x01(\t\"J\n\rReadAllResult\x12\x0b\n\x07Success\x10\x00\x12\x0f\n\x0bNotModified\x10\x01\x12\t\n\x05\x45rror\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03\"\xde\x03\n\x1c\x43reatePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x12\n\nstart_from\x18\x04 \x02(\x05\x12$\n\x1cmessage_timeout_milliseconds\x18\x05 \x02(\x05\x12\x19\n\x11record_statistics\x18\x06 \x02(\x08\x12\x18\n\x10live_buffer_size\x18\x07 \x02(\x05\x12\x17\n\x0fread_batch_size\x18\x08 \x02(\x05\x12\x13\n\x0b\x62uffer_size\x18\t \x02(\x05\x12\x17\n\x0fmax_retry_count\x18\n \x02(\x05\x12\x1a\n\x12prefer_round_robin\x18\x0b \x02(\x08\x12\x1d\n\x15\x63heckpoint_after_time\x18\x0c \x02(\x05\x12\x1c\n\x14\x63heckpoint_max_count\x18\r \x02(\x05\x12\x1c\n\x14\x63heckpoint_min_count\x18\x0e \x02(\x05\x12\x1c\n\x14subscriber_max_count\x18\x0f \x02(\x05\x12\x1f\n\x17named_consumer_strategy\x18\x10 \x01(\t\"X\n\x1c\x44\x65letePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\"\xde\x03\n\x1cUpdatePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x12\n\nstart_from\x18\x04 \x02(\x05\x12$\n\x1cmessage_timeout_milliseconds\x18\x05 \x02(\x05\x12\x19\n\x11record_statistics\x18\x06 \x02(\x08\x12\x18\n\x10live_buffer_size\x18\x07 \x02(\x05\x12\x17\n\x0fread_batch_size\x18\x08 \x02(\x05\x12\x13\n\x0b\x62uffer_size\x18\t \x02(\x05\x12\x17\n\x0fmax_retry_count\x18\n \x02(\x05\x12\x1a\n\x12prefer_round_robin\x18\x0b \x02(\x08\x12\x1d\n\x15\x63heckpoint_after_time\x18\x0c \x02(\x05\x12\x1c\n\x14\x63heckpoint_max_count\x18\r \x02(\x05\x12\x1c\n\x14\x63heckpoint_min_count\x18\x0e \x02(\x05\x12\x1c\n\x14subscriber_max_count\x18\x0f \x02(\x05\x12\x1f\n\x17named_consumer_strategy\x18\x10 \x01(\t\"\x97\x02\n%UpdatePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted.UpdatePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t\"_\n\"UpdatePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x10\n\x0c\x44oesNotExist\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03\"\x98\x02\n%CreatePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.CreatePersistentSubscriptionCompleted.CreatePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t\"`\n\"CreatePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x11\n\rAlreadyExists\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03\"\x97\x02\n%DeletePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.DeletePersistentSubscriptionCompleted.DeletePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t\"_\n\"DeletePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x10\n\x0c\x44oesNotExist\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03\"w\n\x1f\x43onnectToPersistentSubscription\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12\"\n\x1a\x61llowed_in_flight_messages\x18\x03 \x02(\x05\"W\n\x1fPersistentSubscriptionAckEvents\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x1b\n\x13processed_event_ids\x18\x02 \x03(\x0c\"\x8b\x02\n\x1fPersistentSubscriptionNakEvents\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x1b\n\x13processed_event_ids\x18\x02 \x03(\x0c\x12\x0f\n\x07message\x18\x03 \x01(\t\x12^\n\x06\x61\x63tion\x18\x04 \x02(\x0e\x32\x45.EventStore.Client.Messages.PersistentSubscriptionNakEvents.NakAction:\x07Unknown\"A\n\tNakAction\x12\x0b\n\x07Unknown\x10\x00\x12\x08\n\x04Park\x10\x01\x12\t\n\x05Retry\x10\x02\x12\x08\n\x04Skip\x10\x03\x12\x08\n\x04Stop\x10\x04\"v\n\"PersistentSubscriptionConfirmation\x12\x1c\n\x14last_commit_position\x18\x01 \x02(\x03\x12\x17\n\x0fsubscription_id\x18\x02 \x02(\t\x12\x19\n\x11last_event_number\x18\x03 \x01(\x05\"l\n)PersistentSubscriptionStreamEventAppeared\x12?\n\x05\x65vent\x18\x01 \x02(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent\"F\n\x11SubscribeToStream\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x02 \x02(\x08\"S\n\x18SubscriptionConfirmation\x12\x1c\n\x14last_commit_position\x18\x01 \x02(\x03\x12\x19\n\x11last_event_number\x18\x02 \x01(\x05\"O\n\x13StreamEventAppeared\x12\x38\n\x05\x65vent\x18\x01 \x02(\x0b\x32).EventStore.Client.Messages.ResolvedEvent\"\x17\n\x15UnsubscribeFromStream\"\x06\n\x04Ping\"\x06\n\x04Pong\"\x8a\x02\n\x13SubscriptionDropped\x12\x64\n\x06reason\x18\x01 \x01(\x0e\x32\x46.EventStore.Client.Messages.SubscriptionDropped.SubscriptionDropReason:\x0cUnsubscribed\"\x8c\x01\n\x16SubscriptionDropReason\x12\x10\n\x0cUnsubscribed\x10\x00\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x01\x12\x0c\n\x08NotFound\x10\x02\x12!\n\x1dPersistentSubscriptionDeleted\x10\x03\x12\x1d\n\x19SubscriberMaxCountReached\x10\x04\"\xf6\x02\n\nNotHandled\x12G\n\x06reason\x18\x01 \x02(\x0e\x32\x37.EventStore.Client.Messages.NotHandled.NotHandledReason\x12\x17\n\x0f\x61\x64\x64itional_info\x18\x02 \x01(\x0c\x1a\xc7\x01\n\nMasterInfo\x12\x1c\n\x14\x65xternal_tcp_address\x18\x01 \x02(\t\x12\x19\n\x11\x65xternal_tcp_port\x18\x02 \x02(\x05\x12\x1d\n\x15\x65xternal_http_address\x18\x03 \x02(\t\x12\x1a\n\x12\x65xternal_http_port\x18\x04 \x02(\x05\x12#\n\x1b\x65xternal_secure_tcp_address\x18\x05 \x01(\t\x12 \n\x18\x65xternal_secure_tcp_port\x18\x06 \x01(\x05\"<\n\x10NotHandledReason\x12\x0c\n\x08NotReady\x10\x00\x12\x0b\n\x07TooBusy\x10\x01\x12\r\n\tNotMaster\x10\x02\"\x12\n\x10ScavengeDatabase\"\xed\x01\n\x19ScavengeDatabaseCompleted\x12T\n\x06result\x18\x01 \x02(\x0e\x32\x44.EventStore.Client.Messages.ScavengeDatabaseCompleted.ScavengeResult\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12\x15\n\rtotal_time_ms\x18\x03 \x02(\x05\x12\x19\n\x11total_space_saved\x18\x04 \x02(\x03\"9\n\x0eScavengeResult\x12\x0b\n\x07Success\x10\x00\x12\x0e\n\nInProgress\x10\x01\x12\n\n\x06\x46\x61iled\x10\x02*\xb0\x01\n\x0fOperationResult\x12\x0b\n\x07Success\x10\x00\x12\x12\n\x0ePrepareTimeout\x10\x01\x12\x11\n\rCommitTimeout\x10\x02\x12\x12\n\x0e\x46orwardTimeout\x10\x03\x12\x18\n\x14WrongExpectedVersion\x10\x04\x12\x11\n\rStreamDeleted\x10\x05\x12\x16\n\x12InvalidTransaction\x10\x06\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x07'
-    )
+        '\n\x0emessages.proto\x12\x1a\x45ventStore.Client.Messages"\x8a\x01\n\x08NewEvent\x12\x10\n\x08\x65vent_id\x18\x01 \x02(\x0c\x12\x12\n\nevent_type\x18\x02 \x02(\t\x12\x19\n\x11\x64\x61ta_content_type\x18\x03 \x02(\x05\x12\x1d\n\x15metadata_content_type\x18\x04 \x02(\x05\x12\x0c\n\x04\x64\x61ta\x18\x05 \x02(\x0c\x12\x10\n\x08metadata\x18\x06 \x01(\x0c"\xe4\x01\n\x0b\x45ventRecord\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x14\n\x0c\x65vent_number\x18\x02 \x02(\x05\x12\x10\n\x08\x65vent_id\x18\x03 \x02(\x0c\x12\x12\n\nevent_type\x18\x04 \x02(\t\x12\x19\n\x11\x64\x61ta_content_type\x18\x05 \x02(\x05\x12\x1d\n\x15metadata_content_type\x18\x06 \x02(\x05\x12\x0c\n\x04\x64\x61ta\x18\x07 \x02(\x0c\x12\x10\n\x08metadata\x18\x08 \x01(\x0c\x12\x0f\n\x07\x63reated\x18\t \x01(\x03\x12\x15\n\rcreated_epoch\x18\n \x01(\x03"\x85\x01\n\x14ResolvedIndexedEvent\x12\x36\n\x05\x65vent\x18\x01 \x02(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x35\n\x04link\x18\x02 \x01(\x0b\x32\'.EventStore.Client.Messages.EventRecord"\xb1\x01\n\rResolvedEvent\x12\x36\n\x05\x65vent\x18\x01 \x02(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x35\n\x04link\x18\x02 \x01(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x17\n\x0f\x63ommit_position\x18\x03 \x02(\x03\x12\x18\n\x10prepare_position\x18\x04 \x02(\x03"\x8e\x01\n\x0bWriteEvents\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x34\n\x06\x65vents\x18\x03 \x03(\x0b\x32$.EventStore.Client.Messages.NewEvent\x12\x16\n\x0erequire_master\x18\x04 \x02(\x08"\xce\x01\n\x14WriteEventsCompleted\x12;\n\x06result\x18\x01 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x1a\n\x12\x66irst_event_number\x18\x03 \x02(\x05\x12\x19\n\x11last_event_number\x18\x04 \x02(\x05\x12\x18\n\x10prepare_position\x18\x05 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x06 \x01(\x03"n\n\x0c\x44\x65leteStream\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x16\n\x0erequire_master\x18\x03 \x02(\x08\x12\x13\n\x0bhard_delete\x18\x04 \x01(\x08"\x98\x01\n\x15\x44\x65leteStreamCompleted\x12;\n\x06result\x18\x01 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x18\n\x10prepare_position\x18\x03 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x04 \x01(\x03"]\n\x10TransactionStart\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x16\n\x0erequire_master\x18\x03 \x02(\x08"\x81\x01\n\x19TransactionStartCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t"x\n\x10TransactionWrite\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12\x34\n\x06\x65vents\x18\x02 \x03(\x0b\x32$.EventStore.Client.Messages.NewEvent\x12\x16\n\x0erequire_master\x18\x03 \x02(\x08"\x81\x01\n\x19TransactionWriteCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t"C\n\x11TransactionCommit\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12\x16\n\x0erequire_master\x18\x02 \x02(\x08"\xec\x01\n\x1aTransactionCommitCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\x1a\n\x12\x66irst_event_number\x18\x04 \x02(\x05\x12\x19\n\x11last_event_number\x18\x05 \x02(\x05\x12\x18\n\x10prepare_position\x18\x06 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x07 \x01(\x03"l\n\tReadEvent\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x14\n\x0c\x65vent_number\x18\x02 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x16\n\x0erequire_master\x18\x04 \x02(\x08"\xa0\x02\n\x12ReadEventCompleted\x12N\n\x06result\x18\x01 \x02(\x0e\x32>.EventStore.Client.Messages.ReadEventCompleted.ReadEventResult\x12?\n\x05\x65vent\x18\x02 \x02(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent\x12\r\n\x05\x65rror\x18\x03 \x01(\t"j\n\x0fReadEventResult\x12\x0b\n\x07Success\x10\x00\x12\x0c\n\x08NotFound\x10\x01\x12\x0c\n\x08NoStream\x10\x02\x12\x11\n\rStreamDeleted\x10\x03\x12\t\n\x05\x45rror\x10\x04\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x05"\x8b\x01\n\x10ReadStreamEvents\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x19\n\x11\x66rom_event_number\x18\x02 \x02(\x05\x12\x11\n\tmax_count\x18\x03 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x04 \x02(\x08\x12\x16\n\x0erequire_master\x18\x05 \x02(\x08"\xa2\x03\n\x19ReadStreamEventsCompleted\x12@\n\x06\x65vents\x18\x01 \x03(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent\x12V\n\x06result\x18\x02 \x02(\x0e\x32\x46.EventStore.Client.Messages.ReadStreamEventsCompleted.ReadStreamResult\x12\x19\n\x11next_event_number\x18\x03 \x02(\x05\x12\x19\n\x11last_event_number\x18\x04 \x02(\x05\x12\x18\n\x10is_end_of_stream\x18\x05 \x02(\x08\x12\x1c\n\x14last_commit_position\x18\x06 \x02(\x03\x12\r\n\x05\x65rror\x18\x07 \x01(\t"n\n\x10ReadStreamResult\x12\x0b\n\x07Success\x10\x00\x12\x0c\n\x08NoStream\x10\x01\x12\x11\n\rStreamDeleted\x10\x02\x12\x0f\n\x0bNotModified\x10\x03\x12\t\n\x05\x45rror\x10\x04\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x05"\x87\x01\n\rReadAllEvents\x12\x17\n\x0f\x63ommit_position\x18\x01 \x02(\x03\x12\x18\n\x10prepare_position\x18\x02 \x02(\x03\x12\x11\n\tmax_count\x18\x03 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x04 \x02(\x08\x12\x16\n\x0erequire_master\x18\x05 \x02(\x08"\xf9\x02\n\x16ReadAllEventsCompleted\x12\x17\n\x0f\x63ommit_position\x18\x01 \x02(\x03\x12\x18\n\x10prepare_position\x18\x02 \x02(\x03\x12\x39\n\x06\x65vents\x18\x03 \x03(\x0b\x32).EventStore.Client.Messages.ResolvedEvent\x12\x1c\n\x14next_commit_position\x18\x04 \x02(\x03\x12\x1d\n\x15next_prepare_position\x18\x05 \x02(\x03\x12Y\n\x06result\x18\x06 \x01(\x0e\x32@.EventStore.Client.Messages.ReadAllEventsCompleted.ReadAllResult:\x07Success\x12\r\n\x05\x65rror\x18\x07 \x01(\t"J\n\rReadAllResult\x12\x0b\n\x07Success\x10\x00\x12\x0f\n\x0bNotModified\x10\x01\x12\t\n\x05\x45rror\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"\xde\x03\n\x1c\x43reatePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x12\n\nstart_from\x18\x04 \x02(\x05\x12$\n\x1cmessage_timeout_milliseconds\x18\x05 \x02(\x05\x12\x19\n\x11record_statistics\x18\x06 \x02(\x08\x12\x18\n\x10live_buffer_size\x18\x07 \x02(\x05\x12\x17\n\x0fread_batch_size\x18\x08 \x02(\x05\x12\x13\n\x0b\x62uffer_size\x18\t \x02(\x05\x12\x17\n\x0fmax_retry_count\x18\n \x02(\x05\x12\x1a\n\x12prefer_round_robin\x18\x0b \x02(\x08\x12\x1d\n\x15\x63heckpoint_after_time\x18\x0c \x02(\x05\x12\x1c\n\x14\x63heckpoint_max_count\x18\r \x02(\x05\x12\x1c\n\x14\x63heckpoint_min_count\x18\x0e \x02(\x05\x12\x1c\n\x14subscriber_max_count\x18\x0f \x02(\x05\x12\x1f\n\x17named_consumer_strategy\x18\x10 \x01(\t"X\n\x1c\x44\x65letePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t"\xde\x03\n\x1cUpdatePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x12\n\nstart_from\x18\x04 \x02(\x05\x12$\n\x1cmessage_timeout_milliseconds\x18\x05 \x02(\x05\x12\x19\n\x11record_statistics\x18\x06 \x02(\x08\x12\x18\n\x10live_buffer_size\x18\x07 \x02(\x05\x12\x17\n\x0fread_batch_size\x18\x08 \x02(\x05\x12\x13\n\x0b\x62uffer_size\x18\t \x02(\x05\x12\x17\n\x0fmax_retry_count\x18\n \x02(\x05\x12\x1a\n\x12prefer_round_robin\x18\x0b \x02(\x08\x12\x1d\n\x15\x63heckpoint_after_time\x18\x0c \x02(\x05\x12\x1c\n\x14\x63heckpoint_max_count\x18\r \x02(\x05\x12\x1c\n\x14\x63heckpoint_min_count\x18\x0e \x02(\x05\x12\x1c\n\x14subscriber_max_count\x18\x0f \x02(\x05\x12\x1f\n\x17named_consumer_strategy\x18\x10 \x01(\t"\x97\x02\n%UpdatePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted.UpdatePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t"_\n"UpdatePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x10\n\x0c\x44oesNotExist\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"\x98\x02\n%CreatePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.CreatePersistentSubscriptionCompleted.CreatePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t"`\n"CreatePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x11\n\rAlreadyExists\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"\x97\x02\n%DeletePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.DeletePersistentSubscriptionCompleted.DeletePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t"_\n"DeletePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x10\n\x0c\x44oesNotExist\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"w\n\x1f\x43onnectToPersistentSubscription\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12"\n\x1a\x61llowed_in_flight_messages\x18\x03 \x02(\x05"W\n\x1fPersistentSubscriptionAckEvents\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x1b\n\x13processed_event_ids\x18\x02 \x03(\x0c"\x8b\x02\n\x1fPersistentSubscriptionNakEvents\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x1b\n\x13processed_event_ids\x18\x02 \x03(\x0c\x12\x0f\n\x07message\x18\x03 \x01(\t\x12^\n\x06\x61\x63tion\x18\x04 \x02(\x0e\x32\x45.EventStore.Client.Messages.PersistentSubscriptionNakEvents.NakAction:\x07Unknown"A\n\tNakAction\x12\x0b\n\x07Unknown\x10\x00\x12\x08\n\x04Park\x10\x01\x12\t\n\x05Retry\x10\x02\x12\x08\n\x04Skip\x10\x03\x12\x08\n\x04Stop\x10\x04"v\n"PersistentSubscriptionConfirmation\x12\x1c\n\x14last_commit_position\x18\x01 \x02(\x03\x12\x17\n\x0fsubscription_id\x18\x02 \x02(\t\x12\x19\n\x11last_event_number\x18\x03 \x01(\x05"l\n)PersistentSubscriptionStreamEventAppeared\x12?\n\x05\x65vent\x18\x01 \x02(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent"F\n\x11SubscribeToStream\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x02 \x02(\x08"S\n\x18SubscriptionConfirmation\x12\x1c\n\x14last_commit_position\x18\x01 \x02(\x03\x12\x19\n\x11last_event_number\x18\x02 \x01(\x05"O\n\x13StreamEventAppeared\x12\x38\n\x05\x65vent\x18\x01 \x02(\x0b\x32).EventStore.Client.Messages.ResolvedEvent"\x17\n\x15UnsubscribeFromStream"\x06\n\x04Ping"\x06\n\x04Pong"\x8a\x02\n\x13SubscriptionDropped\x12\x64\n\x06reason\x18\x01 \x01(\x0e\x32\x46.EventStore.Client.Messages.SubscriptionDropped.SubscriptionDropReason:\x0cUnsubscribed"\x8c\x01\n\x16SubscriptionDropReason\x12\x10\n\x0cUnsubscribed\x10\x00\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x01\x12\x0c\n\x08NotFound\x10\x02\x12!\n\x1dPersistentSubscriptionDeleted\x10\x03\x12\x1d\n\x19SubscriberMaxCountReached\x10\x04"\xf6\x02\n\nNotHandled\x12G\n\x06reason\x18\x01 \x02(\x0e\x32\x37.EventStore.Client.Messages.NotHandled.NotHandledReason\x12\x17\n\x0f\x61\x64\x64itional_info\x18\x02 \x01(\x0c\x1a\xc7\x01\n\nMasterInfo\x12\x1c\n\x14\x65xternal_tcp_address\x18\x01 \x02(\t\x12\x19\n\x11\x65xternal_tcp_port\x18\x02 \x02(\x05\x12\x1d\n\x15\x65xternal_http_address\x18\x03 \x02(\t\x12\x1a\n\x12\x65xternal_http_port\x18\x04 \x02(\x05\x12#\n\x1b\x65xternal_secure_tcp_address\x18\x05 \x01(\t\x12 \n\x18\x65xternal_secure_tcp_port\x18\x06 \x01(\x05"<\n\x10NotHandledReason\x12\x0c\n\x08NotReady\x10\x00\x12\x0b\n\x07TooBusy\x10\x01\x12\r\n\tNotMaster\x10\x02"\x12\n\x10ScavengeDatabase"\xed\x01\n\x19ScavengeDatabaseCompleted\x12T\n\x06result\x18\x01 \x02(\x0e\x32\x44.EventStore.Client.Messages.ScavengeDatabaseCompleted.ScavengeResult\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12\x15\n\rtotal_time_ms\x18\x03 \x02(\x05\x12\x19\n\x11total_space_saved\x18\x04 \x02(\x03"9\n\x0eScavengeResult\x12\x0b\n\x07Success\x10\x00\x12\x0e\n\nInProgress\x10\x01\x12\n\n\x06\x46\x61iled\x10\x02*\xb0\x01\n\x0fOperationResult\x12\x0b\n\x07Success\x10\x00\x12\x12\n\x0ePrepareTimeout\x10\x01\x12\x11\n\rCommitTimeout\x10\x02\x12\x12\n\x0e\x46orwardTimeout\x10\x03\x12\x18\n\x14WrongExpectedVersion\x10\x04\x12\x11\n\rStreamDeleted\x10\x05\x12\x16\n\x12InvalidTransaction\x10\x06\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x07'
+    ),
 )
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 _OPERATIONRESULT = _descriptor.EnumDescriptor(
-    name='OperationResult',
-    full_name='EventStore.Client.Messages.OperationResult',
+    name="OperationResult",
+    full_name="EventStore.Client.Messages.OperationResult",
     filename=None,
     file=DESCRIPTOR,
     values=[
         _descriptor.EnumValueDescriptor(
-            name='Success', index=0, number=0, options=None, type=None
+            name="Success", index=0, number=0, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='PrepareTimeout', index=1, number=1, options=None, type=None
+            name="PrepareTimeout", index=1, number=1, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='CommitTimeout', index=2, number=2, options=None, type=None
+            name="CommitTimeout", index=2, number=2, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='ForwardTimeout', index=3, number=3, options=None, type=None
+            name="ForwardTimeout", index=3, number=3, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='WrongExpectedVersion',
-            index=4,
-            number=4,
-            options=None,
-            type=None
+            name="WrongExpectedVersion", index=4, number=4, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='StreamDeleted', index=5, number=5, options=None, type=None
+            name="StreamDeleted", index=5, number=5, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='InvalidTransaction',
-            index=6,
-            number=6,
-            options=None,
-            type=None
+            name="InvalidTransaction", index=6, number=6, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='AccessDenied', index=7, number=7, options=None, type=None
+            name="AccessDenied", index=7, number=7, options=None, type=None
         ),
     ],
     containing_type=None,
@@ -80,28 +74,28 @@ InvalidTransaction = 6
 AccessDenied = 7
 
 _READEVENTCOMPLETED_READEVENTRESULT = _descriptor.EnumDescriptor(
-    name='ReadEventResult',
-    full_name='EventStore.Client.Messages.ReadEventCompleted.ReadEventResult',
+    name="ReadEventResult",
+    full_name="EventStore.Client.Messages.ReadEventCompleted.ReadEventResult",
     filename=None,
     file=DESCRIPTOR,
     values=[
         _descriptor.EnumValueDescriptor(
-            name='Success', index=0, number=0, options=None, type=None
+            name="Success", index=0, number=0, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='NotFound', index=1, number=1, options=None, type=None
+            name="NotFound", index=1, number=1, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='NoStream', index=2, number=2, options=None, type=None
+            name="NoStream", index=2, number=2, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='StreamDeleted', index=3, number=3, options=None, type=None
+            name="StreamDeleted", index=3, number=3, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='Error', index=4, number=4, options=None, type=None
+            name="Error", index=4, number=4, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='AccessDenied', index=5, number=5, options=None, type=None
+            name="AccessDenied", index=5, number=5, options=None, type=None
         ),
     ],
     containing_type=None,
@@ -112,29 +106,28 @@ _READEVENTCOMPLETED_READEVENTRESULT = _descriptor.EnumDescriptor(
 _sym_db.RegisterEnumDescriptor(_READEVENTCOMPLETED_READEVENTRESULT)
 
 _READSTREAMEVENTSCOMPLETED_READSTREAMRESULT = _descriptor.EnumDescriptor(
-    name='ReadStreamResult',
-    full_name=
-    'EventStore.Client.Messages.ReadStreamEventsCompleted.ReadStreamResult',
+    name="ReadStreamResult",
+    full_name="EventStore.Client.Messages.ReadStreamEventsCompleted.ReadStreamResult",
     filename=None,
     file=DESCRIPTOR,
     values=[
         _descriptor.EnumValueDescriptor(
-            name='Success', index=0, number=0, options=None, type=None
+            name="Success", index=0, number=0, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='NoStream', index=1, number=1, options=None, type=None
+            name="NoStream", index=1, number=1, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='StreamDeleted', index=2, number=2, options=None, type=None
+            name="StreamDeleted", index=2, number=2, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='NotModified', index=3, number=3, options=None, type=None
+            name="NotModified", index=3, number=3, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='Error', index=4, number=4, options=None, type=None
+            name="Error", index=4, number=4, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='AccessDenied', index=5, number=5, options=None, type=None
+            name="AccessDenied", index=5, number=5, options=None, type=None
         ),
     ],
     containing_type=None,
@@ -145,22 +138,22 @@ _READSTREAMEVENTSCOMPLETED_READSTREAMRESULT = _descriptor.EnumDescriptor(
 _sym_db.RegisterEnumDescriptor(_READSTREAMEVENTSCOMPLETED_READSTREAMRESULT)
 
 _READALLEVENTSCOMPLETED_READALLRESULT = _descriptor.EnumDescriptor(
-    name='ReadAllResult',
-    full_name='EventStore.Client.Messages.ReadAllEventsCompleted.ReadAllResult',
+    name="ReadAllResult",
+    full_name="EventStore.Client.Messages.ReadAllEventsCompleted.ReadAllResult",
     filename=None,
     file=DESCRIPTOR,
     values=[
         _descriptor.EnumValueDescriptor(
-            name='Success', index=0, number=0, options=None, type=None
+            name="Success", index=0, number=0, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='NotModified', index=1, number=1, options=None, type=None
+            name="NotModified", index=1, number=1, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='Error', index=2, number=2, options=None, type=None
+            name="Error", index=2, number=2, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='AccessDenied', index=3, number=3, options=None, type=None
+            name="AccessDenied", index=3, number=3, options=None, type=None
         ),
     ],
     containing_type=None,
@@ -171,23 +164,22 @@ _READALLEVENTSCOMPLETED_READALLRESULT = _descriptor.EnumDescriptor(
 _sym_db.RegisterEnumDescriptor(_READALLEVENTSCOMPLETED_READALLRESULT)
 
 _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED_UPDATEPERSISTENTSUBSCRIPTIONRESULT = _descriptor.EnumDescriptor(
-    name='UpdatePersistentSubscriptionResult',
-    full_name=
-    'EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted.UpdatePersistentSubscriptionResult',
+    name="UpdatePersistentSubscriptionResult",
+    full_name="EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted.UpdatePersistentSubscriptionResult",
     filename=None,
     file=DESCRIPTOR,
     values=[
         _descriptor.EnumValueDescriptor(
-            name='Success', index=0, number=0, options=None, type=None
+            name="Success", index=0, number=0, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='DoesNotExist', index=1, number=1, options=None, type=None
+            name="DoesNotExist", index=1, number=1, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='Fail', index=2, number=2, options=None, type=None
+            name="Fail", index=2, number=2, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='AccessDenied', index=3, number=3, options=None, type=None
+            name="AccessDenied", index=3, number=3, options=None, type=None
         ),
     ],
     containing_type=None,
@@ -200,23 +192,22 @@ _sym_db.RegisterEnumDescriptor(
 )
 
 _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED_CREATEPERSISTENTSUBSCRIPTIONRESULT = _descriptor.EnumDescriptor(
-    name='CreatePersistentSubscriptionResult',
-    full_name=
-    'EventStore.Client.Messages.CreatePersistentSubscriptionCompleted.CreatePersistentSubscriptionResult',
+    name="CreatePersistentSubscriptionResult",
+    full_name="EventStore.Client.Messages.CreatePersistentSubscriptionCompleted.CreatePersistentSubscriptionResult",
     filename=None,
     file=DESCRIPTOR,
     values=[
         _descriptor.EnumValueDescriptor(
-            name='Success', index=0, number=0, options=None, type=None
+            name="Success", index=0, number=0, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='AlreadyExists', index=1, number=1, options=None, type=None
+            name="AlreadyExists", index=1, number=1, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='Fail', index=2, number=2, options=None, type=None
+            name="Fail", index=2, number=2, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='AccessDenied', index=3, number=3, options=None, type=None
+            name="AccessDenied", index=3, number=3, options=None, type=None
         ),
     ],
     containing_type=None,
@@ -229,23 +220,22 @@ _sym_db.RegisterEnumDescriptor(
 )
 
 _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED_DELETEPERSISTENTSUBSCRIPTIONRESULT = _descriptor.EnumDescriptor(
-    name='DeletePersistentSubscriptionResult',
-    full_name=
-    'EventStore.Client.Messages.DeletePersistentSubscriptionCompleted.DeletePersistentSubscriptionResult',
+    name="DeletePersistentSubscriptionResult",
+    full_name="EventStore.Client.Messages.DeletePersistentSubscriptionCompleted.DeletePersistentSubscriptionResult",
     filename=None,
     file=DESCRIPTOR,
     values=[
         _descriptor.EnumValueDescriptor(
-            name='Success', index=0, number=0, options=None, type=None
+            name="Success", index=0, number=0, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='DoesNotExist', index=1, number=1, options=None, type=None
+            name="DoesNotExist", index=1, number=1, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='Fail', index=2, number=2, options=None, type=None
+            name="Fail", index=2, number=2, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='AccessDenied', index=3, number=3, options=None, type=None
+            name="AccessDenied", index=3, number=3, options=None, type=None
         ),
     ],
     containing_type=None,
@@ -258,26 +248,25 @@ _sym_db.RegisterEnumDescriptor(
 )
 
 _PERSISTENTSUBSCRIPTIONNAKEVENTS_NAKACTION = _descriptor.EnumDescriptor(
-    name='NakAction',
-    full_name=
-    'EventStore.Client.Messages.PersistentSubscriptionNakEvents.NakAction',
+    name="NakAction",
+    full_name="EventStore.Client.Messages.PersistentSubscriptionNakEvents.NakAction",
     filename=None,
     file=DESCRIPTOR,
     values=[
         _descriptor.EnumValueDescriptor(
-            name='Unknown', index=0, number=0, options=None, type=None
+            name="Unknown", index=0, number=0, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='Park', index=1, number=1, options=None, type=None
+            name="Park", index=1, number=1, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='Retry', index=2, number=2, options=None, type=None
+            name="Retry", index=2, number=2, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='Skip', index=3, number=3, options=None, type=None
+            name="Skip", index=3, number=3, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='Stop', index=4, number=4, options=None, type=None
+            name="Stop", index=4, number=4, options=None, type=None
         ),
     ],
     containing_type=None,
@@ -288,34 +277,29 @@ _PERSISTENTSUBSCRIPTIONNAKEVENTS_NAKACTION = _descriptor.EnumDescriptor(
 _sym_db.RegisterEnumDescriptor(_PERSISTENTSUBSCRIPTIONNAKEVENTS_NAKACTION)
 
 _SUBSCRIPTIONDROPPED_SUBSCRIPTIONDROPREASON = _descriptor.EnumDescriptor(
-    name='SubscriptionDropReason',
-    full_name=
-    'EventStore.Client.Messages.SubscriptionDropped.SubscriptionDropReason',
+    name="SubscriptionDropReason",
+    full_name="EventStore.Client.Messages.SubscriptionDropped.SubscriptionDropReason",
     filename=None,
     file=DESCRIPTOR,
     values=[
         _descriptor.EnumValueDescriptor(
-            name='Unsubscribed', index=0, number=0, options=None, type=None
+            name="Unsubscribed", index=0, number=0, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='AccessDenied', index=1, number=1, options=None, type=None
+            name="AccessDenied", index=1, number=1, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='NotFound', index=2, number=2, options=None, type=None
+            name="NotFound", index=2, number=2, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='PersistentSubscriptionDeleted',
+            name="PersistentSubscriptionDeleted",
             index=3,
             number=3,
             options=None,
-            type=None
+            type=None,
         ),
         _descriptor.EnumValueDescriptor(
-            name='SubscriberMaxCountReached',
-            index=4,
-            number=4,
-            options=None,
-            type=None
+            name="SubscriberMaxCountReached", index=4, number=4, options=None, type=None
         ),
     ],
     containing_type=None,
@@ -326,19 +310,19 @@ _SUBSCRIPTIONDROPPED_SUBSCRIPTIONDROPREASON = _descriptor.EnumDescriptor(
 _sym_db.RegisterEnumDescriptor(_SUBSCRIPTIONDROPPED_SUBSCRIPTIONDROPREASON)
 
 _NOTHANDLED_NOTHANDLEDREASON = _descriptor.EnumDescriptor(
-    name='NotHandledReason',
-    full_name='EventStore.Client.Messages.NotHandled.NotHandledReason',
+    name="NotHandledReason",
+    full_name="EventStore.Client.Messages.NotHandled.NotHandledReason",
     filename=None,
     file=DESCRIPTOR,
     values=[
         _descriptor.EnumValueDescriptor(
-            name='NotReady', index=0, number=0, options=None, type=None
+            name="NotReady", index=0, number=0, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='TooBusy', index=1, number=1, options=None, type=None
+            name="TooBusy", index=1, number=1, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='NotMaster', index=2, number=2, options=None, type=None
+            name="NotMaster", index=2, number=2, options=None, type=None
         ),
     ],
     containing_type=None,
@@ -349,20 +333,19 @@ _NOTHANDLED_NOTHANDLEDREASON = _descriptor.EnumDescriptor(
 _sym_db.RegisterEnumDescriptor(_NOTHANDLED_NOTHANDLEDREASON)
 
 _SCAVENGEDATABASECOMPLETED_SCAVENGERESULT = _descriptor.EnumDescriptor(
-    name='ScavengeResult',
-    full_name=
-    'EventStore.Client.Messages.ScavengeDatabaseCompleted.ScavengeResult',
+    name="ScavengeResult",
+    full_name="EventStore.Client.Messages.ScavengeDatabaseCompleted.ScavengeResult",
     filename=None,
     file=DESCRIPTOR,
     values=[
         _descriptor.EnumValueDescriptor(
-            name='Success', index=0, number=0, options=None, type=None
+            name="Success", index=0, number=0, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='InProgress', index=1, number=1, options=None, type=None
+            name="InProgress", index=1, number=1, options=None, type=None
         ),
         _descriptor.EnumValueDescriptor(
-            name='Failed', index=2, number=2, options=None, type=None
+            name="Failed", index=2, number=2, options=None, type=None
         ),
     ],
     containing_type=None,
@@ -373,15 +356,15 @@ _SCAVENGEDATABASECOMPLETED_SCAVENGERESULT = _descriptor.EnumDescriptor(
 _sym_db.RegisterEnumDescriptor(_SCAVENGEDATABASECOMPLETED_SCAVENGERESULT)
 
 _NEWEVENT = _descriptor.Descriptor(
-    name='NewEvent',
-    full_name='EventStore.Client.Messages.NewEvent',
+    name="NewEvent",
+    full_name="EventStore.Client.Messages.NewEvent",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event_id',
-            full_name='EventStore.Client.Messages.NewEvent.event_id',
+            name="event_id",
+            full_name="EventStore.Client.Messages.NewEvent.event_id",
             index=0,
             number=1,
             type=12,
@@ -394,28 +377,28 @@ _NEWEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='event_type',
-            full_name='EventStore.Client.Messages.NewEvent.event_type',
+            name="event_type",
+            full_name="EventStore.Client.Messages.NewEvent.event_type",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='data_content_type',
-            full_name='EventStore.Client.Messages.NewEvent.data_content_type',
+            name="data_content_type",
+            full_name="EventStore.Client.Messages.NewEvent.data_content_type",
             index=2,
             number=3,
             type=5,
@@ -428,12 +411,11 @@ _NEWEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='metadata_content_type',
-            full_name=
-            'EventStore.Client.Messages.NewEvent.metadata_content_type',
+            name="metadata_content_type",
+            full_name="EventStore.Client.Messages.NewEvent.metadata_content_type",
             index=3,
             number=4,
             type=5,
@@ -446,11 +428,11 @@ _NEWEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='data',
-            full_name='EventStore.Client.Messages.NewEvent.data',
+            name="data",
+            full_name="EventStore.Client.Messages.NewEvent.data",
             index=4,
             number=5,
             type=12,
@@ -463,11 +445,11 @@ _NEWEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='metadata',
-            full_name='EventStore.Client.Messages.NewEvent.metadata',
+            name="metadata",
+            full_name="EventStore.Client.Messages.NewEvent.metadata",
             index=5,
             number=6,
             type=12,
@@ -480,7 +462,7 @@ _NEWEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -488,7 +470,7 @@ _NEWEVENT = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=47,
@@ -496,32 +478,32 @@ _NEWEVENT = _descriptor.Descriptor(
 )
 
 _EVENTRECORD = _descriptor.Descriptor(
-    name='EventRecord',
-    full_name='EventStore.Client.Messages.EventRecord',
+    name="EventRecord",
+    full_name="EventStore.Client.Messages.EventRecord",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event_stream_id',
-            full_name='EventStore.Client.Messages.EventRecord.event_stream_id',
+            name="event_stream_id",
+            full_name="EventStore.Client.Messages.EventRecord.event_stream_id",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='event_number',
-            full_name='EventStore.Client.Messages.EventRecord.event_number',
+            name="event_number",
+            full_name="EventStore.Client.Messages.EventRecord.event_number",
             index=1,
             number=2,
             type=5,
@@ -534,11 +516,11 @@ _EVENTRECORD = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='event_id',
-            full_name='EventStore.Client.Messages.EventRecord.event_id',
+            name="event_id",
+            full_name="EventStore.Client.Messages.EventRecord.event_id",
             index=2,
             number=3,
             type=12,
@@ -551,28 +533,28 @@ _EVENTRECORD = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='event_type',
-            full_name='EventStore.Client.Messages.EventRecord.event_type',
+            name="event_type",
+            full_name="EventStore.Client.Messages.EventRecord.event_type",
             index=3,
             number=4,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='data_content_type',
-            full_name='EventStore.Client.Messages.EventRecord.data_content_type',
+            name="data_content_type",
+            full_name="EventStore.Client.Messages.EventRecord.data_content_type",
             index=4,
             number=5,
             type=5,
@@ -585,12 +567,11 @@ _EVENTRECORD = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='metadata_content_type',
-            full_name=
-            'EventStore.Client.Messages.EventRecord.metadata_content_type',
+            name="metadata_content_type",
+            full_name="EventStore.Client.Messages.EventRecord.metadata_content_type",
             index=5,
             number=6,
             type=5,
@@ -603,11 +584,11 @@ _EVENTRECORD = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='data',
-            full_name='EventStore.Client.Messages.EventRecord.data',
+            name="data",
+            full_name="EventStore.Client.Messages.EventRecord.data",
             index=6,
             number=7,
             type=12,
@@ -620,11 +601,11 @@ _EVENTRECORD = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='metadata',
-            full_name='EventStore.Client.Messages.EventRecord.metadata',
+            name="metadata",
+            full_name="EventStore.Client.Messages.EventRecord.metadata",
             index=7,
             number=8,
             type=12,
@@ -637,11 +618,11 @@ _EVENTRECORD = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='created',
-            full_name='EventStore.Client.Messages.EventRecord.created',
+            name="created",
+            full_name="EventStore.Client.Messages.EventRecord.created",
             index=8,
             number=9,
             type=3,
@@ -654,11 +635,11 @@ _EVENTRECORD = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='created_epoch',
-            full_name='EventStore.Client.Messages.EventRecord.created_epoch',
+            name="created_epoch",
+            full_name="EventStore.Client.Messages.EventRecord.created_epoch",
             index=9,
             number=10,
             type=3,
@@ -671,7 +652,7 @@ _EVENTRECORD = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -679,7 +660,7 @@ _EVENTRECORD = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=188,
@@ -687,15 +668,15 @@ _EVENTRECORD = _descriptor.Descriptor(
 )
 
 _RESOLVEDINDEXEDEVENT = _descriptor.Descriptor(
-    name='ResolvedIndexedEvent',
-    full_name='EventStore.Client.Messages.ResolvedIndexedEvent',
+    name="ResolvedIndexedEvent",
+    full_name="EventStore.Client.Messages.ResolvedIndexedEvent",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event',
-            full_name='EventStore.Client.Messages.ResolvedIndexedEvent.event',
+            name="event",
+            full_name="EventStore.Client.Messages.ResolvedIndexedEvent.event",
             index=0,
             number=1,
             type=11,
@@ -708,11 +689,11 @@ _RESOLVEDINDEXEDEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='link',
-            full_name='EventStore.Client.Messages.ResolvedIndexedEvent.link',
+            name="link",
+            full_name="EventStore.Client.Messages.ResolvedIndexedEvent.link",
             index=1,
             number=2,
             type=11,
@@ -725,7 +706,7 @@ _RESOLVEDINDEXEDEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -733,7 +714,7 @@ _RESOLVEDINDEXEDEVENT = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=419,
@@ -741,15 +722,15 @@ _RESOLVEDINDEXEDEVENT = _descriptor.Descriptor(
 )
 
 _RESOLVEDEVENT = _descriptor.Descriptor(
-    name='ResolvedEvent',
-    full_name='EventStore.Client.Messages.ResolvedEvent',
+    name="ResolvedEvent",
+    full_name="EventStore.Client.Messages.ResolvedEvent",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event',
-            full_name='EventStore.Client.Messages.ResolvedEvent.event',
+            name="event",
+            full_name="EventStore.Client.Messages.ResolvedEvent.event",
             index=0,
             number=1,
             type=11,
@@ -762,11 +743,11 @@ _RESOLVEDEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='link',
-            full_name='EventStore.Client.Messages.ResolvedEvent.link',
+            name="link",
+            full_name="EventStore.Client.Messages.ResolvedEvent.link",
             index=1,
             number=2,
             type=11,
@@ -779,11 +760,11 @@ _RESOLVEDEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='commit_position',
-            full_name='EventStore.Client.Messages.ResolvedEvent.commit_position',
+            name="commit_position",
+            full_name="EventStore.Client.Messages.ResolvedEvent.commit_position",
             index=2,
             number=3,
             type=3,
@@ -796,12 +777,11 @@ _RESOLVEDEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='prepare_position',
-            full_name=
-            'EventStore.Client.Messages.ResolvedEvent.prepare_position',
+            name="prepare_position",
+            full_name="EventStore.Client.Messages.ResolvedEvent.prepare_position",
             index=3,
             number=4,
             type=3,
@@ -814,7 +794,7 @@ _RESOLVEDEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -822,7 +802,7 @@ _RESOLVEDEVENT = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=555,
@@ -830,32 +810,32 @@ _RESOLVEDEVENT = _descriptor.Descriptor(
 )
 
 _WRITEEVENTS = _descriptor.Descriptor(
-    name='WriteEvents',
-    full_name='EventStore.Client.Messages.WriteEvents',
+    name="WriteEvents",
+    full_name="EventStore.Client.Messages.WriteEvents",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event_stream_id',
-            full_name='EventStore.Client.Messages.WriteEvents.event_stream_id',
+            name="event_stream_id",
+            full_name="EventStore.Client.Messages.WriteEvents.event_stream_id",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='expected_version',
-            full_name='EventStore.Client.Messages.WriteEvents.expected_version',
+            name="expected_version",
+            full_name="EventStore.Client.Messages.WriteEvents.expected_version",
             index=1,
             number=2,
             type=5,
@@ -868,11 +848,11 @@ _WRITEEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='events',
-            full_name='EventStore.Client.Messages.WriteEvents.events',
+            name="events",
+            full_name="EventStore.Client.Messages.WriteEvents.events",
             index=2,
             number=3,
             type=11,
@@ -885,11 +865,11 @@ _WRITEEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='require_master',
-            full_name='EventStore.Client.Messages.WriteEvents.require_master',
+            name="require_master",
+            full_name="EventStore.Client.Messages.WriteEvents.require_master",
             index=3,
             number=4,
             type=8,
@@ -902,7 +882,7 @@ _WRITEEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -910,7 +890,7 @@ _WRITEEVENTS = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=735,
@@ -918,15 +898,15 @@ _WRITEEVENTS = _descriptor.Descriptor(
 )
 
 _WRITEEVENTSCOMPLETED = _descriptor.Descriptor(
-    name='WriteEventsCompleted',
-    full_name='EventStore.Client.Messages.WriteEventsCompleted',
+    name="WriteEventsCompleted",
+    full_name="EventStore.Client.Messages.WriteEventsCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name='EventStore.Client.Messages.WriteEventsCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.WriteEventsCompleted.result",
             index=0,
             number=1,
             type=14,
@@ -939,29 +919,28 @@ _WRITEEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='message',
-            full_name='EventStore.Client.Messages.WriteEventsCompleted.message',
+            name="message",
+            full_name="EventStore.Client.Messages.WriteEventsCompleted.message",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='first_event_number',
-            full_name=
-            'EventStore.Client.Messages.WriteEventsCompleted.first_event_number',
+            name="first_event_number",
+            full_name="EventStore.Client.Messages.WriteEventsCompleted.first_event_number",
             index=2,
             number=3,
             type=5,
@@ -974,12 +953,11 @@ _WRITEEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='last_event_number',
-            full_name=
-            'EventStore.Client.Messages.WriteEventsCompleted.last_event_number',
+            name="last_event_number",
+            full_name="EventStore.Client.Messages.WriteEventsCompleted.last_event_number",
             index=3,
             number=4,
             type=5,
@@ -992,12 +970,11 @@ _WRITEEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='prepare_position',
-            full_name=
-            'EventStore.Client.Messages.WriteEventsCompleted.prepare_position',
+            name="prepare_position",
+            full_name="EventStore.Client.Messages.WriteEventsCompleted.prepare_position",
             index=4,
             number=5,
             type=3,
@@ -1010,12 +987,11 @@ _WRITEEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='commit_position',
-            full_name=
-            'EventStore.Client.Messages.WriteEventsCompleted.commit_position',
+            name="commit_position",
+            full_name="EventStore.Client.Messages.WriteEventsCompleted.commit_position",
             index=5,
             number=6,
             type=3,
@@ -1028,7 +1004,7 @@ _WRITEEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -1036,7 +1012,7 @@ _WRITEEVENTSCOMPLETED = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=880,
@@ -1044,32 +1020,32 @@ _WRITEEVENTSCOMPLETED = _descriptor.Descriptor(
 )
 
 _DELETESTREAM = _descriptor.Descriptor(
-    name='DeleteStream',
-    full_name='EventStore.Client.Messages.DeleteStream',
+    name="DeleteStream",
+    full_name="EventStore.Client.Messages.DeleteStream",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event_stream_id',
-            full_name='EventStore.Client.Messages.DeleteStream.event_stream_id',
+            name="event_stream_id",
+            full_name="EventStore.Client.Messages.DeleteStream.event_stream_id",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='expected_version',
-            full_name='EventStore.Client.Messages.DeleteStream.expected_version',
+            name="expected_version",
+            full_name="EventStore.Client.Messages.DeleteStream.expected_version",
             index=1,
             number=2,
             type=5,
@@ -1082,11 +1058,11 @@ _DELETESTREAM = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='require_master',
-            full_name='EventStore.Client.Messages.DeleteStream.require_master',
+            name="require_master",
+            full_name="EventStore.Client.Messages.DeleteStream.require_master",
             index=2,
             number=3,
             type=8,
@@ -1099,11 +1075,11 @@ _DELETESTREAM = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='hard_delete',
-            full_name='EventStore.Client.Messages.DeleteStream.hard_delete',
+            name="hard_delete",
+            full_name="EventStore.Client.Messages.DeleteStream.hard_delete",
             index=3,
             number=4,
             type=8,
@@ -1116,7 +1092,7 @@ _DELETESTREAM = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -1124,7 +1100,7 @@ _DELETESTREAM = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=1088,
@@ -1132,15 +1108,15 @@ _DELETESTREAM = _descriptor.Descriptor(
 )
 
 _DELETESTREAMCOMPLETED = _descriptor.Descriptor(
-    name='DeleteStreamCompleted',
-    full_name='EventStore.Client.Messages.DeleteStreamCompleted',
+    name="DeleteStreamCompleted",
+    full_name="EventStore.Client.Messages.DeleteStreamCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name='EventStore.Client.Messages.DeleteStreamCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.DeleteStreamCompleted.result",
             index=0,
             number=1,
             type=14,
@@ -1153,29 +1129,28 @@ _DELETESTREAMCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='message',
-            full_name='EventStore.Client.Messages.DeleteStreamCompleted.message',
+            name="message",
+            full_name="EventStore.Client.Messages.DeleteStreamCompleted.message",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='prepare_position',
-            full_name=
-            'EventStore.Client.Messages.DeleteStreamCompleted.prepare_position',
+            name="prepare_position",
+            full_name="EventStore.Client.Messages.DeleteStreamCompleted.prepare_position",
             index=2,
             number=3,
             type=3,
@@ -1188,12 +1163,11 @@ _DELETESTREAMCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='commit_position',
-            full_name=
-            'EventStore.Client.Messages.DeleteStreamCompleted.commit_position',
+            name="commit_position",
+            full_name="EventStore.Client.Messages.DeleteStreamCompleted.commit_position",
             index=3,
             number=4,
             type=3,
@@ -1206,7 +1180,7 @@ _DELETESTREAMCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -1214,7 +1188,7 @@ _DELETESTREAMCOMPLETED = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=1201,
@@ -1222,34 +1196,32 @@ _DELETESTREAMCOMPLETED = _descriptor.Descriptor(
 )
 
 _TRANSACTIONSTART = _descriptor.Descriptor(
-    name='TransactionStart',
-    full_name='EventStore.Client.Messages.TransactionStart',
+    name="TransactionStart",
+    full_name="EventStore.Client.Messages.TransactionStart",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event_stream_id',
-            full_name=
-            'EventStore.Client.Messages.TransactionStart.event_stream_id',
+            name="event_stream_id",
+            full_name="EventStore.Client.Messages.TransactionStart.event_stream_id",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='expected_version',
-            full_name=
-            'EventStore.Client.Messages.TransactionStart.expected_version',
+            name="expected_version",
+            full_name="EventStore.Client.Messages.TransactionStart.expected_version",
             index=1,
             number=2,
             type=5,
@@ -1262,12 +1234,11 @@ _TRANSACTIONSTART = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='require_master',
-            full_name=
-            'EventStore.Client.Messages.TransactionStart.require_master',
+            name="require_master",
+            full_name="EventStore.Client.Messages.TransactionStart.require_master",
             index=2,
             number=3,
             type=8,
@@ -1280,7 +1251,7 @@ _TRANSACTIONSTART = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -1288,7 +1259,7 @@ _TRANSACTIONSTART = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=1355,
@@ -1296,16 +1267,15 @@ _TRANSACTIONSTART = _descriptor.Descriptor(
 )
 
 _TRANSACTIONSTARTCOMPLETED = _descriptor.Descriptor(
-    name='TransactionStartCompleted',
-    full_name='EventStore.Client.Messages.TransactionStartCompleted',
+    name="TransactionStartCompleted",
+    full_name="EventStore.Client.Messages.TransactionStartCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='transaction_id',
-            full_name=
-            'EventStore.Client.Messages.TransactionStartCompleted.transaction_id',
+            name="transaction_id",
+            full_name="EventStore.Client.Messages.TransactionStartCompleted.transaction_id",
             index=0,
             number=1,
             type=3,
@@ -1318,12 +1288,11 @@ _TRANSACTIONSTARTCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name=
-            'EventStore.Client.Messages.TransactionStartCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.TransactionStartCompleted.result",
             index=1,
             number=2,
             type=14,
@@ -1336,25 +1305,24 @@ _TRANSACTIONSTARTCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='message',
-            full_name=
-            'EventStore.Client.Messages.TransactionStartCompleted.message',
+            name="message",
+            full_name="EventStore.Client.Messages.TransactionStartCompleted.message",
             index=2,
             number=3,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -1362,7 +1330,7 @@ _TRANSACTIONSTARTCOMPLETED = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=1451,
@@ -1370,16 +1338,15 @@ _TRANSACTIONSTARTCOMPLETED = _descriptor.Descriptor(
 )
 
 _TRANSACTIONWRITE = _descriptor.Descriptor(
-    name='TransactionWrite',
-    full_name='EventStore.Client.Messages.TransactionWrite',
+    name="TransactionWrite",
+    full_name="EventStore.Client.Messages.TransactionWrite",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='transaction_id',
-            full_name=
-            'EventStore.Client.Messages.TransactionWrite.transaction_id',
+            name="transaction_id",
+            full_name="EventStore.Client.Messages.TransactionWrite.transaction_id",
             index=0,
             number=1,
             type=3,
@@ -1392,11 +1359,11 @@ _TRANSACTIONWRITE = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='events',
-            full_name='EventStore.Client.Messages.TransactionWrite.events',
+            name="events",
+            full_name="EventStore.Client.Messages.TransactionWrite.events",
             index=1,
             number=2,
             type=11,
@@ -1409,12 +1376,11 @@ _TRANSACTIONWRITE = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='require_master',
-            full_name=
-            'EventStore.Client.Messages.TransactionWrite.require_master',
+            name="require_master",
+            full_name="EventStore.Client.Messages.TransactionWrite.require_master",
             index=2,
             number=3,
             type=8,
@@ -1427,7 +1393,7 @@ _TRANSACTIONWRITE = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -1435,7 +1401,7 @@ _TRANSACTIONWRITE = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=1582,
@@ -1443,16 +1409,15 @@ _TRANSACTIONWRITE = _descriptor.Descriptor(
 )
 
 _TRANSACTIONWRITECOMPLETED = _descriptor.Descriptor(
-    name='TransactionWriteCompleted',
-    full_name='EventStore.Client.Messages.TransactionWriteCompleted',
+    name="TransactionWriteCompleted",
+    full_name="EventStore.Client.Messages.TransactionWriteCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='transaction_id',
-            full_name=
-            'EventStore.Client.Messages.TransactionWriteCompleted.transaction_id',
+            name="transaction_id",
+            full_name="EventStore.Client.Messages.TransactionWriteCompleted.transaction_id",
             index=0,
             number=1,
             type=3,
@@ -1465,12 +1430,11 @@ _TRANSACTIONWRITECOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name=
-            'EventStore.Client.Messages.TransactionWriteCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.TransactionWriteCompleted.result",
             index=1,
             number=2,
             type=14,
@@ -1483,25 +1447,24 @@ _TRANSACTIONWRITECOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='message',
-            full_name=
-            'EventStore.Client.Messages.TransactionWriteCompleted.message',
+            name="message",
+            full_name="EventStore.Client.Messages.TransactionWriteCompleted.message",
             index=2,
             number=3,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -1509,7 +1472,7 @@ _TRANSACTIONWRITECOMPLETED = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=1705,
@@ -1517,16 +1480,15 @@ _TRANSACTIONWRITECOMPLETED = _descriptor.Descriptor(
 )
 
 _TRANSACTIONCOMMIT = _descriptor.Descriptor(
-    name='TransactionCommit',
-    full_name='EventStore.Client.Messages.TransactionCommit',
+    name="TransactionCommit",
+    full_name="EventStore.Client.Messages.TransactionCommit",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='transaction_id',
-            full_name=
-            'EventStore.Client.Messages.TransactionCommit.transaction_id',
+            name="transaction_id",
+            full_name="EventStore.Client.Messages.TransactionCommit.transaction_id",
             index=0,
             number=1,
             type=3,
@@ -1539,12 +1501,11 @@ _TRANSACTIONCOMMIT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='require_master',
-            full_name=
-            'EventStore.Client.Messages.TransactionCommit.require_master',
+            name="require_master",
+            full_name="EventStore.Client.Messages.TransactionCommit.require_master",
             index=1,
             number=2,
             type=8,
@@ -1557,7 +1518,7 @@ _TRANSACTIONCOMMIT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -1565,7 +1526,7 @@ _TRANSACTIONCOMMIT = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=1836,
@@ -1573,16 +1534,15 @@ _TRANSACTIONCOMMIT = _descriptor.Descriptor(
 )
 
 _TRANSACTIONCOMMITCOMPLETED = _descriptor.Descriptor(
-    name='TransactionCommitCompleted',
-    full_name='EventStore.Client.Messages.TransactionCommitCompleted',
+    name="TransactionCommitCompleted",
+    full_name="EventStore.Client.Messages.TransactionCommitCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='transaction_id',
-            full_name=
-            'EventStore.Client.Messages.TransactionCommitCompleted.transaction_id',
+            name="transaction_id",
+            full_name="EventStore.Client.Messages.TransactionCommitCompleted.transaction_id",
             index=0,
             number=1,
             type=3,
@@ -1595,12 +1555,11 @@ _TRANSACTIONCOMMITCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name=
-            'EventStore.Client.Messages.TransactionCommitCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.TransactionCommitCompleted.result",
             index=1,
             number=2,
             type=14,
@@ -1613,30 +1572,28 @@ _TRANSACTIONCOMMITCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='message',
-            full_name=
-            'EventStore.Client.Messages.TransactionCommitCompleted.message',
+            name="message",
+            full_name="EventStore.Client.Messages.TransactionCommitCompleted.message",
             index=2,
             number=3,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='first_event_number',
-            full_name=
-            'EventStore.Client.Messages.TransactionCommitCompleted.first_event_number',
+            name="first_event_number",
+            full_name="EventStore.Client.Messages.TransactionCommitCompleted.first_event_number",
             index=3,
             number=4,
             type=5,
@@ -1649,12 +1606,11 @@ _TRANSACTIONCOMMITCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='last_event_number',
-            full_name=
-            'EventStore.Client.Messages.TransactionCommitCompleted.last_event_number',
+            name="last_event_number",
+            full_name="EventStore.Client.Messages.TransactionCommitCompleted.last_event_number",
             index=4,
             number=5,
             type=5,
@@ -1667,12 +1623,11 @@ _TRANSACTIONCOMMITCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='prepare_position',
-            full_name=
-            'EventStore.Client.Messages.TransactionCommitCompleted.prepare_position',
+            name="prepare_position",
+            full_name="EventStore.Client.Messages.TransactionCommitCompleted.prepare_position",
             index=5,
             number=6,
             type=3,
@@ -1685,12 +1640,11 @@ _TRANSACTIONCOMMITCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='commit_position',
-            full_name=
-            'EventStore.Client.Messages.TransactionCommitCompleted.commit_position',
+            name="commit_position",
+            full_name="EventStore.Client.Messages.TransactionCommitCompleted.commit_position",
             index=6,
             number=7,
             type=3,
@@ -1703,7 +1657,7 @@ _TRANSACTIONCOMMITCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -1711,7 +1665,7 @@ _TRANSACTIONCOMMITCOMPLETED = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=1906,
@@ -1719,32 +1673,32 @@ _TRANSACTIONCOMMITCOMPLETED = _descriptor.Descriptor(
 )
 
 _READEVENT = _descriptor.Descriptor(
-    name='ReadEvent',
-    full_name='EventStore.Client.Messages.ReadEvent',
+    name="ReadEvent",
+    full_name="EventStore.Client.Messages.ReadEvent",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event_stream_id',
-            full_name='EventStore.Client.Messages.ReadEvent.event_stream_id',
+            name="event_stream_id",
+            full_name="EventStore.Client.Messages.ReadEvent.event_stream_id",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='event_number',
-            full_name='EventStore.Client.Messages.ReadEvent.event_number',
+            name="event_number",
+            full_name="EventStore.Client.Messages.ReadEvent.event_number",
             index=1,
             number=2,
             type=5,
@@ -1757,11 +1711,11 @@ _READEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='resolve_link_tos',
-            full_name='EventStore.Client.Messages.ReadEvent.resolve_link_tos',
+            name="resolve_link_tos",
+            full_name="EventStore.Client.Messages.ReadEvent.resolve_link_tos",
             index=2,
             number=3,
             type=8,
@@ -1774,11 +1728,11 @@ _READEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='require_master',
-            full_name='EventStore.Client.Messages.ReadEvent.require_master',
+            name="require_master",
+            full_name="EventStore.Client.Messages.ReadEvent.require_master",
             index=3,
             number=4,
             type=8,
@@ -1791,7 +1745,7 @@ _READEVENT = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -1799,7 +1753,7 @@ _READEVENT = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=2144,
@@ -1807,15 +1761,15 @@ _READEVENT = _descriptor.Descriptor(
 )
 
 _READEVENTCOMPLETED = _descriptor.Descriptor(
-    name='ReadEventCompleted',
-    full_name='EventStore.Client.Messages.ReadEventCompleted',
+    name="ReadEventCompleted",
+    full_name="EventStore.Client.Messages.ReadEventCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name='EventStore.Client.Messages.ReadEventCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.ReadEventCompleted.result",
             index=0,
             number=1,
             type=14,
@@ -1828,11 +1782,11 @@ _READEVENTCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='event',
-            full_name='EventStore.Client.Messages.ReadEventCompleted.event',
+            name="event",
+            full_name="EventStore.Client.Messages.ReadEventCompleted.event",
             index=1,
             number=2,
             type=11,
@@ -1845,34 +1799,32 @@ _READEVENTCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='error',
-            full_name='EventStore.Client.Messages.ReadEventCompleted.error',
+            name="error",
+            full_name="EventStore.Client.Messages.ReadEventCompleted.error",
             index=2,
             number=3,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
     nested_types=[],
-    enum_types=[
-        _READEVENTCOMPLETED_READEVENTRESULT,
-    ],
+    enum_types=[_READEVENTCOMPLETED_READEVENTRESULT],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=2255,
@@ -1880,34 +1832,32 @@ _READEVENTCOMPLETED = _descriptor.Descriptor(
 )
 
 _READSTREAMEVENTS = _descriptor.Descriptor(
-    name='ReadStreamEvents',
-    full_name='EventStore.Client.Messages.ReadStreamEvents',
+    name="ReadStreamEvents",
+    full_name="EventStore.Client.Messages.ReadStreamEvents",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event_stream_id',
-            full_name=
-            'EventStore.Client.Messages.ReadStreamEvents.event_stream_id',
+            name="event_stream_id",
+            full_name="EventStore.Client.Messages.ReadStreamEvents.event_stream_id",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='from_event_number',
-            full_name=
-            'EventStore.Client.Messages.ReadStreamEvents.from_event_number',
+            name="from_event_number",
+            full_name="EventStore.Client.Messages.ReadStreamEvents.from_event_number",
             index=1,
             number=2,
             type=5,
@@ -1920,11 +1870,11 @@ _READSTREAMEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='max_count',
-            full_name='EventStore.Client.Messages.ReadStreamEvents.max_count',
+            name="max_count",
+            full_name="EventStore.Client.Messages.ReadStreamEvents.max_count",
             index=2,
             number=3,
             type=5,
@@ -1937,12 +1887,11 @@ _READSTREAMEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='resolve_link_tos',
-            full_name=
-            'EventStore.Client.Messages.ReadStreamEvents.resolve_link_tos',
+            name="resolve_link_tos",
+            full_name="EventStore.Client.Messages.ReadStreamEvents.resolve_link_tos",
             index=3,
             number=4,
             type=8,
@@ -1955,12 +1904,11 @@ _READSTREAMEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='require_master',
-            full_name=
-            'EventStore.Client.Messages.ReadStreamEvents.require_master',
+            name="require_master",
+            full_name="EventStore.Client.Messages.ReadStreamEvents.require_master",
             index=4,
             number=5,
             type=8,
@@ -1973,7 +1921,7 @@ _READSTREAMEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -1981,7 +1929,7 @@ _READSTREAMEVENTS = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=2546,
@@ -1989,16 +1937,15 @@ _READSTREAMEVENTS = _descriptor.Descriptor(
 )
 
 _READSTREAMEVENTSCOMPLETED = _descriptor.Descriptor(
-    name='ReadStreamEventsCompleted',
-    full_name='EventStore.Client.Messages.ReadStreamEventsCompleted',
+    name="ReadStreamEventsCompleted",
+    full_name="EventStore.Client.Messages.ReadStreamEventsCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='events',
-            full_name=
-            'EventStore.Client.Messages.ReadStreamEventsCompleted.events',
+            name="events",
+            full_name="EventStore.Client.Messages.ReadStreamEventsCompleted.events",
             index=0,
             number=1,
             type=11,
@@ -2011,12 +1958,11 @@ _READSTREAMEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name=
-            'EventStore.Client.Messages.ReadStreamEventsCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.ReadStreamEventsCompleted.result",
             index=1,
             number=2,
             type=14,
@@ -2029,12 +1975,11 @@ _READSTREAMEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='next_event_number',
-            full_name=
-            'EventStore.Client.Messages.ReadStreamEventsCompleted.next_event_number',
+            name="next_event_number",
+            full_name="EventStore.Client.Messages.ReadStreamEventsCompleted.next_event_number",
             index=2,
             number=3,
             type=5,
@@ -2047,12 +1992,11 @@ _READSTREAMEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='last_event_number',
-            full_name=
-            'EventStore.Client.Messages.ReadStreamEventsCompleted.last_event_number',
+            name="last_event_number",
+            full_name="EventStore.Client.Messages.ReadStreamEventsCompleted.last_event_number",
             index=3,
             number=4,
             type=5,
@@ -2065,12 +2009,11 @@ _READSTREAMEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='is_end_of_stream',
-            full_name=
-            'EventStore.Client.Messages.ReadStreamEventsCompleted.is_end_of_stream',
+            name="is_end_of_stream",
+            full_name="EventStore.Client.Messages.ReadStreamEventsCompleted.is_end_of_stream",
             index=4,
             number=5,
             type=8,
@@ -2083,12 +2026,11 @@ _READSTREAMEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='last_commit_position',
-            full_name=
-            'EventStore.Client.Messages.ReadStreamEventsCompleted.last_commit_position',
+            name="last_commit_position",
+            full_name="EventStore.Client.Messages.ReadStreamEventsCompleted.last_commit_position",
             index=5,
             number=6,
             type=3,
@@ -2101,35 +2043,32 @@ _READSTREAMEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='error',
-            full_name=
-            'EventStore.Client.Messages.ReadStreamEventsCompleted.error',
+            name="error",
+            full_name="EventStore.Client.Messages.ReadStreamEventsCompleted.error",
             index=6,
             number=7,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
     nested_types=[],
-    enum_types=[
-        _READSTREAMEVENTSCOMPLETED_READSTREAMRESULT,
-    ],
+    enum_types=[_READSTREAMEVENTSCOMPLETED_READSTREAMRESULT],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=2688,
@@ -2137,15 +2076,15 @@ _READSTREAMEVENTSCOMPLETED = _descriptor.Descriptor(
 )
 
 _READALLEVENTS = _descriptor.Descriptor(
-    name='ReadAllEvents',
-    full_name='EventStore.Client.Messages.ReadAllEvents',
+    name="ReadAllEvents",
+    full_name="EventStore.Client.Messages.ReadAllEvents",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='commit_position',
-            full_name='EventStore.Client.Messages.ReadAllEvents.commit_position',
+            name="commit_position",
+            full_name="EventStore.Client.Messages.ReadAllEvents.commit_position",
             index=0,
             number=1,
             type=3,
@@ -2158,12 +2097,11 @@ _READALLEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='prepare_position',
-            full_name=
-            'EventStore.Client.Messages.ReadAllEvents.prepare_position',
+            name="prepare_position",
+            full_name="EventStore.Client.Messages.ReadAllEvents.prepare_position",
             index=1,
             number=2,
             type=3,
@@ -2176,11 +2114,11 @@ _READALLEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='max_count',
-            full_name='EventStore.Client.Messages.ReadAllEvents.max_count',
+            name="max_count",
+            full_name="EventStore.Client.Messages.ReadAllEvents.max_count",
             index=2,
             number=3,
             type=5,
@@ -2193,12 +2131,11 @@ _READALLEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='resolve_link_tos',
-            full_name=
-            'EventStore.Client.Messages.ReadAllEvents.resolve_link_tos',
+            name="resolve_link_tos",
+            full_name="EventStore.Client.Messages.ReadAllEvents.resolve_link_tos",
             index=3,
             number=4,
             type=8,
@@ -2211,11 +2148,11 @@ _READALLEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='require_master',
-            full_name='EventStore.Client.Messages.ReadAllEvents.require_master',
+            name="require_master",
+            full_name="EventStore.Client.Messages.ReadAllEvents.require_master",
             index=4,
             number=5,
             type=8,
@@ -2228,7 +2165,7 @@ _READALLEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -2236,7 +2173,7 @@ _READALLEVENTS = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=3109,
@@ -2244,16 +2181,15 @@ _READALLEVENTS = _descriptor.Descriptor(
 )
 
 _READALLEVENTSCOMPLETED = _descriptor.Descriptor(
-    name='ReadAllEventsCompleted',
-    full_name='EventStore.Client.Messages.ReadAllEventsCompleted',
+    name="ReadAllEventsCompleted",
+    full_name="EventStore.Client.Messages.ReadAllEventsCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='commit_position',
-            full_name=
-            'EventStore.Client.Messages.ReadAllEventsCompleted.commit_position',
+            name="commit_position",
+            full_name="EventStore.Client.Messages.ReadAllEventsCompleted.commit_position",
             index=0,
             number=1,
             type=3,
@@ -2266,12 +2202,11 @@ _READALLEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='prepare_position',
-            full_name=
-            'EventStore.Client.Messages.ReadAllEventsCompleted.prepare_position',
+            name="prepare_position",
+            full_name="EventStore.Client.Messages.ReadAllEventsCompleted.prepare_position",
             index=1,
             number=2,
             type=3,
@@ -2284,11 +2219,11 @@ _READALLEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='events',
-            full_name='EventStore.Client.Messages.ReadAllEventsCompleted.events',
+            name="events",
+            full_name="EventStore.Client.Messages.ReadAllEventsCompleted.events",
             index=2,
             number=3,
             type=11,
@@ -2301,12 +2236,11 @@ _READALLEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='next_commit_position',
-            full_name=
-            'EventStore.Client.Messages.ReadAllEventsCompleted.next_commit_position',
+            name="next_commit_position",
+            full_name="EventStore.Client.Messages.ReadAllEventsCompleted.next_commit_position",
             index=3,
             number=4,
             type=3,
@@ -2319,12 +2253,11 @@ _READALLEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='next_prepare_position',
-            full_name=
-            'EventStore.Client.Messages.ReadAllEventsCompleted.next_prepare_position',
+            name="next_prepare_position",
+            full_name="EventStore.Client.Messages.ReadAllEventsCompleted.next_prepare_position",
             index=4,
             number=5,
             type=3,
@@ -2337,11 +2270,11 @@ _READALLEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name='EventStore.Client.Messages.ReadAllEventsCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.ReadAllEventsCompleted.result",
             index=5,
             number=6,
             type=14,
@@ -2354,34 +2287,32 @@ _READALLEVENTSCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='error',
-            full_name='EventStore.Client.Messages.ReadAllEventsCompleted.error',
+            name="error",
+            full_name="EventStore.Client.Messages.ReadAllEventsCompleted.error",
             index=6,
             number=7,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
     nested_types=[],
-    enum_types=[
-        _READALLEVENTSCOMPLETED_READALLRESULT,
-    ],
+    enum_types=[_READALLEVENTSCOMPLETED_READALLRESULT],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=3247,
@@ -2389,52 +2320,49 @@ _READALLEVENTSCOMPLETED = _descriptor.Descriptor(
 )
 
 _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
-    name='CreatePersistentSubscription',
-    full_name='EventStore.Client.Messages.CreatePersistentSubscription',
+    name="CreatePersistentSubscription",
+    full_name="EventStore.Client.Messages.CreatePersistentSubscription",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='subscription_group_name',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.subscription_group_name',
+            name="subscription_group_name",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.subscription_group_name",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='event_stream_id',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.event_stream_id',
+            name="event_stream_id",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.event_stream_id",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='resolve_link_tos',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.resolve_link_tos',
+            name="resolve_link_tos",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.resolve_link_tos",
             index=2,
             number=3,
             type=8,
@@ -2447,12 +2375,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='start_from',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.start_from',
+            name="start_from",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.start_from",
             index=3,
             number=4,
             type=5,
@@ -2465,12 +2392,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='message_timeout_milliseconds',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.message_timeout_milliseconds',
+            name="message_timeout_milliseconds",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.message_timeout_milliseconds",
             index=4,
             number=5,
             type=5,
@@ -2483,12 +2409,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='record_statistics',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.record_statistics',
+            name="record_statistics",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.record_statistics",
             index=5,
             number=6,
             type=8,
@@ -2501,12 +2426,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='live_buffer_size',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.live_buffer_size',
+            name="live_buffer_size",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.live_buffer_size",
             index=6,
             number=7,
             type=5,
@@ -2519,12 +2443,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='read_batch_size',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.read_batch_size',
+            name="read_batch_size",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.read_batch_size",
             index=7,
             number=8,
             type=5,
@@ -2537,12 +2460,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='buffer_size',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.buffer_size',
+            name="buffer_size",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.buffer_size",
             index=8,
             number=9,
             type=5,
@@ -2555,12 +2477,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='max_retry_count',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.max_retry_count',
+            name="max_retry_count",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.max_retry_count",
             index=9,
             number=10,
             type=5,
@@ -2573,12 +2494,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='prefer_round_robin',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.prefer_round_robin',
+            name="prefer_round_robin",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.prefer_round_robin",
             index=10,
             number=11,
             type=8,
@@ -2591,12 +2511,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='checkpoint_after_time',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.checkpoint_after_time',
+            name="checkpoint_after_time",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.checkpoint_after_time",
             index=11,
             number=12,
             type=5,
@@ -2609,12 +2528,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='checkpoint_max_count',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.checkpoint_max_count',
+            name="checkpoint_max_count",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.checkpoint_max_count",
             index=12,
             number=13,
             type=5,
@@ -2627,12 +2545,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='checkpoint_min_count',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.checkpoint_min_count',
+            name="checkpoint_min_count",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.checkpoint_min_count",
             index=13,
             number=14,
             type=5,
@@ -2645,12 +2562,11 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='subscriber_max_count',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.subscriber_max_count',
+            name="subscriber_max_count",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.subscriber_max_count",
             index=14,
             number=15,
             type=5,
@@ -2663,25 +2579,24 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='named_consumer_strategy',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscription.named_consumer_strategy',
+            name="named_consumer_strategy",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscription.named_consumer_strategy",
             index=15,
             number=16,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -2689,7 +2604,7 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=3627,
@@ -2697,47 +2612,45 @@ _CREATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
 )
 
 _DELETEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
-    name='DeletePersistentSubscription',
-    full_name='EventStore.Client.Messages.DeletePersistentSubscription',
+    name="DeletePersistentSubscription",
+    full_name="EventStore.Client.Messages.DeletePersistentSubscription",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='subscription_group_name',
-            full_name=
-            'EventStore.Client.Messages.DeletePersistentSubscription.subscription_group_name',
+            name="subscription_group_name",
+            full_name="EventStore.Client.Messages.DeletePersistentSubscription.subscription_group_name",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='event_stream_id',
-            full_name=
-            'EventStore.Client.Messages.DeletePersistentSubscription.event_stream_id',
+            name="event_stream_id",
+            full_name="EventStore.Client.Messages.DeletePersistentSubscription.event_stream_id",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -2745,7 +2658,7 @@ _DELETEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=4107,
@@ -2753,52 +2666,49 @@ _DELETEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
 )
 
 _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
-    name='UpdatePersistentSubscription',
-    full_name='EventStore.Client.Messages.UpdatePersistentSubscription',
+    name="UpdatePersistentSubscription",
+    full_name="EventStore.Client.Messages.UpdatePersistentSubscription",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='subscription_group_name',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.subscription_group_name',
+            name="subscription_group_name",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.subscription_group_name",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='event_stream_id',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.event_stream_id',
+            name="event_stream_id",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.event_stream_id",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='resolve_link_tos',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.resolve_link_tos',
+            name="resolve_link_tos",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.resolve_link_tos",
             index=2,
             number=3,
             type=8,
@@ -2811,12 +2721,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='start_from',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.start_from',
+            name="start_from",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.start_from",
             index=3,
             number=4,
             type=5,
@@ -2829,12 +2738,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='message_timeout_milliseconds',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.message_timeout_milliseconds',
+            name="message_timeout_milliseconds",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.message_timeout_milliseconds",
             index=4,
             number=5,
             type=5,
@@ -2847,12 +2755,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='record_statistics',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.record_statistics',
+            name="record_statistics",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.record_statistics",
             index=5,
             number=6,
             type=8,
@@ -2865,12 +2772,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='live_buffer_size',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.live_buffer_size',
+            name="live_buffer_size",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.live_buffer_size",
             index=6,
             number=7,
             type=5,
@@ -2883,12 +2789,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='read_batch_size',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.read_batch_size',
+            name="read_batch_size",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.read_batch_size",
             index=7,
             number=8,
             type=5,
@@ -2901,12 +2806,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='buffer_size',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.buffer_size',
+            name="buffer_size",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.buffer_size",
             index=8,
             number=9,
             type=5,
@@ -2919,12 +2823,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='max_retry_count',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.max_retry_count',
+            name="max_retry_count",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.max_retry_count",
             index=9,
             number=10,
             type=5,
@@ -2937,12 +2840,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='prefer_round_robin',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.prefer_round_robin',
+            name="prefer_round_robin",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.prefer_round_robin",
             index=10,
             number=11,
             type=8,
@@ -2955,12 +2857,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='checkpoint_after_time',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.checkpoint_after_time',
+            name="checkpoint_after_time",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.checkpoint_after_time",
             index=11,
             number=12,
             type=5,
@@ -2973,12 +2874,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='checkpoint_max_count',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.checkpoint_max_count',
+            name="checkpoint_max_count",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.checkpoint_max_count",
             index=12,
             number=13,
             type=5,
@@ -2991,12 +2891,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='checkpoint_min_count',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.checkpoint_min_count',
+            name="checkpoint_min_count",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.checkpoint_min_count",
             index=13,
             number=14,
             type=5,
@@ -3009,12 +2908,11 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='subscriber_max_count',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.subscriber_max_count',
+            name="subscriber_max_count",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.subscriber_max_count",
             index=14,
             number=15,
             type=5,
@@ -3027,25 +2925,24 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='named_consumer_strategy',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscription.named_consumer_strategy',
+            name="named_consumer_strategy",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscription.named_consumer_strategy",
             index=15,
             number=16,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -3053,7 +2950,7 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=4198,
@@ -3061,16 +2958,15 @@ _UPDATEPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
 )
 
 _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED = _descriptor.Descriptor(
-    name='UpdatePersistentSubscriptionCompleted',
-    full_name='EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted',
+    name="UpdatePersistentSubscriptionCompleted",
+    full_name="EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted.result",
             index=0,
             number=1,
             type=14,
@@ -3083,35 +2979,34 @@ _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='reason',
-            full_name=
-            'EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted.reason',
+            name="reason",
+            full_name="EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted.reason",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
     nested_types=[],
     enum_types=[
-        _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED_UPDATEPERSISTENTSUBSCRIPTIONRESULT,
+        _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED_UPDATEPERSISTENTSUBSCRIPTIONRESULT
     ],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=4679,
@@ -3119,16 +3014,15 @@ _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED = _descriptor.Descriptor(
 )
 
 _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED = _descriptor.Descriptor(
-    name='CreatePersistentSubscriptionCompleted',
-    full_name='EventStore.Client.Messages.CreatePersistentSubscriptionCompleted',
+    name="CreatePersistentSubscriptionCompleted",
+    full_name="EventStore.Client.Messages.CreatePersistentSubscriptionCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscriptionCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscriptionCompleted.result",
             index=0,
             number=1,
             type=14,
@@ -3141,35 +3035,34 @@ _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='reason',
-            full_name=
-            'EventStore.Client.Messages.CreatePersistentSubscriptionCompleted.reason',
+            name="reason",
+            full_name="EventStore.Client.Messages.CreatePersistentSubscriptionCompleted.reason",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
     nested_types=[],
     enum_types=[
-        _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED_CREATEPERSISTENTSUBSCRIPTIONRESULT,
+        _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED_CREATEPERSISTENTSUBSCRIPTIONRESULT
     ],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=4961,
@@ -3177,16 +3070,15 @@ _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED = _descriptor.Descriptor(
 )
 
 _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED = _descriptor.Descriptor(
-    name='DeletePersistentSubscriptionCompleted',
-    full_name='EventStore.Client.Messages.DeletePersistentSubscriptionCompleted',
+    name="DeletePersistentSubscriptionCompleted",
+    full_name="EventStore.Client.Messages.DeletePersistentSubscriptionCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name=
-            'EventStore.Client.Messages.DeletePersistentSubscriptionCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.DeletePersistentSubscriptionCompleted.result",
             index=0,
             number=1,
             type=14,
@@ -3199,35 +3091,34 @@ _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='reason',
-            full_name=
-            'EventStore.Client.Messages.DeletePersistentSubscriptionCompleted.reason',
+            name="reason",
+            full_name="EventStore.Client.Messages.DeletePersistentSubscriptionCompleted.reason",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
     nested_types=[],
     enum_types=[
-        _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED_DELETEPERSISTENTSUBSCRIPTIONRESULT,
+        _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED_DELETEPERSISTENTSUBSCRIPTIONRESULT
     ],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=5244,
@@ -3235,52 +3126,49 @@ _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED = _descriptor.Descriptor(
 )
 
 _CONNECTTOPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
-    name='ConnectToPersistentSubscription',
-    full_name='EventStore.Client.Messages.ConnectToPersistentSubscription',
+    name="ConnectToPersistentSubscription",
+    full_name="EventStore.Client.Messages.ConnectToPersistentSubscription",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='subscription_id',
-            full_name=
-            'EventStore.Client.Messages.ConnectToPersistentSubscription.subscription_id',
+            name="subscription_id",
+            full_name="EventStore.Client.Messages.ConnectToPersistentSubscription.subscription_id",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='event_stream_id',
-            full_name=
-            'EventStore.Client.Messages.ConnectToPersistentSubscription.event_stream_id',
+            name="event_stream_id",
+            full_name="EventStore.Client.Messages.ConnectToPersistentSubscription.event_stream_id",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='allowed_in_flight_messages',
-            full_name=
-            'EventStore.Client.Messages.ConnectToPersistentSubscription.allowed_in_flight_messages',
+            name="allowed_in_flight_messages",
+            full_name="EventStore.Client.Messages.ConnectToPersistentSubscription.allowed_in_flight_messages",
             index=2,
             number=3,
             type=5,
@@ -3293,7 +3181,7 @@ _CONNECTTOPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -3301,7 +3189,7 @@ _CONNECTTOPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=5525,
@@ -3309,34 +3197,32 @@ _CONNECTTOPERSISTENTSUBSCRIPTION = _descriptor.Descriptor(
 )
 
 _PERSISTENTSUBSCRIPTIONACKEVENTS = _descriptor.Descriptor(
-    name='PersistentSubscriptionAckEvents',
-    full_name='EventStore.Client.Messages.PersistentSubscriptionAckEvents',
+    name="PersistentSubscriptionAckEvents",
+    full_name="EventStore.Client.Messages.PersistentSubscriptionAckEvents",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='subscription_id',
-            full_name=
-            'EventStore.Client.Messages.PersistentSubscriptionAckEvents.subscription_id',
+            name="subscription_id",
+            full_name="EventStore.Client.Messages.PersistentSubscriptionAckEvents.subscription_id",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='processed_event_ids',
-            full_name=
-            'EventStore.Client.Messages.PersistentSubscriptionAckEvents.processed_event_ids',
+            name="processed_event_ids",
+            full_name="EventStore.Client.Messages.PersistentSubscriptionAckEvents.processed_event_ids",
             index=1,
             number=2,
             type=12,
@@ -3349,7 +3235,7 @@ _PERSISTENTSUBSCRIPTIONACKEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -3357,7 +3243,7 @@ _PERSISTENTSUBSCRIPTIONACKEVENTS = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=5646,
@@ -3365,34 +3251,32 @@ _PERSISTENTSUBSCRIPTIONACKEVENTS = _descriptor.Descriptor(
 )
 
 _PERSISTENTSUBSCRIPTIONNAKEVENTS = _descriptor.Descriptor(
-    name='PersistentSubscriptionNakEvents',
-    full_name='EventStore.Client.Messages.PersistentSubscriptionNakEvents',
+    name="PersistentSubscriptionNakEvents",
+    full_name="EventStore.Client.Messages.PersistentSubscriptionNakEvents",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='subscription_id',
-            full_name=
-            'EventStore.Client.Messages.PersistentSubscriptionNakEvents.subscription_id',
+            name="subscription_id",
+            full_name="EventStore.Client.Messages.PersistentSubscriptionNakEvents.subscription_id",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='processed_event_ids',
-            full_name=
-            'EventStore.Client.Messages.PersistentSubscriptionNakEvents.processed_event_ids',
+            name="processed_event_ids",
+            full_name="EventStore.Client.Messages.PersistentSubscriptionNakEvents.processed_event_ids",
             index=1,
             number=2,
             type=12,
@@ -3405,30 +3289,28 @@ _PERSISTENTSUBSCRIPTIONNAKEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='message',
-            full_name=
-            'EventStore.Client.Messages.PersistentSubscriptionNakEvents.message',
+            name="message",
+            full_name="EventStore.Client.Messages.PersistentSubscriptionNakEvents.message",
             index=2,
             number=3,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='action',
-            full_name=
-            'EventStore.Client.Messages.PersistentSubscriptionNakEvents.action',
+            name="action",
+            full_name="EventStore.Client.Messages.PersistentSubscriptionNakEvents.action",
             index=3,
             number=4,
             type=14,
@@ -3441,17 +3323,15 @@ _PERSISTENTSUBSCRIPTIONNAKEVENTS = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
     nested_types=[],
-    enum_types=[
-        _PERSISTENTSUBSCRIPTIONNAKEVENTS_NAKACTION,
-    ],
+    enum_types=[_PERSISTENTSUBSCRIPTIONNAKEVENTS_NAKACTION],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=5736,
@@ -3459,16 +3339,15 @@ _PERSISTENTSUBSCRIPTIONNAKEVENTS = _descriptor.Descriptor(
 )
 
 _PERSISTENTSUBSCRIPTIONCONFIRMATION = _descriptor.Descriptor(
-    name='PersistentSubscriptionConfirmation',
-    full_name='EventStore.Client.Messages.PersistentSubscriptionConfirmation',
+    name="PersistentSubscriptionConfirmation",
+    full_name="EventStore.Client.Messages.PersistentSubscriptionConfirmation",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='last_commit_position',
-            full_name=
-            'EventStore.Client.Messages.PersistentSubscriptionConfirmation.last_commit_position',
+            name="last_commit_position",
+            full_name="EventStore.Client.Messages.PersistentSubscriptionConfirmation.last_commit_position",
             index=0,
             number=1,
             type=3,
@@ -3481,30 +3360,28 @@ _PERSISTENTSUBSCRIPTIONCONFIRMATION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='subscription_id',
-            full_name=
-            'EventStore.Client.Messages.PersistentSubscriptionConfirmation.subscription_id',
+            name="subscription_id",
+            full_name="EventStore.Client.Messages.PersistentSubscriptionConfirmation.subscription_id",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='last_event_number',
-            full_name=
-            'EventStore.Client.Messages.PersistentSubscriptionConfirmation.last_event_number',
+            name="last_event_number",
+            full_name="EventStore.Client.Messages.PersistentSubscriptionConfirmation.last_event_number",
             index=2,
             number=3,
             type=5,
@@ -3517,7 +3394,7 @@ _PERSISTENTSUBSCRIPTIONCONFIRMATION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -3525,7 +3402,7 @@ _PERSISTENTSUBSCRIPTIONCONFIRMATION = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=6005,
@@ -3533,17 +3410,15 @@ _PERSISTENTSUBSCRIPTIONCONFIRMATION = _descriptor.Descriptor(
 )
 
 _PERSISTENTSUBSCRIPTIONSTREAMEVENTAPPEARED = _descriptor.Descriptor(
-    name='PersistentSubscriptionStreamEventAppeared',
-    full_name=
-    'EventStore.Client.Messages.PersistentSubscriptionStreamEventAppeared',
+    name="PersistentSubscriptionStreamEventAppeared",
+    full_name="EventStore.Client.Messages.PersistentSubscriptionStreamEventAppeared",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event',
-            full_name=
-            'EventStore.Client.Messages.PersistentSubscriptionStreamEventAppeared.event',
+            name="event",
+            full_name="EventStore.Client.Messages.PersistentSubscriptionStreamEventAppeared.event",
             index=0,
             number=1,
             type=11,
@@ -3556,15 +3431,15 @@ _PERSISTENTSUBSCRIPTIONSTREAMEVENTAPPEARED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
-        ),
+            options=None,
+        )
     ],
     extensions=[],
     nested_types=[],
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=6125,
@@ -3572,34 +3447,32 @@ _PERSISTENTSUBSCRIPTIONSTREAMEVENTAPPEARED = _descriptor.Descriptor(
 )
 
 _SUBSCRIBETOSTREAM = _descriptor.Descriptor(
-    name='SubscribeToStream',
-    full_name='EventStore.Client.Messages.SubscribeToStream',
+    name="SubscribeToStream",
+    full_name="EventStore.Client.Messages.SubscribeToStream",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event_stream_id',
-            full_name=
-            'EventStore.Client.Messages.SubscribeToStream.event_stream_id',
+            name="event_stream_id",
+            full_name="EventStore.Client.Messages.SubscribeToStream.event_stream_id",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='resolve_link_tos',
-            full_name=
-            'EventStore.Client.Messages.SubscribeToStream.resolve_link_tos',
+            name="resolve_link_tos",
+            full_name="EventStore.Client.Messages.SubscribeToStream.resolve_link_tos",
             index=1,
             number=2,
             type=8,
@@ -3612,7 +3485,7 @@ _SUBSCRIBETOSTREAM = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -3620,7 +3493,7 @@ _SUBSCRIBETOSTREAM = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=6235,
@@ -3628,16 +3501,15 @@ _SUBSCRIBETOSTREAM = _descriptor.Descriptor(
 )
 
 _SUBSCRIPTIONCONFIRMATION = _descriptor.Descriptor(
-    name='SubscriptionConfirmation',
-    full_name='EventStore.Client.Messages.SubscriptionConfirmation',
+    name="SubscriptionConfirmation",
+    full_name="EventStore.Client.Messages.SubscriptionConfirmation",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='last_commit_position',
-            full_name=
-            'EventStore.Client.Messages.SubscriptionConfirmation.last_commit_position',
+            name="last_commit_position",
+            full_name="EventStore.Client.Messages.SubscriptionConfirmation.last_commit_position",
             index=0,
             number=1,
             type=3,
@@ -3650,12 +3522,11 @@ _SUBSCRIPTIONCONFIRMATION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='last_event_number',
-            full_name=
-            'EventStore.Client.Messages.SubscriptionConfirmation.last_event_number',
+            name="last_event_number",
+            full_name="EventStore.Client.Messages.SubscriptionConfirmation.last_event_number",
             index=1,
             number=2,
             type=5,
@@ -3668,7 +3539,7 @@ _SUBSCRIPTIONCONFIRMATION = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -3676,7 +3547,7 @@ _SUBSCRIPTIONCONFIRMATION = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=6307,
@@ -3684,15 +3555,15 @@ _SUBSCRIPTIONCONFIRMATION = _descriptor.Descriptor(
 )
 
 _STREAMEVENTAPPEARED = _descriptor.Descriptor(
-    name='StreamEventAppeared',
-    full_name='EventStore.Client.Messages.StreamEventAppeared',
+    name="StreamEventAppeared",
+    full_name="EventStore.Client.Messages.StreamEventAppeared",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='event',
-            full_name='EventStore.Client.Messages.StreamEventAppeared.event',
+            name="event",
+            full_name="EventStore.Client.Messages.StreamEventAppeared.event",
             index=0,
             number=1,
             type=11,
@@ -3705,15 +3576,15 @@ _STREAMEVENTAPPEARED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
-        ),
+            options=None,
+        )
     ],
     extensions=[],
     nested_types=[],
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=6392,
@@ -3721,8 +3592,8 @@ _STREAMEVENTAPPEARED = _descriptor.Descriptor(
 )
 
 _UNSUBSCRIBEFROMSTREAM = _descriptor.Descriptor(
-    name='UnsubscribeFromStream',
-    full_name='EventStore.Client.Messages.UnsubscribeFromStream',
+    name="UnsubscribeFromStream",
+    full_name="EventStore.Client.Messages.UnsubscribeFromStream",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
@@ -3732,7 +3603,7 @@ _UNSUBSCRIBEFROMSTREAM = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=6473,
@@ -3740,8 +3611,8 @@ _UNSUBSCRIBEFROMSTREAM = _descriptor.Descriptor(
 )
 
 _PING = _descriptor.Descriptor(
-    name='Ping',
-    full_name='EventStore.Client.Messages.Ping',
+    name="Ping",
+    full_name="EventStore.Client.Messages.Ping",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
@@ -3751,7 +3622,7 @@ _PING = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=6498,
@@ -3759,8 +3630,8 @@ _PING = _descriptor.Descriptor(
 )
 
 _PONG = _descriptor.Descriptor(
-    name='Pong',
-    full_name='EventStore.Client.Messages.Pong',
+    name="Pong",
+    full_name="EventStore.Client.Messages.Pong",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
@@ -3770,7 +3641,7 @@ _PONG = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=6506,
@@ -3778,15 +3649,15 @@ _PONG = _descriptor.Descriptor(
 )
 
 _SUBSCRIPTIONDROPPED = _descriptor.Descriptor(
-    name='SubscriptionDropped',
-    full_name='EventStore.Client.Messages.SubscriptionDropped',
+    name="SubscriptionDropped",
+    full_name="EventStore.Client.Messages.SubscriptionDropped",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='reason',
-            full_name='EventStore.Client.Messages.SubscriptionDropped.reason',
+            name="reason",
+            full_name="EventStore.Client.Messages.SubscriptionDropped.reason",
             index=0,
             number=1,
             type=14,
@@ -3799,17 +3670,15 @@ _SUBSCRIPTIONDROPPED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
-        ),
+            options=None,
+        )
     ],
     extensions=[],
     nested_types=[],
-    enum_types=[
-        _SUBSCRIPTIONDROPPED_SUBSCRIPTIONDROPREASON,
-    ],
+    enum_types=[_SUBSCRIPTIONDROPPED_SUBSCRIPTIONDROPREASON],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=6515,
@@ -3817,34 +3686,32 @@ _SUBSCRIPTIONDROPPED = _descriptor.Descriptor(
 )
 
 _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
-    name='MasterInfo',
-    full_name='EventStore.Client.Messages.NotHandled.MasterInfo',
+    name="MasterInfo",
+    full_name="EventStore.Client.Messages.NotHandled.MasterInfo",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='external_tcp_address',
-            full_name=
-            'EventStore.Client.Messages.NotHandled.MasterInfo.external_tcp_address',
+            name="external_tcp_address",
+            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_tcp_address",
             index=0,
             number=1,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='external_tcp_port',
-            full_name=
-            'EventStore.Client.Messages.NotHandled.MasterInfo.external_tcp_port',
+            name="external_tcp_port",
+            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_tcp_port",
             index=1,
             number=2,
             type=5,
@@ -3857,30 +3724,28 @@ _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='external_http_address',
-            full_name=
-            'EventStore.Client.Messages.NotHandled.MasterInfo.external_http_address',
+            name="external_http_address",
+            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_http_address",
             index=2,
             number=3,
             type=9,
             cpp_type=9,
             label=2,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='external_http_port',
-            full_name=
-            'EventStore.Client.Messages.NotHandled.MasterInfo.external_http_port',
+            name="external_http_port",
+            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_http_port",
             index=3,
             number=4,
             type=5,
@@ -3893,30 +3758,28 @@ _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='external_secure_tcp_address',
-            full_name=
-            'EventStore.Client.Messages.NotHandled.MasterInfo.external_secure_tcp_address',
+            name="external_secure_tcp_address",
+            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_secure_tcp_address",
             index=4,
             number=5,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='external_secure_tcp_port',
-            full_name=
-            'EventStore.Client.Messages.NotHandled.MasterInfo.external_secure_tcp_port',
+            name="external_secure_tcp_port",
+            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_secure_tcp_port",
             index=5,
             number=6,
             type=5,
@@ -3929,7 +3792,7 @@ _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
@@ -3937,7 +3800,7 @@ _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=6897,
@@ -3945,15 +3808,15 @@ _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
 )
 
 _NOTHANDLED = _descriptor.Descriptor(
-    name='NotHandled',
-    full_name='EventStore.Client.Messages.NotHandled',
+    name="NotHandled",
+    full_name="EventStore.Client.Messages.NotHandled",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='reason',
-            full_name='EventStore.Client.Messages.NotHandled.reason',
+            name="reason",
+            full_name="EventStore.Client.Messages.NotHandled.reason",
             index=0,
             number=1,
             type=14,
@@ -3966,11 +3829,11 @@ _NOTHANDLED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='additional_info',
-            full_name='EventStore.Client.Messages.NotHandled.additional_info',
+            name="additional_info",
+            full_name="EventStore.Client.Messages.NotHandled.additional_info",
             index=1,
             number=2,
             type=12,
@@ -3983,19 +3846,15 @@ _NOTHANDLED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
-    nested_types=[
-        _NOTHANDLED_MASTERINFO,
-    ],
-    enum_types=[
-        _NOTHANDLED_NOTHANDLEDREASON,
-    ],
+    nested_types=[_NOTHANDLED_MASTERINFO],
+    enum_types=[_NOTHANDLED_NOTHANDLEDREASON],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=6784,
@@ -4003,8 +3862,8 @@ _NOTHANDLED = _descriptor.Descriptor(
 )
 
 _SCAVENGEDATABASE = _descriptor.Descriptor(
-    name='ScavengeDatabase',
-    full_name='EventStore.Client.Messages.ScavengeDatabase',
+    name="ScavengeDatabase",
+    full_name="EventStore.Client.Messages.ScavengeDatabase",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
@@ -4014,7 +3873,7 @@ _SCAVENGEDATABASE = _descriptor.Descriptor(
     enum_types=[],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=7160,
@@ -4022,16 +3881,15 @@ _SCAVENGEDATABASE = _descriptor.Descriptor(
 )
 
 _SCAVENGEDATABASECOMPLETED = _descriptor.Descriptor(
-    name='ScavengeDatabaseCompleted',
-    full_name='EventStore.Client.Messages.ScavengeDatabaseCompleted',
+    name="ScavengeDatabaseCompleted",
+    full_name="EventStore.Client.Messages.ScavengeDatabaseCompleted",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
     fields=[
         _descriptor.FieldDescriptor(
-            name='result',
-            full_name=
-            'EventStore.Client.Messages.ScavengeDatabaseCompleted.result',
+            name="result",
+            full_name="EventStore.Client.Messages.ScavengeDatabaseCompleted.result",
             index=0,
             number=1,
             type=14,
@@ -4044,30 +3902,28 @@ _SCAVENGEDATABASECOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='error',
-            full_name=
-            'EventStore.Client.Messages.ScavengeDatabaseCompleted.error',
+            name="error",
+            full_name="EventStore.Client.Messages.ScavengeDatabaseCompleted.error",
             index=1,
             number=2,
             type=9,
             cpp_type=9,
             label=1,
             has_default_value=False,
-            default_value=_b("").decode('utf-8'),
+            default_value=_b("").decode("utf-8"),
             message_type=None,
             enum_type=None,
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='total_time_ms',
-            full_name=
-            'EventStore.Client.Messages.ScavengeDatabaseCompleted.total_time_ms',
+            name="total_time_ms",
+            full_name="EventStore.Client.Messages.ScavengeDatabaseCompleted.total_time_ms",
             index=2,
             number=3,
             type=5,
@@ -4080,12 +3936,11 @@ _SCAVENGEDATABASECOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
         _descriptor.FieldDescriptor(
-            name='total_space_saved',
-            full_name=
-            'EventStore.Client.Messages.ScavengeDatabaseCompleted.total_space_saved',
+            name="total_space_saved",
+            full_name="EventStore.Client.Messages.ScavengeDatabaseCompleted.total_space_saved",
             index=3,
             number=4,
             type=3,
@@ -4098,603 +3953,619 @@ _SCAVENGEDATABASECOMPLETED = _descriptor.Descriptor(
             containing_type=None,
             is_extension=False,
             extension_scope=None,
-            options=None
+            options=None,
         ),
     ],
     extensions=[],
     nested_types=[],
-    enum_types=[
-        _SCAVENGEDATABASECOMPLETED_SCAVENGERESULT,
-    ],
+    enum_types=[_SCAVENGEDATABASECOMPLETED_SCAVENGERESULT],
     options=None,
     is_extendable=False,
-    syntax='proto2',
+    syntax="proto2",
     extension_ranges=[],
     oneofs=[],
     serialized_start=7181,
     serialized_end=7418,
 )
 
-_RESOLVEDINDEXEDEVENT.fields_by_name['event'].message_type = _EVENTRECORD
-_RESOLVEDINDEXEDEVENT.fields_by_name['link'].message_type = _EVENTRECORD
-_RESOLVEDEVENT.fields_by_name['event'].message_type = _EVENTRECORD
-_RESOLVEDEVENT.fields_by_name['link'].message_type = _EVENTRECORD
-_WRITEEVENTS.fields_by_name['events'].message_type = _NEWEVENT
-_WRITEEVENTSCOMPLETED.fields_by_name['result'].enum_type = _OPERATIONRESULT
-_DELETESTREAMCOMPLETED.fields_by_name['result'].enum_type = _OPERATIONRESULT
-_TRANSACTIONSTARTCOMPLETED.fields_by_name['result'].enum_type = _OPERATIONRESULT
-_TRANSACTIONWRITE.fields_by_name['events'].message_type = _NEWEVENT
-_TRANSACTIONWRITECOMPLETED.fields_by_name['result'].enum_type = _OPERATIONRESULT
-_TRANSACTIONCOMMITCOMPLETED.fields_by_name['result'
-                                          ].enum_type = _OPERATIONRESULT
+_RESOLVEDINDEXEDEVENT.fields_by_name["event"].message_type = _EVENTRECORD
+_RESOLVEDINDEXEDEVENT.fields_by_name["link"].message_type = _EVENTRECORD
+_RESOLVEDEVENT.fields_by_name["event"].message_type = _EVENTRECORD
+_RESOLVEDEVENT.fields_by_name["link"].message_type = _EVENTRECORD
+_WRITEEVENTS.fields_by_name["events"].message_type = _NEWEVENT
+_WRITEEVENTSCOMPLETED.fields_by_name["result"].enum_type = _OPERATIONRESULT
+_DELETESTREAMCOMPLETED.fields_by_name["result"].enum_type = _OPERATIONRESULT
+_TRANSACTIONSTARTCOMPLETED.fields_by_name["result"].enum_type = _OPERATIONRESULT
+_TRANSACTIONWRITE.fields_by_name["events"].message_type = _NEWEVENT
+_TRANSACTIONWRITECOMPLETED.fields_by_name["result"].enum_type = _OPERATIONRESULT
+_TRANSACTIONCOMMITCOMPLETED.fields_by_name["result"].enum_type = _OPERATIONRESULT
 _READEVENTCOMPLETED.fields_by_name[
-    'result'
+    "result"
 ].enum_type = _READEVENTCOMPLETED_READEVENTRESULT
-_READEVENTCOMPLETED.fields_by_name['event'].message_type = _RESOLVEDINDEXEDEVENT
+_READEVENTCOMPLETED.fields_by_name["event"].message_type = _RESOLVEDINDEXEDEVENT
 _READEVENTCOMPLETED_READEVENTRESULT.containing_type = _READEVENTCOMPLETED
-_READSTREAMEVENTSCOMPLETED.fields_by_name['events'
-                                         ].message_type = _RESOLVEDINDEXEDEVENT
+_READSTREAMEVENTSCOMPLETED.fields_by_name["events"].message_type = _RESOLVEDINDEXEDEVENT
 _READSTREAMEVENTSCOMPLETED.fields_by_name[
-    'result'
+    "result"
 ].enum_type = _READSTREAMEVENTSCOMPLETED_READSTREAMRESULT
 _READSTREAMEVENTSCOMPLETED_READSTREAMRESULT.containing_type = _READSTREAMEVENTSCOMPLETED
-_READALLEVENTSCOMPLETED.fields_by_name['events'].message_type = _RESOLVEDEVENT
+_READALLEVENTSCOMPLETED.fields_by_name["events"].message_type = _RESOLVEDEVENT
 _READALLEVENTSCOMPLETED.fields_by_name[
-    'result'
+    "result"
 ].enum_type = _READALLEVENTSCOMPLETED_READALLRESULT
 _READALLEVENTSCOMPLETED_READALLRESULT.containing_type = _READALLEVENTSCOMPLETED
 _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED.fields_by_name[
-    'result'
+    "result"
 ].enum_type = _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED_UPDATEPERSISTENTSUBSCRIPTIONRESULT
-_UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED_UPDATEPERSISTENTSUBSCRIPTIONRESULT.containing_type = _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED
+_UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED_UPDATEPERSISTENTSUBSCRIPTIONRESULT.containing_type = (
+    _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED
+)
 _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED.fields_by_name[
-    'result'
+    "result"
 ].enum_type = _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED_CREATEPERSISTENTSUBSCRIPTIONRESULT
-_CREATEPERSISTENTSUBSCRIPTIONCOMPLETED_CREATEPERSISTENTSUBSCRIPTIONRESULT.containing_type = _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED
+_CREATEPERSISTENTSUBSCRIPTIONCOMPLETED_CREATEPERSISTENTSUBSCRIPTIONRESULT.containing_type = (
+    _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED
+)
 _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED.fields_by_name[
-    'result'
+    "result"
 ].enum_type = _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED_DELETEPERSISTENTSUBSCRIPTIONRESULT
-_DELETEPERSISTENTSUBSCRIPTIONCOMPLETED_DELETEPERSISTENTSUBSCRIPTIONRESULT.containing_type = _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED
+_DELETEPERSISTENTSUBSCRIPTIONCOMPLETED_DELETEPERSISTENTSUBSCRIPTIONRESULT.containing_type = (
+    _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED
+)
 _PERSISTENTSUBSCRIPTIONNAKEVENTS.fields_by_name[
-    'action'
+    "action"
 ].enum_type = _PERSISTENTSUBSCRIPTIONNAKEVENTS_NAKACTION
-_PERSISTENTSUBSCRIPTIONNAKEVENTS_NAKACTION.containing_type = _PERSISTENTSUBSCRIPTIONNAKEVENTS
+_PERSISTENTSUBSCRIPTIONNAKEVENTS_NAKACTION.containing_type = (
+    _PERSISTENTSUBSCRIPTIONNAKEVENTS
+)
 _PERSISTENTSUBSCRIPTIONSTREAMEVENTAPPEARED.fields_by_name[
-    'event'
+    "event"
 ].message_type = _RESOLVEDINDEXEDEVENT
-_STREAMEVENTAPPEARED.fields_by_name['event'].message_type = _RESOLVEDEVENT
+_STREAMEVENTAPPEARED.fields_by_name["event"].message_type = _RESOLVEDEVENT
 _SUBSCRIPTIONDROPPED.fields_by_name[
-    'reason'
+    "reason"
 ].enum_type = _SUBSCRIPTIONDROPPED_SUBSCRIPTIONDROPREASON
 _SUBSCRIPTIONDROPPED_SUBSCRIPTIONDROPREASON.containing_type = _SUBSCRIPTIONDROPPED
 _NOTHANDLED_MASTERINFO.containing_type = _NOTHANDLED
-_NOTHANDLED.fields_by_name['reason'].enum_type = _NOTHANDLED_NOTHANDLEDREASON
+_NOTHANDLED.fields_by_name["reason"].enum_type = _NOTHANDLED_NOTHANDLEDREASON
 _NOTHANDLED_NOTHANDLEDREASON.containing_type = _NOTHANDLED
 _SCAVENGEDATABASECOMPLETED.fields_by_name[
-    'result'
+    "result"
 ].enum_type = _SCAVENGEDATABASECOMPLETED_SCAVENGERESULT
 _SCAVENGEDATABASECOMPLETED_SCAVENGERESULT.containing_type = _SCAVENGEDATABASECOMPLETED
-DESCRIPTOR.message_types_by_name['NewEvent'] = _NEWEVENT
-DESCRIPTOR.message_types_by_name['EventRecord'] = _EVENTRECORD
-DESCRIPTOR.message_types_by_name['ResolvedIndexedEvent'] = _RESOLVEDINDEXEDEVENT
-DESCRIPTOR.message_types_by_name['ResolvedEvent'] = _RESOLVEDEVENT
-DESCRIPTOR.message_types_by_name['WriteEvents'] = _WRITEEVENTS
-DESCRIPTOR.message_types_by_name['WriteEventsCompleted'] = _WRITEEVENTSCOMPLETED
-DESCRIPTOR.message_types_by_name['DeleteStream'] = _DELETESTREAM
-DESCRIPTOR.message_types_by_name['DeleteStreamCompleted'
-                                ] = _DELETESTREAMCOMPLETED
-DESCRIPTOR.message_types_by_name['TransactionStart'] = _TRANSACTIONSTART
-DESCRIPTOR.message_types_by_name['TransactionStartCompleted'
-                                ] = _TRANSACTIONSTARTCOMPLETED
-DESCRIPTOR.message_types_by_name['TransactionWrite'] = _TRANSACTIONWRITE
-DESCRIPTOR.message_types_by_name['TransactionWriteCompleted'
-                                ] = _TRANSACTIONWRITECOMPLETED
-DESCRIPTOR.message_types_by_name['TransactionCommit'] = _TRANSACTIONCOMMIT
-DESCRIPTOR.message_types_by_name['TransactionCommitCompleted'
-                                ] = _TRANSACTIONCOMMITCOMPLETED
-DESCRIPTOR.message_types_by_name['ReadEvent'] = _READEVENT
-DESCRIPTOR.message_types_by_name['ReadEventCompleted'] = _READEVENTCOMPLETED
-DESCRIPTOR.message_types_by_name['ReadStreamEvents'] = _READSTREAMEVENTS
-DESCRIPTOR.message_types_by_name['ReadStreamEventsCompleted'
-                                ] = _READSTREAMEVENTSCOMPLETED
-DESCRIPTOR.message_types_by_name['ReadAllEvents'] = _READALLEVENTS
-DESCRIPTOR.message_types_by_name['ReadAllEventsCompleted'
-                                ] = _READALLEVENTSCOMPLETED
-DESCRIPTOR.message_types_by_name['CreatePersistentSubscription'
-                                ] = _CREATEPERSISTENTSUBSCRIPTION
-DESCRIPTOR.message_types_by_name['DeletePersistentSubscription'
-                                ] = _DELETEPERSISTENTSUBSCRIPTION
-DESCRIPTOR.message_types_by_name['UpdatePersistentSubscription'
-                                ] = _UPDATEPERSISTENTSUBSCRIPTION
-DESCRIPTOR.message_types_by_name['UpdatePersistentSubscriptionCompleted'
-                                ] = _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED
-DESCRIPTOR.message_types_by_name['CreatePersistentSubscriptionCompleted'
-                                ] = _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED
-DESCRIPTOR.message_types_by_name['DeletePersistentSubscriptionCompleted'
-                                ] = _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED
-DESCRIPTOR.message_types_by_name['ConnectToPersistentSubscription'
-                                ] = _CONNECTTOPERSISTENTSUBSCRIPTION
-DESCRIPTOR.message_types_by_name['PersistentSubscriptionAckEvents'
-                                ] = _PERSISTENTSUBSCRIPTIONACKEVENTS
-DESCRIPTOR.message_types_by_name['PersistentSubscriptionNakEvents'
-                                ] = _PERSISTENTSUBSCRIPTIONNAKEVENTS
-DESCRIPTOR.message_types_by_name['PersistentSubscriptionConfirmation'
-                                ] = _PERSISTENTSUBSCRIPTIONCONFIRMATION
-DESCRIPTOR.message_types_by_name['PersistentSubscriptionStreamEventAppeared'
-                                ] = _PERSISTENTSUBSCRIPTIONSTREAMEVENTAPPEARED
-DESCRIPTOR.message_types_by_name['SubscribeToStream'] = _SUBSCRIBETOSTREAM
-DESCRIPTOR.message_types_by_name['SubscriptionConfirmation'
-                                ] = _SUBSCRIPTIONCONFIRMATION
-DESCRIPTOR.message_types_by_name['StreamEventAppeared'] = _STREAMEVENTAPPEARED
-DESCRIPTOR.message_types_by_name['UnsubscribeFromStream'
-                                ] = _UNSUBSCRIBEFROMSTREAM
-DESCRIPTOR.message_types_by_name['Ping'] = _PING
-DESCRIPTOR.message_types_by_name['Pong'] = _PONG
-DESCRIPTOR.message_types_by_name['SubscriptionDropped'] = _SUBSCRIPTIONDROPPED
-DESCRIPTOR.message_types_by_name['NotHandled'] = _NOTHANDLED
-DESCRIPTOR.message_types_by_name['ScavengeDatabase'] = _SCAVENGEDATABASE
-DESCRIPTOR.message_types_by_name['ScavengeDatabaseCompleted'
-                                ] = _SCAVENGEDATABASECOMPLETED
-DESCRIPTOR.enum_types_by_name['OperationResult'] = _OPERATIONRESULT
+DESCRIPTOR.message_types_by_name["NewEvent"] = _NEWEVENT
+DESCRIPTOR.message_types_by_name["EventRecord"] = _EVENTRECORD
+DESCRIPTOR.message_types_by_name["ResolvedIndexedEvent"] = _RESOLVEDINDEXEDEVENT
+DESCRIPTOR.message_types_by_name["ResolvedEvent"] = _RESOLVEDEVENT
+DESCRIPTOR.message_types_by_name["WriteEvents"] = _WRITEEVENTS
+DESCRIPTOR.message_types_by_name["WriteEventsCompleted"] = _WRITEEVENTSCOMPLETED
+DESCRIPTOR.message_types_by_name["DeleteStream"] = _DELETESTREAM
+DESCRIPTOR.message_types_by_name["DeleteStreamCompleted"] = _DELETESTREAMCOMPLETED
+DESCRIPTOR.message_types_by_name["TransactionStart"] = _TRANSACTIONSTART
+DESCRIPTOR.message_types_by_name[
+    "TransactionStartCompleted"
+] = _TRANSACTIONSTARTCOMPLETED
+DESCRIPTOR.message_types_by_name["TransactionWrite"] = _TRANSACTIONWRITE
+DESCRIPTOR.message_types_by_name[
+    "TransactionWriteCompleted"
+] = _TRANSACTIONWRITECOMPLETED
+DESCRIPTOR.message_types_by_name["TransactionCommit"] = _TRANSACTIONCOMMIT
+DESCRIPTOR.message_types_by_name[
+    "TransactionCommitCompleted"
+] = _TRANSACTIONCOMMITCOMPLETED
+DESCRIPTOR.message_types_by_name["ReadEvent"] = _READEVENT
+DESCRIPTOR.message_types_by_name["ReadEventCompleted"] = _READEVENTCOMPLETED
+DESCRIPTOR.message_types_by_name["ReadStreamEvents"] = _READSTREAMEVENTS
+DESCRIPTOR.message_types_by_name[
+    "ReadStreamEventsCompleted"
+] = _READSTREAMEVENTSCOMPLETED
+DESCRIPTOR.message_types_by_name["ReadAllEvents"] = _READALLEVENTS
+DESCRIPTOR.message_types_by_name["ReadAllEventsCompleted"] = _READALLEVENTSCOMPLETED
+DESCRIPTOR.message_types_by_name[
+    "CreatePersistentSubscription"
+] = _CREATEPERSISTENTSUBSCRIPTION
+DESCRIPTOR.message_types_by_name[
+    "DeletePersistentSubscription"
+] = _DELETEPERSISTENTSUBSCRIPTION
+DESCRIPTOR.message_types_by_name[
+    "UpdatePersistentSubscription"
+] = _UPDATEPERSISTENTSUBSCRIPTION
+DESCRIPTOR.message_types_by_name[
+    "UpdatePersistentSubscriptionCompleted"
+] = _UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED
+DESCRIPTOR.message_types_by_name[
+    "CreatePersistentSubscriptionCompleted"
+] = _CREATEPERSISTENTSUBSCRIPTIONCOMPLETED
+DESCRIPTOR.message_types_by_name[
+    "DeletePersistentSubscriptionCompleted"
+] = _DELETEPERSISTENTSUBSCRIPTIONCOMPLETED
+DESCRIPTOR.message_types_by_name[
+    "ConnectToPersistentSubscription"
+] = _CONNECTTOPERSISTENTSUBSCRIPTION
+DESCRIPTOR.message_types_by_name[
+    "PersistentSubscriptionAckEvents"
+] = _PERSISTENTSUBSCRIPTIONACKEVENTS
+DESCRIPTOR.message_types_by_name[
+    "PersistentSubscriptionNakEvents"
+] = _PERSISTENTSUBSCRIPTIONNAKEVENTS
+DESCRIPTOR.message_types_by_name[
+    "PersistentSubscriptionConfirmation"
+] = _PERSISTENTSUBSCRIPTIONCONFIRMATION
+DESCRIPTOR.message_types_by_name[
+    "PersistentSubscriptionStreamEventAppeared"
+] = _PERSISTENTSUBSCRIPTIONSTREAMEVENTAPPEARED
+DESCRIPTOR.message_types_by_name["SubscribeToStream"] = _SUBSCRIBETOSTREAM
+DESCRIPTOR.message_types_by_name["SubscriptionConfirmation"] = _SUBSCRIPTIONCONFIRMATION
+DESCRIPTOR.message_types_by_name["StreamEventAppeared"] = _STREAMEVENTAPPEARED
+DESCRIPTOR.message_types_by_name["UnsubscribeFromStream"] = _UNSUBSCRIBEFROMSTREAM
+DESCRIPTOR.message_types_by_name["Ping"] = _PING
+DESCRIPTOR.message_types_by_name["Pong"] = _PONG
+DESCRIPTOR.message_types_by_name["SubscriptionDropped"] = _SUBSCRIPTIONDROPPED
+DESCRIPTOR.message_types_by_name["NotHandled"] = _NOTHANDLED
+DESCRIPTOR.message_types_by_name["ScavengeDatabase"] = _SCAVENGEDATABASE
+DESCRIPTOR.message_types_by_name[
+    "ScavengeDatabaseCompleted"
+] = _SCAVENGEDATABASECOMPLETED
+DESCRIPTOR.enum_types_by_name["OperationResult"] = _OPERATIONRESULT
 
 NewEvent = _reflection.GeneratedProtocolMessageType(
-    'NewEvent',
-    (_message.Message, ),
+    "NewEvent",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_NEWEVENT,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.NewEvent)
-    )
+    ),
 )
 _sym_db.RegisterMessage(NewEvent)
 
 EventRecord = _reflection.GeneratedProtocolMessageType(
-    'EventRecord',
-    (_message.Message, ),
+    "EventRecord",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_EVENTRECORD,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.EventRecord)
-    )
+    ),
 )
 _sym_db.RegisterMessage(EventRecord)
 
 ResolvedIndexedEvent = _reflection.GeneratedProtocolMessageType(
-    'ResolvedIndexedEvent',
-    (_message.Message, ),
+    "ResolvedIndexedEvent",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_RESOLVEDINDEXEDEVENT,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.ResolvedIndexedEvent)
-    )
+    ),
 )
 _sym_db.RegisterMessage(ResolvedIndexedEvent)
 
 ResolvedEvent = _reflection.GeneratedProtocolMessageType(
-    'ResolvedEvent',
-    (_message.Message, ),
+    "ResolvedEvent",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_RESOLVEDEVENT,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.ResolvedEvent)
-    )
+    ),
 )
 _sym_db.RegisterMessage(ResolvedEvent)
 
 WriteEvents = _reflection.GeneratedProtocolMessageType(
-    'WriteEvents',
-    (_message.Message, ),
+    "WriteEvents",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_WRITEEVENTS,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.WriteEvents)
-    )
+    ),
 )
 _sym_db.RegisterMessage(WriteEvents)
 
 WriteEventsCompleted = _reflection.GeneratedProtocolMessageType(
-    'WriteEventsCompleted',
-    (_message.Message, ),
+    "WriteEventsCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_WRITEEVENTSCOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.WriteEventsCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(WriteEventsCompleted)
 
 DeleteStream = _reflection.GeneratedProtocolMessageType(
-    'DeleteStream',
-    (_message.Message, ),
+    "DeleteStream",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_DELETESTREAM,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.DeleteStream)
-    )
+    ),
 )
 _sym_db.RegisterMessage(DeleteStream)
 
 DeleteStreamCompleted = _reflection.GeneratedProtocolMessageType(
-    'DeleteStreamCompleted',
-    (_message.Message, ),
+    "DeleteStreamCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_DELETESTREAMCOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.DeleteStreamCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(DeleteStreamCompleted)
 
 TransactionStart = _reflection.GeneratedProtocolMessageType(
-    'TransactionStart',
-    (_message.Message, ),
+    "TransactionStart",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_TRANSACTIONSTART,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.TransactionStart)
-    )
+    ),
 )
 _sym_db.RegisterMessage(TransactionStart)
 
 TransactionStartCompleted = _reflection.GeneratedProtocolMessageType(
-    'TransactionStartCompleted',
-    (_message.Message, ),
+    "TransactionStartCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_TRANSACTIONSTARTCOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.TransactionStartCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(TransactionStartCompleted)
 
 TransactionWrite = _reflection.GeneratedProtocolMessageType(
-    'TransactionWrite',
-    (_message.Message, ),
+    "TransactionWrite",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_TRANSACTIONWRITE,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.TransactionWrite)
-    )
+    ),
 )
 _sym_db.RegisterMessage(TransactionWrite)
 
 TransactionWriteCompleted = _reflection.GeneratedProtocolMessageType(
-    'TransactionWriteCompleted',
-    (_message.Message, ),
+    "TransactionWriteCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_TRANSACTIONWRITECOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.TransactionWriteCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(TransactionWriteCompleted)
 
 TransactionCommit = _reflection.GeneratedProtocolMessageType(
-    'TransactionCommit',
-    (_message.Message, ),
+    "TransactionCommit",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_TRANSACTIONCOMMIT,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.TransactionCommit)
-    )
+    ),
 )
 _sym_db.RegisterMessage(TransactionCommit)
 
 TransactionCommitCompleted = _reflection.GeneratedProtocolMessageType(
-    'TransactionCommitCompleted',
-    (_message.Message, ),
+    "TransactionCommitCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_TRANSACTIONCOMMITCOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.TransactionCommitCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(TransactionCommitCompleted)
 
 ReadEvent = _reflection.GeneratedProtocolMessageType(
-    'ReadEvent',
-    (_message.Message, ),
+    "ReadEvent",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_READEVENT,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.ReadEvent)
-    )
+    ),
 )
 _sym_db.RegisterMessage(ReadEvent)
 
 ReadEventCompleted = _reflection.GeneratedProtocolMessageType(
-    'ReadEventCompleted',
-    (_message.Message, ),
+    "ReadEventCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_READEVENTCOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.ReadEventCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(ReadEventCompleted)
 
 ReadStreamEvents = _reflection.GeneratedProtocolMessageType(
-    'ReadStreamEvents',
-    (_message.Message, ),
+    "ReadStreamEvents",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_READSTREAMEVENTS,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.ReadStreamEvents)
-    )
+    ),
 )
 _sym_db.RegisterMessage(ReadStreamEvents)
 
 ReadStreamEventsCompleted = _reflection.GeneratedProtocolMessageType(
-    'ReadStreamEventsCompleted',
-    (_message.Message, ),
+    "ReadStreamEventsCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_READSTREAMEVENTSCOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.ReadStreamEventsCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(ReadStreamEventsCompleted)
 
 ReadAllEvents = _reflection.GeneratedProtocolMessageType(
-    'ReadAllEvents',
-    (_message.Message, ),
+    "ReadAllEvents",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_READALLEVENTS,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.ReadAllEvents)
-    )
+    ),
 )
 _sym_db.RegisterMessage(ReadAllEvents)
 
 ReadAllEventsCompleted = _reflection.GeneratedProtocolMessageType(
-    'ReadAllEventsCompleted',
-    (_message.Message, ),
+    "ReadAllEventsCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_READALLEVENTSCOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.ReadAllEventsCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(ReadAllEventsCompleted)
 
 CreatePersistentSubscription = _reflection.GeneratedProtocolMessageType(
-    'CreatePersistentSubscription',
-    (_message.Message, ),
+    "CreatePersistentSubscription",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_CREATEPERSISTENTSUBSCRIPTION,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.CreatePersistentSubscription)
-    )
+    ),
 )
 _sym_db.RegisterMessage(CreatePersistentSubscription)
 
 DeletePersistentSubscription = _reflection.GeneratedProtocolMessageType(
-    'DeletePersistentSubscription',
-    (_message.Message, ),
+    "DeletePersistentSubscription",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_DELETEPERSISTENTSUBSCRIPTION,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.DeletePersistentSubscription)
-    )
+    ),
 )
 _sym_db.RegisterMessage(DeletePersistentSubscription)
 
 UpdatePersistentSubscription = _reflection.GeneratedProtocolMessageType(
-    'UpdatePersistentSubscription',
-    (_message.Message, ),
+    "UpdatePersistentSubscription",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_UPDATEPERSISTENTSUBSCRIPTION,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.UpdatePersistentSubscription)
-    )
+    ),
 )
 _sym_db.RegisterMessage(UpdatePersistentSubscription)
 
 UpdatePersistentSubscriptionCompleted = _reflection.GeneratedProtocolMessageType(
-    'UpdatePersistentSubscriptionCompleted',
-    (_message.Message, ),
+    "UpdatePersistentSubscriptionCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_UPDATEPERSISTENTSUBSCRIPTIONCOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(UpdatePersistentSubscriptionCompleted)
 
 CreatePersistentSubscriptionCompleted = _reflection.GeneratedProtocolMessageType(
-    'CreatePersistentSubscriptionCompleted',
-    (_message.Message, ),
+    "CreatePersistentSubscriptionCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_CREATEPERSISTENTSUBSCRIPTIONCOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.CreatePersistentSubscriptionCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(CreatePersistentSubscriptionCompleted)
 
 DeletePersistentSubscriptionCompleted = _reflection.GeneratedProtocolMessageType(
-    'DeletePersistentSubscriptionCompleted',
-    (_message.Message, ),
+    "DeletePersistentSubscriptionCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_DELETEPERSISTENTSUBSCRIPTIONCOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.DeletePersistentSubscriptionCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(DeletePersistentSubscriptionCompleted)
 
 ConnectToPersistentSubscription = _reflection.GeneratedProtocolMessageType(
-    'ConnectToPersistentSubscription',
-    (_message.Message, ),
+    "ConnectToPersistentSubscription",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_CONNECTTOPERSISTENTSUBSCRIPTION,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.ConnectToPersistentSubscription)
-    )
+    ),
 )
 _sym_db.RegisterMessage(ConnectToPersistentSubscription)
 
 PersistentSubscriptionAckEvents = _reflection.GeneratedProtocolMessageType(
-    'PersistentSubscriptionAckEvents',
-    (_message.Message, ),
+    "PersistentSubscriptionAckEvents",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_PERSISTENTSUBSCRIPTIONACKEVENTS,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.PersistentSubscriptionAckEvents)
-    )
+    ),
 )
 _sym_db.RegisterMessage(PersistentSubscriptionAckEvents)
 
 PersistentSubscriptionNakEvents = _reflection.GeneratedProtocolMessageType(
-    'PersistentSubscriptionNakEvents',
-    (_message.Message, ),
+    "PersistentSubscriptionNakEvents",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_PERSISTENTSUBSCRIPTIONNAKEVENTS,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.PersistentSubscriptionNakEvents)
-    )
+    ),
 )
 _sym_db.RegisterMessage(PersistentSubscriptionNakEvents)
 
 PersistentSubscriptionConfirmation = _reflection.GeneratedProtocolMessageType(
-    'PersistentSubscriptionConfirmation',
-    (_message.Message, ),
+    "PersistentSubscriptionConfirmation",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_PERSISTENTSUBSCRIPTIONCONFIRMATION,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.PersistentSubscriptionConfirmation)
-    )
+    ),
 )
 _sym_db.RegisterMessage(PersistentSubscriptionConfirmation)
 
 PersistentSubscriptionStreamEventAppeared = _reflection.GeneratedProtocolMessageType(
-    'PersistentSubscriptionStreamEventAppeared',
-    (_message.Message, ),
+    "PersistentSubscriptionStreamEventAppeared",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_PERSISTENTSUBSCRIPTIONSTREAMEVENTAPPEARED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.PersistentSubscriptionStreamEventAppeared)
-    )
+    ),
 )
 _sym_db.RegisterMessage(PersistentSubscriptionStreamEventAppeared)
 
 SubscribeToStream = _reflection.GeneratedProtocolMessageType(
-    'SubscribeToStream',
-    (_message.Message, ),
+    "SubscribeToStream",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_SUBSCRIBETOSTREAM,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.SubscribeToStream)
-    )
+    ),
 )
 _sym_db.RegisterMessage(SubscribeToStream)
 
 SubscriptionConfirmation = _reflection.GeneratedProtocolMessageType(
-    'SubscriptionConfirmation',
-    (_message.Message, ),
+    "SubscriptionConfirmation",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_SUBSCRIPTIONCONFIRMATION,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.SubscriptionConfirmation)
-    )
+    ),
 )
 _sym_db.RegisterMessage(SubscriptionConfirmation)
 
 StreamEventAppeared = _reflection.GeneratedProtocolMessageType(
-    'StreamEventAppeared',
-    (_message.Message, ),
+    "StreamEventAppeared",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_STREAMEVENTAPPEARED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.StreamEventAppeared)
-    )
+    ),
 )
 _sym_db.RegisterMessage(StreamEventAppeared)
 
 UnsubscribeFromStream = _reflection.GeneratedProtocolMessageType(
-    'UnsubscribeFromStream',
-    (_message.Message, ),
+    "UnsubscribeFromStream",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_UNSUBSCRIBEFROMSTREAM,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.UnsubscribeFromStream)
-    )
+    ),
 )
 _sym_db.RegisterMessage(UnsubscribeFromStream)
 
 Ping = _reflection.GeneratedProtocolMessageType(
-    'Ping',
-    (_message.Message, ),
+    "Ping",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_PING,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.Ping)
-    )
+    ),
 )
 _sym_db.RegisterMessage(Ping)
 
 Pong = _reflection.GeneratedProtocolMessageType(
-    'Pong',
-    (_message.Message, ),
+    "Pong",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_PONG,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.Pong)
-    )
+    ),
 )
 _sym_db.RegisterMessage(Pong)
 
 SubscriptionDropped = _reflection.GeneratedProtocolMessageType(
-    'SubscriptionDropped',
-    (_message.Message, ),
+    "SubscriptionDropped",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_SUBSCRIPTIONDROPPED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.SubscriptionDropped)
-    )
+    ),
 )
 _sym_db.RegisterMessage(SubscriptionDropped)
 
 NotHandled = _reflection.GeneratedProtocolMessageType(
-    'NotHandled',
-    (_message.Message, ),
+    "NotHandled",
+    (_message.Message,),
     dict(
         MasterInfo=_reflection.GeneratedProtocolMessageType(
-            'MasterInfo',
-            (_message.Message, ),
+            "MasterInfo",
+            (_message.Message,),
             dict(
                 DESCRIPTOR=_NOTHANDLED_MASTERINFO,
-                __module__='messages_pb2'
+                __module__="messages_pb2"
                 # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.NotHandled.MasterInfo)
-            )
+            ),
         ),
         DESCRIPTOR=_NOTHANDLED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.NotHandled)
-    )
+    ),
 )
 _sym_db.RegisterMessage(NotHandled)
 _sym_db.RegisterMessage(NotHandled.MasterInfo)
 
 ScavengeDatabase = _reflection.GeneratedProtocolMessageType(
-    'ScavengeDatabase',
-    (_message.Message, ),
+    "ScavengeDatabase",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_SCAVENGEDATABASE,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.ScavengeDatabase)
-    )
+    ),
 )
 _sym_db.RegisterMessage(ScavengeDatabase)
 
 ScavengeDatabaseCompleted = _reflection.GeneratedProtocolMessageType(
-    'ScavengeDatabaseCompleted',
-    (_message.Message, ),
+    "ScavengeDatabaseCompleted",
+    (_message.Message,),
     dict(
         DESCRIPTOR=_SCAVENGEDATABASECOMPLETED,
-        __module__='messages_pb2'
+        __module__="messages_pb2"
         # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.ScavengeDatabaseCompleted)
-    )
+    ),
 )
 _sym_db.RegisterMessage(ScavengeDatabaseCompleted)
 

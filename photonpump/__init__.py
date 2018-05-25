@@ -22,9 +22,7 @@ def insane(self, message, *args, **kws):
 
 def get_named_logger(cls, name=None):
     if name:
-        return logging.getLogger(
-            "%s.%s.%s" % (cls.__module__, cls.__name__, name)
-        )
+        return logging.getLogger("%s.%s.%s" % (cls.__module__, cls.__name__, name))
 
     return logging.getLogger("%s.%s" % (cls.__module__, cls.__name__))
 
