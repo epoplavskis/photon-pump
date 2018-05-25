@@ -80,8 +80,6 @@ class MagicConversation:
         pass
 
     def expect_only(self, command: TcpCommand, response: InboundMessage):
-        logging.error(command)
-        logging.error(response)
         if response.command != command:
             raise exceptions.UnexpectedCommand(command, response.command)
 
@@ -89,16 +87,16 @@ class MagicConversation:
         try:
             if response.command is TcpCommand.BadRequest:
                 return await self.conversation_error(
-                    exceptions.BadRequest, response, output
+                    exceptions.BadRequest, response
                 )
 
             if response.command is TcpCommand.NotAuthenticated:
                 return await self.conversation_error(
-                    exceptions.NotAuthenticated, response, output
+                    exceptions.NotAuthenticated, response
                 )
 
             if response.command is TcpCommand.NotHandled:
-                return await self.unhandled_message(response, output)
+                return await self.unhandled_message(response)
 
             return await self.reply(response, output)
         except Exception as exn:
@@ -110,7 +108,7 @@ class MagicConversation:
                 )
             )
 
-    async def unhandled_message(self, response, queue) -> None:
+    async def unhandled_message(self, response) -> None:
         body = proto.NotHandled()
         body.ParseFromString(response.payload)
 
@@ -125,7 +123,7 @@ class MagicConversation:
 
         return await self.error(exn)
 
-    async def conversation_error(self, exn_type, response, queue) -> None:
+    async def conversation_error(self, exn_type, response) -> None:
         error = response.payload.decode('UTF-8')
         exn = exn_type(self.conversation_id, error)
 

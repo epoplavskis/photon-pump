@@ -182,7 +182,6 @@ class Connector:
             address, protocol
         )
         self.active_protocol = protocol
-        self.log.info(self.dispatcher)
         await self.dispatcher.write_to(protocol.output_queue)
         self.connected(address)
 
@@ -507,8 +506,8 @@ class MessageDispatcher:
 
             if not conversation.one_way:
                 self.active_conversations[conversation.conversation_id] = (conversation, None)
-            future = await conversation.start(self.output)
-            return future
+            await conversation.start(self.output)
+            return conversation.result
 
         else:
 
