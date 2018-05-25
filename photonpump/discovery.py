@@ -9,7 +9,7 @@ from typing import Iterable, List, NamedTuple, Optional
 import aiodns
 import aiohttp
 
-LOG = logging.getLogger('photonpump.discovery')
+LOG = logging.getLogger("photonpump.discovery")
 
 
 class NodeState(IntEnum):
@@ -26,9 +26,7 @@ class NodeState(IntEnum):
     Shutdown = 10
 
 
-INELIGIBLE_STATE = [
-    NodeState.Manager, NodeState.ShuttingDown, NodeState.Shutdown
-]
+INELIGIBLE_STATE = [NodeState.Manager, NodeState.ShuttingDown, NodeState.Shutdown]
 
 
 class NodeService(NamedTuple):
@@ -58,8 +56,7 @@ def first(elems: Iterable):
 
 def select(gossip: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
     eligible_nodes = [
-        node for node in gossip
-        if node.is_alive and node.state not in INELIGIBLE_STATE
+        node for node in gossip if node.is_alive and node.state not in INELIGIBLE_STATE
     ]
 
     LOG.debug("Selecting node from gossip members: %r" % eligible_nodes)
@@ -67,7 +64,7 @@ def select(gossip: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
     if not eligible_nodes:
         return None
 
-    return max(eligible_nodes, key=attrgetter('state'))
+    return max(eligible_nodes, key=attrgetter("state"))
 
 
 def read_gossip(data):
@@ -80,21 +77,14 @@ def read_gossip(data):
 
     return [
         DiscoveredNode(
-            state=NodeState[m['state']],
-            is_alive=m['isAlive'],
-            internal_tcp=NodeService(
-                m['internalTcpIp'], m['internalTcpPort'], None
-            ),
-            external_tcp=NodeService(
-                m['externalTcpIp'], m['externalTcpPort'], None
-            ),
-            internal_http=NodeService(
-                m['internalHttpIp'], m['internalHttpPort'], None
-            ),
-            external_http=NodeService(
-                m['externalHttpIp'], m['externalHttpPort'], None
-            )
-        ) for m in data['members']
+            state=NodeState[m["state"]],
+            is_alive=m["isAlive"],
+            internal_tcp=NodeService(m["internalTcpIp"], m["internalTcpPort"], None),
+            external_tcp=NodeService(m["externalTcpIp"], m["externalTcpPort"], None),
+            internal_http=NodeService(m["internalHttpIp"], m["internalHttpPort"], None),
+            external_http=NodeService(m["externalHttpIp"], m["externalHttpPort"], None),
+        )
+        for m in data["members"]
     ]
 
 
@@ -135,7 +125,7 @@ class DnsSeedFinder:
         self.resolver = resolver
         self.port = port
         self.seeds = []
-        self.failed_node = NodeService('_', 0, None)
+        self.failed_node = NodeService("_", 0, None)
 
     async def reset_to_dns(self):
         max_attempt = 100
@@ -144,21 +134,21 @@ class DnsSeedFinder:
         while current_attempt < max_attempt:
             LOG.info(
                 "Attempting to discover gossip nodes from DNS name %s; "
-                "attempt %d of %d", self.name, current_attempt, max_attempt
+                "attempt %d of %d",
+                self.name,
+                current_attempt,
+                max_attempt,
             )
             try:
-                result = await self.resolver.query(self.name, 'A')
+                result = await self.resolver.query(self.name, "A")
                 random.shuffle(result)
 
                 if result:
-                    LOG.debug(
-                        f"Found { len(result) } hosts for name {self.name}"
-                    )
+                    LOG.debug(f"Found { len(result) } hosts for name {self.name}")
                     current_attempt = 0
                     self.seeds = [
-                        NodeService(
-                            address=node.host, port=self.port, secure_port=None
-                        ) for node in result
+                        NodeService(address=node.host, port=self.port, secure_port=None)
+                        for node in result
                         if node.host != self.failed_node.address
                     ]
 
@@ -167,7 +157,7 @@ class DnsSeedFinder:
                 LOG.warning(
                     "Failed to fetch gossip seeds for dns name %s",
                     self.name,
-                    exc_info=True
+                    exc_info=True,
                 )
             current_attempt += 1
             await asyncio.sleep(1)
@@ -196,7 +186,7 @@ async def fetch_new_gossip(session, seed):
 
     LOG.debug(f"Fetching gossip from http://{seed.address}:{seed.port}/gossip")
     try:
-        resp = await session.get(f'http://{seed.address}:{seed.port}/gossip')
+        resp = await session.get(f"http://{seed.address}:{seed.port}/gossip")
         data = await resp.json()
 
         return read_gossip(data)
@@ -246,7 +236,7 @@ class Stats(dict):
         self[node] = val._replace(
             attempts=(val.attempts + 1),
             successes=(val.successes + 1),
-            consecutive_failures=0
+            consecutive_failures=0,
         )
 
     def record_failure(self, node):
@@ -254,7 +244,7 @@ class Stats(dict):
         self[node] = val._replace(
             attempts=(val.attempts + 1),
             failures=(val.failures + 1),
-            consecutive_failures=(val.consecutive_failures + 1)
+            consecutive_failures=(val.consecutive_failures + 1),
         )
 
 
@@ -315,12 +305,12 @@ class ClusterDiscovery:
 class DiscoveryRetryPolicy:
 
     def __init__(
-            self,
-            retries_per_node=3,
-            retry_interval=0.5,
-            jitter=0.5,
-            multiplier=1.5,
-            max_interval=60
+        self,
+        retries_per_node=3,
+        retry_interval=0.5,
+        jitter=0.5,
+        multiplier=1.5,
+        max_interval=60,
     ):
         self.stats = Stats()
         self.retries_per_node = retries_per_node
@@ -341,7 +331,9 @@ class DiscoveryRetryPolicy:
         if stats.consecutive_failures == 0:
             return
 
-        next_interval = self.retry_interval * self.multiplier * stats.consecutive_failures
+        next_interval = (
+            self.retry_interval * self.multiplier * stats.consecutive_failures
+        )
         maxinterval = next_interval + self.jitter
         mininterval = next_interval - self.jitter
         interval = random.uniform(mininterval, maxinterval)
@@ -361,7 +353,7 @@ def get_discoverer(host, port, discovery_host, discovery_port):
     if discovery_host is None:
         LOG.info("Using single-node discoverer")
 
-        return SingleNodeDiscovery(NodeService(host or 'localhost', port, None))
+        return SingleNodeDiscovery(NodeService(host or "localhost", port, None))
 
     session = aiohttp.ClientSession()
     try:
@@ -369,15 +361,16 @@ def get_discoverer(host, port, discovery_host, discovery_port):
         LOG.info("Using cluster node discovery with a static seed")
 
         return ClusterDiscovery(
-            StaticSeedFinder(
-                [NodeService(discovery_host, discovery_port, None)]
-            ), session, DiscoveryRetryPolicy()
+            StaticSeedFinder([NodeService(discovery_host, discovery_port, None)]),
+            session,
+            DiscoveryRetryPolicy(),
         )
     except socket.error:
         LOG.info("Using cluster node discovery with DNS")
         resolver = aiodns.DNSResolver()
 
         return ClusterDiscovery(
-            DnsSeedFinder(discovery_host, resolver, discovery_port), session,
-            DiscoveryRetryPolicy()
+            DnsSeedFinder(discovery_host, resolver, discovery_port),
+            session,
+            DiscoveryRetryPolicy(),
         )

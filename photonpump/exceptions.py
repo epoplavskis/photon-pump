@@ -34,8 +34,10 @@ class ReadError(ConversationException):
 
     def __init__(self, conversation_id, stream, error):
         super().__init__(
-            "Failed to read from stream %s %s" % (stream, error), stream,
-            conversation_id, error
+            "Failed to read from stream %s %s" % (stream, error),
+            stream,
+            conversation_id,
+            error,
         )
         self.stream = stream
         self.conversation_id = conversation_id
@@ -46,7 +48,9 @@ class AccessDenied(ConversationException):
     def __init__(self, conversation_id, type, error, **kwargs):
         super().__init__(
             "Access denied for %s %s" % (type, conversation_id),
-            conversation_id, error, kwargs
+            conversation_id,
+            error,
+            kwargs,
         )
         self.conversation_id = conversation_id
         self.conversation_type = type
@@ -57,7 +61,9 @@ class EventNotFound(ConversationException):
     def __init__(self, conversation_id, stream, event_number):
         super().__init__(
             "No event %d could be found on stream %s" % (event_number, stream),
-            stream, conversation_id, event_number
+            stream,
+            conversation_id,
+            event_number,
         )
         self.stream = stream
         self.event_number = event_number
@@ -82,33 +88,25 @@ class MessageUnhandled(ConversationException):
 class NotReady(ConversationException):
 
     def __init__(self, conversation_id):
-        super().__init__(
-            conversation_id, "Message not handled: Server not ready"
-        )
+        super().__init__(conversation_id, "Message not handled: Server not ready")
 
 
 class TooBusy(ConversationException):
 
     def __init__(self, conversation_id):
-        super().__init__(
-            conversation_id, "Message not handled: Server too busy"
-        )
+        super().__init__(conversation_id, "Message not handled: Server too busy")
 
 
 class NotMaster(ConversationException):
 
     def __init__(self, conversation_id):
-        super().__init__(
-            conversation_id, "Message not handled: Must be sent to master"
-        )
+        super().__init__(conversation_id, "Message not handled: Must be sent to master")
 
 
 class NotHandled(ConversationException):
 
     def __init__(self, conversation_id, reason):
-        super().__init__(
-            conversation_id, "Message not handled: Unknown reason code."
-        )
+        super().__init__(conversation_id, "Message not handled: Unknown reason code.")
 
 
 class PayloadUnreadable(ConversationException):
