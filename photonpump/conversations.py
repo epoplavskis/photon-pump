@@ -240,7 +240,9 @@ class Heartbeat(TimerConversation):
     INBOUND = 0
     OUTBOUND = 1
 
-    def __init__(self, conversation_id: UUID, direction=INBOUND, credential=None) -> None:
+    def __init__(
+            self, conversation_id: UUID, direction=INBOUND, credential=None
+    ) -> None:
         super().__init__(conversation_id, credential=None)
         self.direction = direction
         self.result = Future()
@@ -272,7 +274,6 @@ class Heartbeat(TimerConversation):
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(TcpCommand.HeartbeatResponse, message)
         await super().reply(message, output)
-
 
 
 class Ping(TimerConversation):
@@ -389,9 +390,9 @@ class ReadStreamEventsBehaviour:
     def error(self, exn: Exception):
         pass
 
-    def reply(self, response: InboundMessage):
+    async def reply(self, message: InboundMessage, output: Queue):
         result = self.response_cls()
-        result.ParseFromString(response.payload)
+        result.ParseFromString(message.payload)
 
         if result.result == self.result_type.Success:
             return self.success(result)
@@ -482,7 +483,7 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
         return Reply(ReplyAction.CompleteError, exn, None)
 
 
-class ReadStreamEvents(ReadStreamEventsBehaviour, Conversation):
+class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
     """Command class for reading events from a stream.
 
     Args:
@@ -538,22 +539,23 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, Conversation):
             self.conversation_id, command, data, self.credential
         )
 
-    def start(self):
-        return self._fetch_page_message(self.from_event)
+    async def start(self, output):
+        await output.put(self._fetch_page_message(self.from_event))
 
     def success(self, result: proto.ReadStreamEventsCompleted):
         events = [_make_event(x) for x in result.events]
 
-        return Reply(
-            ReplyAction.CompleteScalar,
+        self.is_complete = True
+        self.result.set_result(
             StreamSlice(
                 events, result.next_event_number, result.last_event_number,
                 None, result.last_commit_position, result.is_end_of_stream
-            ), None
+            )
         )
 
     def error(self, exn):
-        return Reply(ReplyAction.CompleteError, exn, None)
+        self.is_complete = True
+        self.result.set_exception(exn)
 
 
 class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
@@ -855,10 +857,12 @@ class CreatePersistentSubscription(MagicConversation):
         msg.subscriber_max_count = self.subscriber_max_count
         msg.named_consumer_strategy = self.consumer_strategy
 
-        await output.put(OutboundMessage(
-            self.conversation_id, TcpCommand.CreatePersistentSubscription,
-            msg.SerializeToString(), self.credential
-        ))
+        await output.put(
+            OutboundMessage(
+                self.conversation_id, TcpCommand.CreatePersistentSubscription,
+                msg.SerializeToString(), self.credential
+            )
+        )
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(
