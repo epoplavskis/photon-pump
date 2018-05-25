@@ -218,44 +218,73 @@ class Conversation:
         return None
 
 
-class Heartbeat(Conversation):
+class TimerConversation(MagicConversation):
+
+    def __init__(self, conversation_id, credential):
+        super().__init__(conversation_id, credential)
+        self.started_at = time.perf_counter()
+
+    async def start(self, output: Queue) -> None:
+        self.started_at = time.perf_counter()
+
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        logging.info("Replying from conversation %s", self)
+        responded_at = time.perf_counter()
+        self.result.set_result(self.started_at - responded_at)
+        self.is_complete = True
+
+
+class Heartbeat(TimerConversation):
 
     INBOUND = 0
     OUTBOUND = 1
 
-    def __init__(self, conversation_id: UUID, direction=INBOUND) -> None:
-        super().__init__(conversation_id)
+    def __init__(self, conversation_id: UUID, direction=INBOUND, credential=None) -> None:
+        super().__init__(conversation_id, credential=None)
         self.direction = direction
-
-    def start(self):
-
-        if self.direction == Heartbeat.INBOUND:
-            return OutboundMessage(
-                self.conversation_id,
-                TcpCommand.HeartbeatResponse,
-                b'',
-                self.credential,
-                one_way=True
-            )
-        else:
-            return OutboundMessage(
-                self.conversation_id,
-                TcpCommand.HeartbeatRequest,
-                b'',
-                self.credential,
-                one_way=False
-            )
-
-    def reply(self, msg: InboundMessage):
-        self.expect_only(TcpCommand.HeartbeatResponse, msg)
-
-        return Reply(ReplyAction.CompleteScalar, True, None)
-
-
-class Ping(MagicConversation):
+        self.result = Future()
 
     async def start(self, output: Queue) -> Future:
-        self.started_at = time.perf_counter()
+
+        await super().start(output)
+
+        if not output:
+            return
+
+        if self.direction == Heartbeat.INBOUND:
+            one_way = True
+            cmd = TcpCommand.HeartbeatResponse
+        else:
+            one_way = False
+            cmd = TcpCommand.HeartbeatRequest
+
+        await output.put(
+            OutboundMessage(
+                self.conversation_id,
+                cmd,
+                b'',
+                self.credential,
+                one_way=one_way
+            )
+        )
+
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        self.expect_only(TcpCommand.HeartbeatResponse, message)
+        await super().reply(message, output)
+
+    async def error(self, exn: Exception) -> None:
+        self.is_complete = True
+        self.result.set_exception(exn)
+
+
+class Ping(TimerConversation):
+
+    def __init__(self, conversation_id: UUID = None, credential=None) -> None:
+        super().__init__(conversation_id or uuid4(), credential)
+
+    async def start(self, output: Queue) -> Future:
+        await super().start(output)
+
         if output:
             await output.put(
                 OutboundMessage(
@@ -267,9 +296,7 @@ class Ping(MagicConversation):
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(TcpCommand.Pong, message)
-        responded_at = time.perf_counter()
-        self.result.set_result(self.started_at - responded_at)
-        self.is_complete = True
+        await super().reply(message, output)
 
     async def error(self, exn: Exception) -> None:
         self.is_complete = True

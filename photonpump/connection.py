@@ -542,8 +542,8 @@ class MessageDispatcher:
         self._logger.debug("Received message %s", message)
 
         if message.command == msg.TcpCommand.HeartbeatRequest.value:
-            response = convo.Heartbeat(message.conversation_id).start()
-            await output.put(response)
+            response = convo.Heartbeat(message.conversation_id)
+            await response.start(output)
 
             return
 
