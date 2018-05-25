@@ -387,9 +387,6 @@ class ReadStreamEventsBehaviour:
     def success(self, result):
         pass
 
-    def error(self, exn: Exception):
-        pass
-
     async def reply(self, message: InboundMessage, output: Queue):
         result = self.response_cls()
         result.ParseFromString(message.payload)
@@ -397,21 +394,21 @@ class ReadStreamEventsBehaviour:
         if result.result == self.result_type.Success:
             return self.success(result)
         elif result.result == self.result_type.NoStream:
-            return self.error(
+            await self.error(
                 exceptions.StreamNotFound(self.conversation_id, self.stream)
             )
         elif result.result == self.result_type.StreamDeleted:
-            return self.error(
+            await self.error(
                 exceptions.StreamDeleted(self.conversation_id, self.stream)
             )
         elif result.result == self.result_type.Error:
-            return self.error(
+            await self.error(
                 exceptions.ReadError(
                     self.conversation_id, self.stream, result.error
                 )
             )
         elif result.result == self.result_type.AccessDenied:
-            return self.error(
+            await self.error(
                 exceptions.AccessDenied(
                     self.conversation_id,
                     type(self).__name__,
@@ -420,14 +417,14 @@ class ReadStreamEventsBehaviour:
                 )
             )
         elif self.result_type == ReadEventResult and result.result == self.result_type.NotFound:
-            return self.error(
+            await self.error(
                 exceptions.EventNotFound(
                     self.conversation_id, self.stream, self.event_number
                 )
             )
 
 
-class ReadEvent(ReadStreamEventsBehaviour, Conversation):
+class ReadEvent(ReadStreamEventsBehaviour, MagicConversation):
     """Command class for reading a single event.
 
     Args:
@@ -461,7 +458,7 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
         self.require_master = require_master
         self.resolve_link_tos = resolve_links
 
-    def start(self) -> OutboundMessage:
+    async def start(self, output: Queue) -> None:
         msg = proto.ReadEvent()
         msg.event_number = self.event_number
         msg.event_stream_id = self.stream
@@ -470,17 +467,13 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
 
         data = msg.SerializeToString()
 
-        return OutboundMessage(
+        await output.put(OutboundMessage(
             self.conversation_id, TcpCommand.Read, data, self.credential
-        )
+        ))
 
     def success(self, response):
-        return Reply(
-            ReplyAction.CompleteScalar, _make_event(response.event), None
-        )
-
-    def error(self, exn):
-        return Reply(ReplyAction.CompleteError, exn, None)
+        self.is_complete = True
+        self.result.set_result(_make_event(response.event))
 
 
 class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
