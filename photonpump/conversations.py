@@ -546,10 +546,6 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
             )
         )
 
-    def error(self, exn):
-        self.is_complete = True
-        self.result.set_exception(exn)
-
 
 class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
     """Command class for iterating events from a stream.
