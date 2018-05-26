@@ -585,11 +585,7 @@ class MessageDispatcher:
 
         self._logger.debug('Reply is %s', reply)
 
-        if reply.action == convo.ReplyAction.CompleteScalar:
-            result.set_result(reply.result)
-            del self.active_conversations[conversation.conversation_id]
-
-        elif reply.action == convo.ReplyAction.CompleteError:
+        if reply.action == convo.ReplyAction.CompleteError:
             self._logger.warn(
                 'Conversation %s received an error %s', conversation,
                 reply.result

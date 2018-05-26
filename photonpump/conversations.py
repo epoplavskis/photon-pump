@@ -20,7 +20,6 @@ from photonpump.messages import (
 
 class ReplyAction(IntEnum):
 
-    CompleteScalar = 0
     CompleteError = 1
     CancelFuture = 2
 
