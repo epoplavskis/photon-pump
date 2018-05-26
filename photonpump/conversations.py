@@ -250,9 +250,6 @@ class Heartbeat(TimerConversation):
 
         await super().start(output)
 
-        if not output:
-            return
-
         if self.direction == Heartbeat.INBOUND:
             one_way = True
             cmd = TcpCommand.HeartbeatResponse
@@ -859,9 +856,6 @@ class CreatePersistentSubscription(MagicConversation):
         self.consumer_strategy = consumer_strategy
 
     async def start(self, output: Queue) -> None:
-        if not output:
-            return
-
         msg = proto.CreatePersistentSubscription()
         msg.subscription_group_name = self.name
         msg.event_stream_id = self.stream
