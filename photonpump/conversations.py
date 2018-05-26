@@ -215,8 +215,6 @@ class Conversation:
                 )
             )
 
-        return None
-
 
 class TimerConversation(MagicConversation):
 
