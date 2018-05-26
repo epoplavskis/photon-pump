@@ -507,9 +507,9 @@ class ReadEvent(ReadStreamEventsBehaviour, MagicConversation):
             self.conversation_id, TcpCommand.Read, data, self.credential
         ))
 
-        async def success(self, response, output: Queue):
-            self.is_complete = True
-            self.result.set_result(_make_event(response.event))
+    async def success(self, response, output: Queue):
+        self.is_complete = True
+        self.result.set_result(_make_event(response.event))
 
 
 class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
@@ -571,7 +571,7 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
     async def start(self, output):
         await output.put(self._fetch_page_message(self.from_event))
 
-    def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
+    async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
         events = [_make_event(x) for x in result.events]
 
         self.is_complete = True
