@@ -549,41 +549,6 @@ class MessageDispatcher:
             result.set_exception(reply.result)
             del self.active_conversations[conversation.conversation_id]
 
-        elif reply.action == convo.ReplyAction.BeginIterator:
-            self._logger.debug(
-                'Creating new streaming iterator for %s', conversation
-            )
-            size, events = reply.result
-            it = convo.StreamingIterator(size * 2)
-            result.set_result(it)
-            await it.enqueue_items(events)
-            self._logger.debug('Enqueued %d events', len(events))
-
-        elif reply.action == convo.ReplyAction.YieldToIterator:
-            self._logger.debug(
-                'Yielding new events into iterator for %s', conversation
-            )
-            iterator = result.result()
-            await iterator.enqueue_items(reply.result)
-
-        elif reply.action == convo.ReplyAction.CompleteIterator:
-            self._logger.debug(
-                'Yielding final events into iterator for %s', conversation
-            )
-            iterator = result.result()
-            await iterator.enqueue_items(reply.result)
-            await iterator.asend(StopAsyncIteration())
-            del self.active_conversations[conversation.conversation_id]
-
-        elif reply.action == convo.ReplyAction.RaiseToIterator:
-            iterator = result.result()
-            error = reply.result
-            self._logger.warning(
-                "Raising error %s to iterator %s", error, iterator
-            )
-            await iterator.asend(error)
-            del self.active_conversations[conversation.conversation_id]
-
         elif reply.action == convo.ReplyAction.BeginPersistentSubscription:
             self._logger.debug(
                 'Starting new iterator for persistent subscription %s',

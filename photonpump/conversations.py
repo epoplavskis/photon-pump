@@ -23,11 +23,6 @@ class ReplyAction(IntEnum):
     CompleteError = 1
     CancelFuture = 2
 
-    BeginIterator = 3
-    YieldToIterator = 4
-    CompleteIterator = 5
-    RaiseToIterator = 6
-
     BeginVolatileSubscription = 7
     YieldToSubscription = 8
     FinishSubscription = 9
