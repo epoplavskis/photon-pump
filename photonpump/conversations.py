@@ -547,7 +547,7 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
         )
 
 
-class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
+class IterStreamEvents(Conversation):
     """Command class for iterating events from a stream.
 
     Args:
@@ -615,6 +615,43 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
         return OutboundMessage(
             self.conversation_id, command, data, self.credential
         )
+
+    def reply(self, message: InboundMessage):
+        result = self.response_cls()
+        result.ParseFromString(message.payload)
+
+        if result.result == self.result_type.Success:
+            return self.success(result)
+        elif result.result == self.result_type.NoStream:
+            return self.error(
+                exceptions.StreamNotFound(self.conversation_id, self.stream)
+            )
+        elif result.result == self.result_type.StreamDeleted:
+            return self.error(
+                exceptions.StreamDeleted(self.conversation_id, self.stream)
+            )
+        elif result.result == self.result_type.Error:
+            return self.error(
+                exceptions.ReadError(
+                    self.conversation_id, self.stream, result.error
+                )
+            )
+        elif result.result == self.result_type.AccessDenied:
+            return self.error(
+                exceptions.AccessDenied(
+                    self.conversation_id,
+                    type(self).__name__,
+                    result.error,
+                    stream=self.stream
+                )
+            )
+        elif self.result_type == ReadEventResult and result.result == self.result_type.NotFound:
+            return self.error(
+                exceptions.EventNotFound(
+                    self.conversation_id, self.stream, self.event_number
+                )
+            )
+
 
     def start(self):
         return self._fetch_page_message(self.from_event)
