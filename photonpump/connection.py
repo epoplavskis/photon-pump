@@ -506,7 +506,8 @@ class MessageDispatcher:
 
             if not conversation.one_way:
                 self.active_conversations[conversation.conversation_id] = (conversation, None)
-            await conversation.start(self.output)
+            if self.output:
+                await conversation.start(self.output)
             return conversation.result
 
         else:

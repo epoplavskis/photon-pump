@@ -180,7 +180,7 @@ async def test_read_error():
         assert exn.conversation_id == convo.conversation_id
 
 
-@pytest.mark.asynio
+@pytest.mark.asyncio
 async def test_access_denied():
 
     convo = ReadStreamEvents('my-stream')

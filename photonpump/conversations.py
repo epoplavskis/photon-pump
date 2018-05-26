@@ -449,7 +449,7 @@ class ReadEvent(ReadStreamEventsBehaviour, MagicConversation):
             credentials=None
     ) -> None:
 
-        Conversation.__init__(self, conversation_id, credential=credentials)
+        MagicConversation.__init__(self, conversation_id, credential=credentials)
         ReadStreamEventsBehaviour.__init__(
             self, ReadEventResult, proto.ReadEventCompleted
         )
@@ -502,7 +502,7 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
             conversation_id: UUID = None
     ) -> None:
 
-        Conversation.__init__(self, conversation_id, credential=credentials)
+        MagicConversation.__init__(self, conversation_id, credential=credentials)
         ReadStreamEventsBehaviour.__init__(
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
         )
