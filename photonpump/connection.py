@@ -271,48 +271,6 @@ class Connector:
                 raise NotImplementedError("WAT DO?")
 
 
-class StreamingIterator:
-
-    def __init__(self, size=0):
-        self.items = asyncio.Queue(size)
-        self.finished = False
-        self.fut = None
-
-    async def __aiter__(self):
-        return self
-
-    async def enqueue_items(self, items):
-
-        for item in items:
-            await self.items.put(item)
-
-    async def enqueue(self, item):
-        await self.items.put(item)
-
-    async def anext(self):
-        return await self.__anext__()
-
-    async def __anext__(self):
-
-        if self.finished and self.items.empty():
-            raise StopAsyncIteration()
-        try:
-            _next = await self.items.get()
-        except Exception as e:
-            raise StopAsyncIteration()
-
-        if isinstance(_next, StopIteration):
-            raise StopAsyncIteration()
-
-        if isinstance(_next, Exception):
-            raise _next
-
-        return _next
-
-    async def asend(self, m):
-        await self.items.put(m)
-
-
 class PersistentSubscription(convo.PersistentSubscription):
 
     def __init__(self, subscription, iterator, conn, out_queue):
@@ -563,8 +521,6 @@ class MessageDispatcher:
                 del self.active_conversations[conversation.conversation_id]
             return
 
-
-
         self._logger.debug(
             'Received response to conversation %s: %s', conversation, message
         )
@@ -593,41 +549,6 @@ class MessageDispatcher:
             result.set_exception(reply.result)
             del self.active_conversations[conversation.conversation_id]
 
-        elif reply.action == convo.ReplyAction.BeginIterator:
-            self._logger.debug(
-                'Creating new streaming iterator for %s', conversation
-            )
-            size, events = reply.result
-            it = StreamingIterator(size * 2)
-            result.set_result(it)
-            await it.enqueue_items(events)
-            self._logger.debug('Enqueued %d events', len(events))
-
-        elif reply.action == convo.ReplyAction.YieldToIterator:
-            self._logger.debug(
-                'Yielding new events into iterator for %s', conversation
-            )
-            iterator = result.result()
-            await iterator.enqueue_items(reply.result)
-
-        elif reply.action == convo.ReplyAction.CompleteIterator:
-            self._logger.debug(
-                'Yielding final events into iterator for %s', conversation
-            )
-            iterator = result.result()
-            await iterator.enqueue_items(reply.result)
-            await iterator.asend(StopAsyncIteration())
-            del self.active_conversations[conversation.conversation_id]
-
-        elif reply.action == convo.ReplyAction.RaiseToIterator:
-            iterator = result.result()
-            error = reply.result
-            self._logger.warning(
-                "Raising error %s to iterator %s", error, iterator
-            )
-            await iterator.asend(error)
-            del self.active_conversations[conversation.conversation_id]
-
         elif reply.action == convo.ReplyAction.BeginPersistentSubscription:
             self._logger.debug(
                 'Starting new iterator for persistent subscription %s',
@@ -636,7 +557,7 @@ class MessageDispatcher:
             # Until we figure things out, we'll run subscriptions with unbounded queues
             # cos otherwise we block in irritating places.
             sub = PersistentSubscription(
-                reply.result, StreamingIterator(0), self,
+                reply.result, convo.StreamingIterator(0), self,
                 output
             )
             result.set_result(sub)

@@ -23,11 +23,6 @@ class ReplyAction(IntEnum):
     CompleteError = 1
     CancelFuture = 2
 
-    BeginIterator = 3
-    YieldToIterator = 4
-    CompleteIterator = 5
-    RaiseToIterator = 6
-
     BeginVolatileSubscription = 7
     YieldToSubscription = 8
     FinishSubscription = 9
@@ -44,6 +39,48 @@ class Reply(NamedTuple):
     action: ReplyAction
     result: Any
     next_message: OutboundMessage
+
+
+class StreamingIterator:
+
+    def __init__(self, size=0):
+        self.items = Queue(size)
+        self.finished = False
+        self.fut = None
+
+    async def __aiter__(self):
+        return self
+
+    async def enqueue_items(self, items):
+
+        for item in items:
+            await self.items.put(item)
+
+    async def enqueue(self, item):
+        await self.items.put(item)
+
+    async def anext(self):
+        return await self.__anext__()
+
+    async def __anext__(self):
+
+        if self.finished and self.items.empty():
+            raise StopAsyncIteration()
+        try:
+            _next = await self.items.get()
+        except Exception as e:
+            raise StopAsyncIteration()
+
+        if isinstance(_next, StopIteration):
+            raise StopAsyncIteration()
+
+        if isinstance(_next, Exception):
+            raise _next
+
+        return _next
+
+    async def asend(self, item):
+        await self.items.put(item)
 
 
 class MagicConversation:
@@ -376,15 +413,17 @@ class ReadStreamEventsBehaviour:
         self.result_type = result_type
         self.response_cls = response_cls
 
-    def success(self, result):
+    def success(self, result, output: Queue):
         pass
 
     async def reply(self, message: InboundMessage, output: Queue):
+        logging.error("HERRO")
         result = self.response_cls()
         result.ParseFromString(message.payload)
 
         if result.result == self.result_type.Success:
-            return self.success(result)
+            logging.error(message)
+            await self.success(result, output)
         elif result.result == self.result_type.NoStream:
             await self.error(
                 exceptions.StreamNotFound(self.conversation_id, self.stream)
@@ -463,7 +502,7 @@ class ReadEvent(ReadStreamEventsBehaviour, MagicConversation):
             self.conversation_id, TcpCommand.Read, data, self.credential
         ))
 
-    def success(self, response):
+    async def success(self, response, output: Queue):
         self.is_complete = True
         self.result.set_result(_make_event(response.event))
 
@@ -527,7 +566,7 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
     async def start(self, output):
         await output.put(self._fetch_page_message(self.from_event))
 
-    def success(self, result: proto.ReadStreamEventsCompleted):
+    async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
         events = [_make_event(x) for x in result.events]
 
         self.is_complete = True
@@ -539,7 +578,7 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
         )
 
 
-class IterStreamEvents(Conversation):
+class IterStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
     """Command class for iterating events from a stream.
 
     Args:
@@ -565,7 +604,7 @@ class IterStreamEvents(Conversation):
             conversation_id: UUID = None
     ):
 
-        Conversation.__init__(self, conversation_id, credentials)
+        MagicConversation.__init__(self, conversation_id, credentials)
         ReadStreamEventsBehaviour.__init__(
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
         )
@@ -576,6 +615,7 @@ class IterStreamEvents(Conversation):
         self.require_master = require_master
         self.direction = direction
         self._logger = logging.get_named_logger(IterStreamEvents)
+        self.iterator = StreamingIterator(self.batch_size)
 
         if direction == StreamDirection.Forward:
             self.command = TcpCommand.ReadStreamEventsForward
@@ -608,81 +648,28 @@ class IterStreamEvents(Conversation):
             self.conversation_id, command, data, self.credential
         )
 
-    def reply(self, message: InboundMessage):
-        result = self.response_cls()
-        result.ParseFromString(message.payload)
+    async def start(self, output: Queue):
+        await output.put(self._fetch_page_message(self.from_event))
 
-        if result.result == self.result_type.Success:
-            return self.success(result)
-        elif result.result == self.result_type.NoStream:
-            return self.error(
-                exceptions.StreamNotFound(self.conversation_id, self.stream)
-            )
-        elif result.result == self.result_type.StreamDeleted:
-            return self.error(
-                exceptions.StreamDeleted(self.conversation_id, self.stream)
-            )
-        elif result.result == self.result_type.Error:
-            return self.error(
-                exceptions.ReadError(
-                    self.conversation_id, self.stream, result.error
-                )
-            )
-        elif result.result == self.result_type.AccessDenied:
-            return self.error(
-                exceptions.AccessDenied(
-                    self.conversation_id,
-                    type(self).__name__,
-                    result.error,
-                    stream=self.stream
-                )
-            )
-        elif self.result_type == ReadEventResult and result.result == self.result_type.NotFound:
-            return self.error(
-                exceptions.EventNotFound(
-                    self.conversation_id, self.stream, self.event_number
-                )
-            )
-
-
-    def start(self):
-        return self._fetch_page_message(self.from_event)
-
-    def success(self, result: proto.ReadStreamEventsCompleted):
-        self._logger.debug(MessageToString(result))
+    async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
         events = [_make_event(x) for x in result.events]
+        await self.iterator.enqueue_items(events)
+        if not self.has_first_page:
+            self.result.set_result(self.iterator)
+            self.has_first_page = True
 
         if result.is_end_of_stream:
-            return Reply(ReplyAction.CompleteIterator, events, None)
+            self.is_complete = True
+            await self.iterator.asend(StopAsyncIteration())
+        else:
+            await output.put(self._fetch_page_message(result.next_event_number))
 
-        next_message = self._fetch_page_message(result.next_event_number)
-
+    async def error(self, exn: Exception) -> None:
+        self.is_complete = True
         if self.has_first_page:
-            return Reply(
-                ReplyAction.YieldToIterator,
-                StreamSlice(
-                    events, result.next_event_number, result.last_event_number,
-                    None, result.last_commit_position, result.is_end_of_stream
-                ), next_message
-            )
-
-        self.has_first_page = True
-
-        return Reply(
-            ReplyAction.BeginIterator, (
-                self.batch_size,
-                StreamSlice(
-                    events, result.next_event_number, result.last_event_number,
-                    None, result.last_commit_position, result.is_end_of_stream
-                )
-            ), next_message
-        )
-
-    def error(self, exn: Exception) -> Reply:
-        if self.has_first_page:
-            return Reply(ReplyAction.RaiseToIterator, exn, None)
-
-        return Reply(ReplyAction.CompleteError, exn, None)
+            await self.iterator.asend(exn)
+        else:
+            self.result.set_exception(exn)
 
 
 class VolatileSubscription:
