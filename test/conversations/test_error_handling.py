@@ -10,7 +10,10 @@ from photonpump.conversations import Ping, ReplyAction, WriteEvents
 from ..fakes import TeeQueue
 
 
-def test_bad_request():
+@pytest.mark.asyncio
+async def test_bad_request():
+
+    output = TeeQueue()
 
     event_id = uuid4()
     conversation_id = uuid4()
@@ -24,20 +27,23 @@ def test_bad_request():
         "my-stream", [event_data], conversation_id=conversation_id
     )
 
-    conversation.start()
-    result = conversation.respond_to(
+    await conversation.start(output)
+    await conversation.respond_to(
         msg.InboundMessage(
             conversation_id, msg.TcpCommand.BadRequest,
             error_message.encode('UTF-8')
-        )
+        ), output
     )
 
-    assert result.action == ReplyAction.CompleteError
-    assert isinstance(result.result, exn.BadRequest)
-    assert (result.result.message == error_message)
+    with pytest.raises(exn.BadRequest) as exc:
+        await conversation.result
+        assert exc.message == error_message
 
 
-def test_not_authenticated():
+@pytest.mark.asyncio
+async def test_not_authenticated():
+
+    output = TeeQueue()
 
     event_id = uuid4()
     conversation_id = uuid4()
@@ -51,17 +57,17 @@ def test_not_authenticated():
         "my-stream", [event_data], conversation_id=conversation_id
     )
 
-    conversation.start()
-    reply = conversation.respond_to(
+    await conversation.start(output)
+    await conversation.respond_to(
         msg.InboundMessage(
             conversation_id, msg.TcpCommand.NotAuthenticated,
             error_message.encode('UTF-8')
-        )
+        ), output
     )
 
-    assert reply.action == ReplyAction.CompleteError
-    assert isinstance(reply.result, exn.NotAuthenticated)
-    assert reply.result.message == error_message
+    with pytest.raises(exn.NotAuthenticated) as exc:
+        await conversation.result
+        assert exc.message == error_message
 
 
 @pytest.mark.asyncio

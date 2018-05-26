@@ -298,7 +298,7 @@ class Ping(TimerConversation):
         await super().reply(message, output)
 
 
-class WriteEvents(Conversation):
+class WriteEvents(MagicConversation):
     """Command class for writing a sequence of events to a single
         stream.
 
@@ -331,7 +331,7 @@ class WriteEvents(Conversation):
         self.events = events
         self.expected_version = expected_version
 
-    def start(self):
+    async def start(self, output: Queue) -> None:
         msg = proto.WriteEvents()
         msg.event_stream_id = self.stream
         msg.require_master = self.require_master
@@ -361,18 +361,16 @@ class WriteEvents(Conversation):
 
         data = msg.SerializeToString()
 
-        return OutboundMessage(
+        await output.put(OutboundMessage(
             self.conversation_id, TcpCommand.WriteEvents, data, self.credential
-        )
+        ))
 
-    def reply(self, response: InboundMessage):
-        self.expect_only(TcpCommand.WriteEventsCompleted, response)
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        self.expect_only(TcpCommand.WriteEventsCompleted, message)
         result = proto.WriteEventsCompleted()
-        result.ParseFromString(response.payload)
+        result.ParseFromString(message.payload)
 
-        self._logger.trace("Returning result %s", result)
-
-        return Reply(ReplyAction.CompleteScalar, result, None)
+        self.result.set_result(result)
 
     def timeout(self):
         return Reply(ReplyAction.ResubmitMessage, None, self.start())
