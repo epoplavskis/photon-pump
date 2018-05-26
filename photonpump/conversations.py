@@ -20,7 +20,6 @@ from photonpump.messages import (
 
 class ReplyAction(IntEnum):
 
-    CompleteScalar = 0
     CompleteError = 1
     CancelFuture = 2
 
@@ -77,11 +76,10 @@ class MagicConversation:
         pass
 
     async def error(self, exn: Exception) -> None:
-        pass
+        self.is_complete = True
+        self.result.set_exception(exn)
 
     def expect_only(self, command: TcpCommand, response: InboundMessage):
-        logging.error(command)
-        logging.error(response)
         if response.command != command:
             raise exceptions.UnexpectedCommand(command, response.command)
 
@@ -89,16 +87,16 @@ class MagicConversation:
         try:
             if response.command is TcpCommand.BadRequest:
                 return await self.conversation_error(
-                    exceptions.BadRequest, response, output
+                    exceptions.BadRequest, response
                 )
 
             if response.command is TcpCommand.NotAuthenticated:
                 return await self.conversation_error(
-                    exceptions.NotAuthenticated, response, output
+                    exceptions.NotAuthenticated, response
                 )
 
             if response.command is TcpCommand.NotHandled:
-                return await self.unhandled_message(response, output)
+                return await self.unhandled_message(response)
 
             return await self.reply(response, output)
         except Exception as exn:
@@ -110,7 +108,7 @@ class MagicConversation:
                 )
             )
 
-    async def unhandled_message(self, response, queue) -> None:
+    async def unhandled_message(self, response) -> None:
         body = proto.NotHandled()
         body.ParseFromString(response.payload)
 
@@ -125,7 +123,7 @@ class MagicConversation:
 
         return await self.error(exn)
 
-    async def conversation_error(self, exn_type, response, queue) -> None:
+    async def conversation_error(self, exn_type, response) -> None:
         error = response.payload.decode('UTF-8')
         exn = exn_type(self.conversation_id, error)
 
@@ -217,47 +215,69 @@ class Conversation:
                 )
             )
 
-        return None
+
+class TimerConversation(MagicConversation):
+
+    def __init__(self, conversation_id, credential):
+        super().__init__(conversation_id, credential)
+        self.started_at = time.perf_counter()
+
+    async def start(self, output: Queue) -> None:
+        self.started_at = time.perf_counter()
+
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        logging.info("Replying from conversation %s", self)
+        responded_at = time.perf_counter()
+        self.result.set_result(self.started_at - responded_at)
+        self.is_complete = True
 
 
-class Heartbeat(Conversation):
+class Heartbeat(TimerConversation):
 
     INBOUND = 0
     OUTBOUND = 1
 
-    def __init__(self, conversation_id: UUID, direction=INBOUND) -> None:
-        super().__init__(conversation_id)
+    def __init__(
+            self, conversation_id: UUID, direction=INBOUND, credential=None
+    ) -> None:
+        super().__init__(conversation_id, credential=None)
         self.direction = direction
-
-    def start(self):
-
-        if self.direction == Heartbeat.INBOUND:
-            return OutboundMessage(
-                self.conversation_id,
-                TcpCommand.HeartbeatResponse,
-                b'',
-                self.credential,
-                one_way=True
-            )
-        else:
-            return OutboundMessage(
-                self.conversation_id,
-                TcpCommand.HeartbeatRequest,
-                b'',
-                self.credential,
-                one_way=False
-            )
-
-    def reply(self, msg: InboundMessage):
-        self.expect_only(TcpCommand.HeartbeatResponse, msg)
-
-        return Reply(ReplyAction.CompleteScalar, True, None)
-
-
-class Ping(MagicConversation):
+        self.result = Future()
 
     async def start(self, output: Queue) -> Future:
-        self.started_at = time.perf_counter()
+
+        await super().start(output)
+
+        if self.direction == Heartbeat.INBOUND:
+            one_way = True
+            cmd = TcpCommand.HeartbeatResponse
+        else:
+            one_way = False
+            cmd = TcpCommand.HeartbeatRequest
+
+        await output.put(
+            OutboundMessage(
+                self.conversation_id,
+                cmd,
+                b'',
+                self.credential,
+                one_way=one_way
+            )
+        )
+
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        self.expect_only(TcpCommand.HeartbeatResponse, message)
+        await super().reply(message, output)
+
+
+class Ping(TimerConversation):
+
+    def __init__(self, conversation_id: UUID = None, credential=None) -> None:
+        super().__init__(conversation_id or uuid4(), credential)
+
+    async def start(self, output: Queue) -> Future:
+        await super().start(output)
+
         if output:
             await output.put(
                 OutboundMessage(
@@ -269,16 +289,10 @@ class Ping(MagicConversation):
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(TcpCommand.Pong, message)
-        responded_at = time.perf_counter()
-        self.result.set_result(self.started_at - responded_at)
-        self.is_complete = True
-
-    async def error(self, exn: Exception) -> None:
-        self.is_complete = True
-        self.result.set_exception(exn)
+        await super().reply(message, output)
 
 
-class WriteEvents(Conversation):
+class WriteEvents(MagicConversation):
     """Command class for writing a sequence of events to a single
         stream.
 
@@ -311,7 +325,7 @@ class WriteEvents(Conversation):
         self.events = events
         self.expected_version = expected_version
 
-    def start(self):
+    async def start(self, output: Queue) -> None:
         msg = proto.WriteEvents()
         msg.event_stream_id = self.stream
         msg.require_master = self.require_master
@@ -341,18 +355,16 @@ class WriteEvents(Conversation):
 
         data = msg.SerializeToString()
 
-        return OutboundMessage(
+        await output.put(OutboundMessage(
             self.conversation_id, TcpCommand.WriteEvents, data, self.credential
-        )
+        ))
 
-    def reply(self, response: InboundMessage):
-        self.expect_only(TcpCommand.WriteEventsCompleted, response)
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        self.expect_only(TcpCommand.WriteEventsCompleted, message)
         result = proto.WriteEventsCompleted()
-        result.ParseFromString(response.payload)
+        result.ParseFromString(message.payload)
 
-        self._logger.trace("Returning result %s", result)
-
-        return Reply(ReplyAction.CompleteScalar, result, None)
+        self.result.set_result(result)
 
     def timeout(self):
         return Reply(ReplyAction.ResubmitMessage, None, self.start())
@@ -367,31 +379,28 @@ class ReadStreamEventsBehaviour:
     def success(self, result):
         pass
 
-    def error(self, exn: Exception):
-        pass
-
-    def reply(self, response: InboundMessage):
+    async def reply(self, message: InboundMessage, output: Queue):
         result = self.response_cls()
-        result.ParseFromString(response.payload)
+        result.ParseFromString(message.payload)
 
         if result.result == self.result_type.Success:
             return self.success(result)
         elif result.result == self.result_type.NoStream:
-            return self.error(
+            await self.error(
                 exceptions.StreamNotFound(self.conversation_id, self.stream)
             )
         elif result.result == self.result_type.StreamDeleted:
-            return self.error(
+            await self.error(
                 exceptions.StreamDeleted(self.conversation_id, self.stream)
             )
         elif result.result == self.result_type.Error:
-            return self.error(
+            await self.error(
                 exceptions.ReadError(
                     self.conversation_id, self.stream, result.error
                 )
             )
         elif result.result == self.result_type.AccessDenied:
-            return self.error(
+            await self.error(
                 exceptions.AccessDenied(
                     self.conversation_id,
                     type(self).__name__,
@@ -400,14 +409,14 @@ class ReadStreamEventsBehaviour:
                 )
             )
         elif self.result_type == ReadEventResult and result.result == self.result_type.NotFound:
-            return self.error(
+            await self.error(
                 exceptions.EventNotFound(
                     self.conversation_id, self.stream, self.event_number
                 )
             )
 
 
-class ReadEvent(ReadStreamEventsBehaviour, Conversation):
+class ReadEvent(ReadStreamEventsBehaviour, MagicConversation):
     """Command class for reading a single event.
 
     Args:
@@ -432,7 +441,7 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
             credentials=None
     ) -> None:
 
-        Conversation.__init__(self, conversation_id, credential=credentials)
+        MagicConversation.__init__(self, conversation_id, credential=credentials)
         ReadStreamEventsBehaviour.__init__(
             self, ReadEventResult, proto.ReadEventCompleted
         )
@@ -441,7 +450,7 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
         self.require_master = require_master
         self.resolve_link_tos = resolve_links
 
-    def start(self) -> OutboundMessage:
+    async def start(self, output: Queue) -> None:
         msg = proto.ReadEvent()
         msg.event_number = self.event_number
         msg.event_stream_id = self.stream
@@ -450,20 +459,16 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
 
         data = msg.SerializeToString()
 
-        return OutboundMessage(
+        await output.put(OutboundMessage(
             self.conversation_id, TcpCommand.Read, data, self.credential
-        )
+        ))
 
     def success(self, response):
-        return Reply(
-            ReplyAction.CompleteScalar, _make_event(response.event), None
-        )
-
-    def error(self, exn):
-        return Reply(ReplyAction.CompleteError, exn, None)
+        self.is_complete = True
+        self.result.set_result(_make_event(response.event))
 
 
-class ReadStreamEvents(ReadStreamEventsBehaviour, Conversation):
+class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
     """Command class for reading events from a stream.
 
     Args:
@@ -489,7 +494,7 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, Conversation):
             conversation_id: UUID = None
     ) -> None:
 
-        Conversation.__init__(self, conversation_id, credential=credentials)
+        MagicConversation.__init__(self, conversation_id, credential=credentials)
         ReadStreamEventsBehaviour.__init__(
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
         )
@@ -519,25 +524,22 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, Conversation):
             self.conversation_id, command, data, self.credential
         )
 
-    def start(self):
-        return self._fetch_page_message(self.from_event)
+    async def start(self, output):
+        await output.put(self._fetch_page_message(self.from_event))
 
     def success(self, result: proto.ReadStreamEventsCompleted):
         events = [_make_event(x) for x in result.events]
 
-        return Reply(
-            ReplyAction.CompleteScalar,
+        self.is_complete = True
+        self.result.set_result(
             StreamSlice(
                 events, result.next_event_number, result.last_event_number,
                 None, result.last_commit_position, result.is_end_of_stream
-            ), None
+            )
         )
 
-    def error(self, exn):
-        return Reply(ReplyAction.CompleteError, exn, None)
 
-
-class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
+class IterStreamEvents(Conversation):
     """Command class for iterating events from a stream.
 
     Args:
@@ -605,6 +607,43 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
         return OutboundMessage(
             self.conversation_id, command, data, self.credential
         )
+
+    def reply(self, message: InboundMessage):
+        result = self.response_cls()
+        result.ParseFromString(message.payload)
+
+        if result.result == self.result_type.Success:
+            return self.success(result)
+        elif result.result == self.result_type.NoStream:
+            return self.error(
+                exceptions.StreamNotFound(self.conversation_id, self.stream)
+            )
+        elif result.result == self.result_type.StreamDeleted:
+            return self.error(
+                exceptions.StreamDeleted(self.conversation_id, self.stream)
+            )
+        elif result.result == self.result_type.Error:
+            return self.error(
+                exceptions.ReadError(
+                    self.conversation_id, self.stream, result.error
+                )
+            )
+        elif result.result == self.result_type.AccessDenied:
+            return self.error(
+                exceptions.AccessDenied(
+                    self.conversation_id,
+                    type(self).__name__,
+                    result.error,
+                    stream=self.stream
+                )
+            )
+        elif self.result_type == ReadEventResult and result.result == self.result_type.NotFound:
+            return self.error(
+                exceptions.EventNotFound(
+                    self.conversation_id, self.stream, self.event_number
+                )
+            )
+
 
     def start(self):
         return self._fetch_page_message(self.from_event)
@@ -773,7 +812,7 @@ class CreateVolatileSubscription(Conversation):
             return self.reply_from_live(response)
 
 
-class CreatePersistentSubscription(Conversation):
+class CreatePersistentSubscription(MagicConversation):
 
     def __init__(
             self,
@@ -814,7 +853,7 @@ class CreatePersistentSubscription(Conversation):
         self.subscriber_max_count = subscriber_max_count
         self.consumer_strategy = consumer_strategy
 
-    def start(self) -> OutboundMessage:
+    async def start(self, output: Queue) -> None:
         msg = proto.CreatePersistentSubscription()
         msg.subscription_group_name = self.name
         msg.event_stream_id = self.stream
@@ -833,35 +872,37 @@ class CreatePersistentSubscription(Conversation):
         msg.subscriber_max_count = self.subscriber_max_count
         msg.named_consumer_strategy = self.consumer_strategy
 
-        return OutboundMessage(
-            self.conversation_id, TcpCommand.CreatePersistentSubscription,
-            msg.SerializeToString(), self.credential
+        await output.put(
+            OutboundMessage(
+                self.conversation_id, TcpCommand.CreatePersistentSubscription,
+                msg.SerializeToString(), self.credential
+            )
         )
 
-    def reply(self, response: InboundMessage) -> Reply:
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(
-            TcpCommand.CreatePersistentSubscriptionCompleted, response
+            TcpCommand.CreatePersistentSubscriptionCompleted, message
         )
 
         result = proto.CreatePersistentSubscriptionCompleted()
-        result.ParseFromString(response.payload)
+        result.ParseFromString(message.payload)
 
         if result.result == SubscriptionResult.Success:
-            return Reply(ReplyAction.CompleteScalar, None, None)
+            self.result.set_result(None)
 
-        if result.result == SubscriptionResult.AccessDenied:
-            return self.error(
+        elif result.result == SubscriptionResult.AccessDenied:
+            await self.error(
                 exceptions.AccessDenied(
                     self.conversation_id,
                     type(self).__name__, result.reason
                 )
             )
-
-        return self.error(
-            exceptions.SubscriptionCreationFailed(
-                self.conversation_id, result.reason
+        else:
+            await self.error(
+                exceptions.SubscriptionCreationFailed(
+                    self.conversation_id, result.reason
+                )
             )
-        )
 
 
 class ConnectPersistentSubscription(Conversation):

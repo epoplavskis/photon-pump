@@ -6,12 +6,16 @@ from photonpump.conversations import Heartbeat, Ping, ReplyAction
 from photonpump.messages import HEADER_LENGTH, InboundMessage, TcpCommand
 
 
-def test_start_heartbeat_conversation():
+@pytest.mark.asyncio
+async def test_start_heartbeat_conversation():
+
+    output = TeeQueue()
 
     id = uuid4()
     conversation = Heartbeat(id, direction=Heartbeat.OUTBOUND)
 
-    request = conversation.start()
+    await conversation.start(output)
+    request = await output.get()
 
     assert not request.one_way
 
@@ -20,12 +24,17 @@ def test_start_heartbeat_conversation():
     assert request.command == TcpCommand.HeartbeatRequest
 
 
-def test_respond_to_server_heartbeat():
+@pytest.mark.asyncio
+async def test_respond_to_server_heartbeat():
+
+    output = TeeQueue()
 
     id = uuid4()
     conversation = Heartbeat(id)
 
-    response = conversation.start()
+    await conversation.start(output)
+    response = await output.get()
+
     assert response.one_way
 
     assert response.length == HEADER_LENGTH
@@ -35,19 +44,22 @@ def test_respond_to_server_heartbeat():
     assert conversation.direction == Heartbeat.INBOUND
 
 
-def test_when_server_responds_to_heartbeat():
+@pytest.mark.asyncio
+async def test_when_server_responds_to_heartbeat():
+
+    output = TeeQueue()
+
     id = uuid4()
     conversation = Heartbeat(id, direction=Heartbeat.OUTBOUND)
 
-    reply = conversation.respond_to(
+    await conversation.respond_to(
         InboundMessage(
             conversation.conversation_id, TcpCommand.HeartbeatResponse, b''
-        )
+        ), output
     )
+    await conversation.result
 
-    assert reply.action == ReplyAction.CompleteScalar
-    assert reply.result is True
-    assert reply.next_message is None
+    assert conversation.is_complete
 
 
 @pytest.mark.asyncio

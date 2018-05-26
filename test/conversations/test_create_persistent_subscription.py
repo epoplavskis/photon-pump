@@ -1,22 +1,28 @@
+from asyncio import Queue
 import binascii
 from uuid import UUID, uuid4
+
+import pytest
 
 from photonpump import exceptions
 from photonpump import messages_pb2 as proto
 from photonpump.conversations import CreatePersistentSubscription, ReplyAction
-from photonpump.messages import (
-    InboundMessage, SubscriptionResult, TcpCommand
-)
+from photonpump.messages import InboundMessage, SubscriptionResult, TcpCommand
 
 
 def read_hex(s):
     return binascii.unhexlify(''.join(s.split()))
 
 
-def test_create_persistent_subscription_request():
+@pytest.mark.asyncio
+async def test_create_persistent_subscription_request():
+
+    output = Queue()
 
     convo = CreatePersistentSubscription("my-subscription", "my-stream")
-    request = convo.start()
+    await convo.start(output)
+
+    request = await output.get()
 
     body = proto.CreatePersistentSubscription()
     body.ParseFromString(request.payload)
@@ -26,67 +32,55 @@ def test_create_persistent_subscription_request():
     assert body.event_stream_id == 'my-stream'
 
 
-def complete_subscription(convo, result):
+async def complete_subscription(convo, result):
     response = proto.CreatePersistentSubscriptionCompleted()
     response.result = result
 
-    return convo.respond_to(
+    await convo.respond_to(
         InboundMessage(
             uuid4(), TcpCommand.CreatePersistentSubscriptionCompleted,
             response.SerializeToString()
-        )
+        ), None
     )
 
 
-def test_persistent_subscription_completed():
+@pytest.mark.asyncio
+async def test_persistent_subscription_already_exists():
 
+    output = Queue()
     convo = CreatePersistentSubscription(
         "my-other-subscription", "my-other-stream"
     )
 
-    reply = complete_subscription(convo, SubscriptionResult.Success)
-    assert reply.action == ReplyAction.CompleteScalar
-    assert reply.next_message is None
-    assert reply.result is None
-
-
-def test_persistent_subscription_already_exists():
-
-    convo = CreatePersistentSubscription(
-        "my-other-subscription", "my-other-stream"
-    )
-
-    convo.start()
+    await convo.start(output)
 
     response = proto.CreatePersistentSubscriptionCompleted()
     response.result = SubscriptionResult.AlreadyExists
-    reply = convo.respond_to(
+    await convo.respond_to(
         InboundMessage(
             uuid4(), TcpCommand.CreatePersistentSubscriptionCompleted,
             response.SerializeToString()
-        )
+        ), output
     )
 
-    assert reply.action == ReplyAction.CompleteError
-    assert reply.next_message is None
-    assert isinstance(reply.result, exceptions.SubscriptionCreationFailed)
+    with pytest.raises(exceptions.SubscriptionCreationFailed):
+        await convo.result
 
 
-def test_persistent_subscription_access_denied():
+@pytest.mark.asyncio
+async def test_persistent_subscription_access_denied():
 
     convo = CreatePersistentSubscription(
         "my-other-subscription", "my-other-stream"
     )
 
-    reply = complete_subscription(convo, SubscriptionResult.AccessDenied)
-    assert reply.action == ReplyAction.CompleteError
-    assert reply.next_message is None
-    exn = reply.result
-
-    assert isinstance(exn, exceptions.AccessDenied)
+    await complete_subscription(convo, SubscriptionResult.AccessDenied)
+    with pytest.raises(exceptions.AccessDenied):
+        await convo.result
 
 
-def test_subscription_configuration():
+@pytest.mark.asyncio
+async def test_subscription_configuration():
     convo = CreatePersistentSubscription(
         name="best-subscription",
         stream="$ce-Cancellation",
@@ -106,7 +100,9 @@ def test_subscription_configuration():
         conversation_id=UUID('8ff5727b-58a9-4805-823a-451d5eb307f7')
     )
 
-    request = convo.start()
+    output = Queue()
+    await convo.start(output)
+    request = await output.get()
 
     expected_bytes = read_hex(
         """

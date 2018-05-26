@@ -182,7 +182,6 @@ class Connector:
             address, protocol
         )
         self.active_protocol = protocol
-        self.log.info(self.dispatcher)
         await self.dispatcher.write_to(protocol.output_queue)
         self.connected(address)
 
@@ -507,8 +506,9 @@ class MessageDispatcher:
 
             if not conversation.one_way:
                 self.active_conversations[conversation.conversation_id] = (conversation, None)
-            future = await conversation.start(self.output)
-            return future
+            if self.output:
+                await conversation.start(self.output)
+            return conversation.result
 
         else:
 
@@ -543,8 +543,8 @@ class MessageDispatcher:
         self._logger.debug("Received message %s", message)
 
         if message.command == msg.TcpCommand.HeartbeatRequest.value:
-            response = convo.Heartbeat(message.conversation_id).start()
-            await output.put(response)
+            response = convo.Heartbeat(message.conversation_id)
+            await response.start(output)
 
             return
 
@@ -585,11 +585,7 @@ class MessageDispatcher:
 
         self._logger.debug('Reply is %s', reply)
 
-        if reply.action == convo.ReplyAction.CompleteScalar:
-            result.set_result(reply.result)
-            del self.active_conversations[conversation.conversation_id]
-
-        elif reply.action == convo.ReplyAction.CompleteError:
+        if reply.action == convo.ReplyAction.CompleteError:
             self._logger.warn(
                 'Conversation %s received an error %s', conversation,
                 reply.result

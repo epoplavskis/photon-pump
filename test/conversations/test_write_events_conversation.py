@@ -1,5 +1,8 @@
+from asyncio import Queue
 import json
 from uuid import uuid4
+
+import pytest
 
 import photonpump.messages as msg
 import photonpump.messages_pb2 as proto
@@ -22,7 +25,10 @@ def given_a_write_events_message():
     return conversation
 
 
-def test_write_one_event():
+@pytest.mark.asyncio
+async def test_write_one_event():
+
+    output = Queue()
 
     event_id = uuid4()
     conversation_id = uuid4()
@@ -35,7 +41,8 @@ def test_write_one_event():
         "my-stream", [event_data], conversation_id=conversation_id
     )
 
-    request = conversation.start()
+    await conversation.start(output)
+    request = await output.get()
     assert request.conversation_id == conversation_id
     assert request.command == msg.TcpCommand.WriteEvents
 
@@ -61,58 +68,60 @@ def test_write_one_event():
     assert evt.metadata == b''
 
 
-def test_one_event_response():
+@pytest.mark.asyncio
+async def test_one_event_response():
 
+    output = Queue()
     conversation = given_a_write_events_message()
 
-    conversation.start()
+    await conversation.start(output)
 
+    await output.get()
     payload = proto.WriteEventsCompleted()
     payload.result = msg.OperationResult.Success
     payload.first_event_number = 73
     payload.last_event_number = 73
 
-    reply = conversation.respond_to(
+    await conversation.respond_to(
         msg.InboundMessage(
             conversation.conversation_id, msg.TcpCommand.WriteEventsCompleted,
             payload.SerializeToString()
-        )
+        ), output
     )
 
-    assert reply.next_message is None
-    result = reply.result
+    result = await conversation.result
 
     assert result.first_event_number == 73
     assert result.last_event_number == 73
     assert result.result == msg.OperationResult.Success
 
 
-def test_timeout():
+@pytest.mark.skip(reason="upcoming feature")
+@pytest.mark.asyncio
+async def test_timeout():
     """
     If we time out while waiting for a write events result
     then we should resubmit the original message.
     """
 
+    output = Queue()
     conversation = given_a_write_events_message()
-    conversation.start()
+    await conversation.start(output)
 
-    reply = conversation.timeout()
-
-    assert reply.next_message == conversation.start()
-    assert reply.action == ReplyAction.ResubmitMessage
+    await conversation.timeout()
 
 
-def test_connection_failed():
+
+@pytest.mark.skip(reason="upcoming feature")
+@pytest.mark.asyncio
+async def test_connection_failed():
     """
     IF the connection shuts down while we're waiting for a response
     then all we can do is cancel the result.
     """
 
+    output = Queue()
     conversation = given_a_write_events_message()
-    conversation.start()
+    await conversation.start(output)
 
-    reply = conversation.stop()
-
-    assert reply.action == ReplyAction.CancelFuture
-    assert reply.next_message is None
-    assert reply.result is None
+    await conversation.stop()

@@ -1,14 +1,21 @@
+from asyncio import Queue
 from uuid import uuid4
+
+import pytest
 
 from photonpump import messages as msg, exceptions
 from photonpump import messages_pb2 as proto
 from photonpump.conversations import ReplyAction, ReadStreamEvents
 
 
-def test_read_stream_request():
+@pytest.mark.asyncio
+async def test_read_stream_request():
+
+    output = Queue()
 
     convo = ReadStreamEvents('my-stream', 23)
-    request = convo.start()
+    await convo.start(output)
+    request = await output.get()
 
     body = proto.ReadStreamEvents()
     body.ParseFromString(request.payload)
@@ -21,10 +28,13 @@ def test_read_stream_request():
     assert body.max_count == 100
 
 
-def test_read_stream_backward():
+@pytest.mark.asyncio
+async def test_read_stream_backward():
 
+    output = Queue()
     convo = ReadStreamEvents('my-stream', 50, direction=msg.StreamDirection.Backward, max_count=10)
-    request = convo.start()
+    await convo.start(output)
+    request = await output.get()
 
     body = proto.ReadStreamEvents()
     body.ParseFromString(request.payload)
@@ -37,7 +47,8 @@ def test_read_stream_backward():
     assert body.max_count == 10
 
 
-def test_read_stream_success():
+@pytest.mark.asyncio
+async def test_read_stream_success():
 
     event_1_id = uuid4()
     event_2_id = uuid4()
@@ -72,17 +83,18 @@ def test_read_stream_success():
 
     response.events.extend([event_1, event_2])
 
-    reply = convo.respond_to(
+    await convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadEventCompleted,
             response.SerializeToString()
-        )
+        ), None
     )
 
-    assert reply.action == ReplyAction.CompleteScalar
-    assert isinstance(reply.result, msg.StreamSlice)
+    result = await convo.result
 
-    [event_1, event_2] = reply.result.events
+    assert isinstance(result, msg.StreamSlice)
+
+    [event_1, event_2] = result.events
     assert event_1.event.stream == 'stream-123'
     assert event_1.event.id == event_1_id
     assert event_1.event.type == 'event-type'
@@ -92,10 +104,10 @@ def test_read_stream_success():
     assert event_2.event.id == event_2_id
     assert event_2.event.type == 'event-2-type'
     assert event_2.event.event_number == 33
-    assert reply.next_message is None
 
 
-def test_stream_not_found():
+@pytest.mark.asyncio
+async def test_stream_not_found():
 
     convo = ReadStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
@@ -106,22 +118,21 @@ def test_stream_not_found():
     response.last_commit_position = 0
     response.error = "Couldn't find me face"
 
-    reply = convo.respond_to(
+    await convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
             response.SerializeToString()
-        )
+        ), None
     )
 
-    exn = reply.result
-    assert reply.action == ReplyAction.CompleteError
-    assert isinstance(exn, exceptions.StreamNotFound)
-    assert exn.stream == 'my-stream'
-    assert exn.conversation_id == convo.conversation_id
-    assert reply.next_message is None
+    with pytest.raises(exceptions.StreamNotFound) as exn:
+        await convo.result
+        assert exn.stream == 'my-stream'
+        assert exn.conversation_id == convo.conversation_id
 
 
-def test_stream_deleted():
+@pytest.mark.asyncio
+async def test_stream_deleted():
 
     convo = ReadStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
@@ -131,22 +142,21 @@ def test_stream_deleted():
     response.last_event_number = 0
     response.last_commit_position = 0
 
-    reply = convo.respond_to(
+    await convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
             response.SerializeToString()
-        )
+        ), None
     )
 
-    exn = reply.result
-    assert reply.action == ReplyAction.CompleteError
-    assert isinstance(exn, exceptions.StreamDeleted)
-    assert exn.stream == 'my-stream'
-    assert exn.conversation_id == convo.conversation_id
-    assert reply.next_message is None
+    with pytest.raises(exceptions.StreamDeleted) as exn:
+        await convo.result
+        assert exn.stream == 'my-stream'
+        assert exn.conversation_id == convo.conversation_id
 
 
-def test_read_error():
+@pytest.mark.asyncio
+async def test_read_error():
 
     convo = ReadStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
@@ -157,22 +167,21 @@ def test_read_error():
     response.last_commit_position = 0
     response.error = "Something really weird just happened"
 
-    reply = convo.respond_to(
+    await convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
             response.SerializeToString()
-        )
+        ), None
     )
 
-    assert reply.action == ReplyAction.CompleteError
-    exn = reply.result
-    assert isinstance(exn, exceptions.ReadError)
-    assert exn.stream == 'my-stream'
-    assert exn.conversation_id == convo.conversation_id
-    assert reply.next_message is None
+    with pytest.raises(exceptions.ReadError) as exn:
+        await convo.result
+        assert exn.stream == 'my-stream'
+        assert exn.conversation_id == convo.conversation_id
 
 
-def test_access_denied():
+@pytest.mark.asyncio
+async def test_access_denied():
 
     convo = ReadStreamEvents('my-stream')
     response = proto.ReadStreamEventsCompleted()
@@ -182,16 +191,15 @@ def test_access_denied():
     response.last_event_number = 0
     response.last_commit_position = 0
 
-    reply = convo.respond_to(
+    await convo.respond_to(
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
             response.SerializeToString()
-        )
+        ), None
     )
 
-    assert reply.action == ReplyAction.CompleteError
-    exn = reply.result
-    assert isinstance(exn, exceptions.AccessDenied)
-    assert exn.conversation_id == convo.conversation_id
-    assert exn.conversation_type == 'ReadStreamEvents'
-    assert reply.next_message is None
+    with pytest.raises(exceptions.AccessDenied) as exn:
+        await convo.result
+
+        assert exn.conversation_id == convo.conversation_id
+        assert exn.conversation_type == 'ReadStreamEvents'
