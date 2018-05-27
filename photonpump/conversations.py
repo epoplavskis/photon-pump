@@ -935,14 +935,12 @@ class ConnectPersistentSubscription(MagicConversation):
 
         self.state = ConnectPersistentSubscription.State.live
 
-        return Reply(
-            ReplyAction.BeginPersistentSubscription,
+        self.result.set_result(
             PersistentSubscription(
                 result.subscription_id, self.stream, self.conversation_id,
                 result.last_commit_position, result.last_event_number,
                 self.max_in_flight, self.auto_ack
-            ), None
-        )
+            ))
 
     def reply_from_live(self, response: InboundMessage):
         if response.command == TcpCommand.PersistentSubscriptionConfirmation:
@@ -986,13 +984,13 @@ class ConnectPersistentSubscription(MagicConversation):
 
         return Reply(ReplyAction.RaiseToSubscription, exn, None)
 
-    def reply(self, response: InboundMessage):
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
 
-        if response.command == TcpCommand.SubscriptionDropped:
-            return self.drop_subscription(response)
+        if message.command == TcpCommand.SubscriptionDropped:
+            self.drop_subscription(message)
 
-        if self.state == ConnectPersistentSubscription.State.init:
-            return self.reply_from_init(response)
+        elif self.state == ConnectPersistentSubscription.State.init:
+            self.reply_from_init(message)
 
-        if self.state == ConnectPersistentSubscription.State.live:
-            return self.reply_from_live(response)
+        elif self.state == ConnectPersistentSubscription.State.live:
+            self.reply_from_live(message)
