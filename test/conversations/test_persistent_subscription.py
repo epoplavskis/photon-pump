@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+import pytest
+
 from photonpump import messages_pb2 as proto
 from photonpump import exceptions as exn
 from photonpump.conversations import (
@@ -8,27 +10,31 @@ from photonpump.conversations import (
 from photonpump.messages import (
     ContentType, Event, InboundMessage, SubscriptionDropReason, TcpCommand
 )
+from ..fakes import TeeQueue
 
 
-def drop_subscription(convo, reason=SubscriptionDropReason):
+async def drop_subscription(convo, reason=SubscriptionDropReason):
 
     response = proto.SubscriptionDropped()
     response.reason = reason
 
-    return convo.respond_to(
+    await convo.respond_to(
         InboundMessage(
             uuid4(), TcpCommand.SubscriptionDropped,
             response.SerializeToString()
-        )
+        ), None
     )
 
 
-def test_connect_request():
+@pytest.mark.asyncio
+async def test_connect_request():
 
+    output = TeeQueue()
     convo = ConnectPersistentSubscription(
         'my-subscription', 'my-stream', max_in_flight=57
     )
-    request = convo.start()
+    await convo.start(output)
+    [request] = output.items
 
     payload = proto.ConnectToPersistentSubscription()
     payload.ParseFromString(request.payload)
