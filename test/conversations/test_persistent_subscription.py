@@ -45,31 +45,35 @@ async def test_connect_request():
     assert payload.allowed_in_flight_messages == 57
 
 
-def confirm_subscription(convo):
+async def confirm_subscription(convo, commit=23, event_number=56, subscription_id='FUUBARRBAXX'):
 
     response = proto.PersistentSubscriptionConfirmation()
-    response.last_commit_position = 23
-    response.last_event_number = 56
-    response.subscription_id = 'FUURBARRBAXX'
+    response.last_commit_position = commit
+    response.last_event_number = event_number
+    response.subscription_id = subscription_id
 
-    return convo.respond_to(
+    await convo.respond_to(
         InboundMessage(
             convo.conversation_id,
             TcpCommand.PersistentSubscriptionConfirmation,
             response.SerializeToString()
-        )
+        ), None
     )
 
 
-def test_confirmation():
+@pytest.mark.asyncio
+async def test_confirmation():
     convo = ConnectPersistentSubscription(
         'my-subscription', 'my-stream', max_in_flight=57
     )
 
-    reply = confirm_subscription(convo)
+    await confirm_subscription(convo, subscription_id='my-subscription', event_number=10)
 
-    assert reply.action == ReplyAction.BeginPersistentSubscription
-    assert isinstance(reply.result, PersistentSubscription)
+    subscription = convo.result.result()
+
+    assert subscription.name == 'my-subscription'
+    assert subscription.stream == 'my-stream'
+    assert subscription.last_event_number == 10
 
 
 def test_dropped_on_connect():
