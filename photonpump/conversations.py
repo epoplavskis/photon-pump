@@ -892,7 +892,7 @@ class CreatePersistentSubscription(MagicConversation):
             )
 
 
-class ConnectPersistentSubscription(Conversation):
+class ConnectPersistentSubscription(MagicConversation):
 
     class State(IntEnum):
         init = 0
@@ -915,16 +915,16 @@ class ConnectPersistentSubscription(Conversation):
         self.state = ConnectPersistentSubscription.State.init
         self.auto_ack = auto_ack
 
-    def start(self) -> OutboundMessage:
+    async def start(self, output: Queue) -> None:
         msg = proto.ConnectToPersistentSubscription()
         msg.subscription_id = self.name
         msg.event_stream_id = self.stream
         msg.allowed_in_flight_messages = self.max_in_flight
 
-        return OutboundMessage(
+        await output.put(OutboundMessage(
             self.conversation_id, TcpCommand.ConnectToPersistentSubscription,
             msg.SerializeToString(), self.credential
-        )
+        ))
 
     def reply_from_init(self, response: InboundMessage):
         self.expect_only(
