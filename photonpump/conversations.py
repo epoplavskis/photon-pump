@@ -979,8 +979,9 @@ class ConnectPersistentSubscription(MagicConversation):
         )
 
     def error(self, exn) -> Reply:
+        logging.error("Becauseages?")
         if self.state == CreateVolatileSubscription.State.init:
-            return Reply(ReplyAction.CompleteError, exn, None)
+            self.result.set_exception(exn)
 
         return Reply(ReplyAction.RaiseToSubscription, exn, None)
 

@@ -76,12 +76,15 @@ async def test_confirmation():
     assert subscription.last_event_number == 10
 
 
-def test_dropped_on_connect():
+@pytest.mark.asyncio
+async def test_dropped_on_connect():
     convo = ConnectPersistentSubscription(
         'my-subscription', 'my-stream', max_in_flight=57
     )
-    reply = drop_subscription(convo, SubscriptionDropReason.Unsubscribed)
-    assert reply.action == ReplyAction.CompleteError
+
+    with pytest.raises(exn.SubscriptionCreationFailed):
+        await drop_subscription(convo, SubscriptionDropReason.Unsubscribed)
+        await convo.result
 
 
 def test_persistent_subscription_reconnection():
