@@ -28,7 +28,6 @@ class ReplyAction(IntEnum):
     FinishSubscription = 9
     RaiseToSubscription = 10
 
-    BeginPersistentSubscription = 11
     ContinueSubscription = 12
 
     ResubmitMessage = 22
