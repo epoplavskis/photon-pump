@@ -271,32 +271,6 @@ class Connector:
                 raise NotImplementedError("WAT DO?")
 
 
-class PersistentSubscription(convo.PersistentSubscription):
-
-    def __init__(self, subscription, iterator, conn, out_queue):
-        super().__init__(
-            subscription.name, subscription.stream,
-            subscription.conversation_id, subscription.initial_commit_position,
-            subscription.last_event_number, subscription.buffer_size,
-            subscription.auto_ack
-        )
-        self.connection = conn
-        self.events = iterator
-        self.out_queue = out_queue
-
-    async def ack(self, event):
-        payload = proto.PersistentSubscriptionAckEvents()
-        payload.subscription_id = self.name
-        payload.processed_event_ids.append(event.original_event_id.bytes_le)
-        message = msg.OutboundMessage(
-            self.conversation_id,
-            msg.TcpCommand.PersistentSubscriptionAckEvents,
-            payload.SerializeToString(),
-        )
-
-        await self.out_queue.put(message)
-
-
 class MessageWriter:
 
     def __init__(

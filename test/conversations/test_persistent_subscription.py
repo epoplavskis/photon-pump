@@ -87,23 +87,13 @@ async def test_dropped_on_connect():
         await convo.result
 
 
-def test_persistent_subscription_reconnection():
+@pytest.mark.asyncio
+async def test_stream_event_appeared():
     convo = ConnectPersistentSubscription(
         'my-subscription', 'my-stream', max_in_flight=57
     )
 
-    confirm_subscription(convo)
-    reply = confirm_subscription(convo)
-
-    assert reply.action == ReplyAction.ContinueSubscription
-
-
-def test_stream_event_appeared():
-    convo = ConnectPersistentSubscription(
-        'my-subscription', 'my-stream', max_in_flight=57
-    )
-
-    confirm_subscription(convo)
+    await confirm_subscription(convo)
 
     event_id = uuid4()
     response = proto.PersistentSubscriptionStreamEventAppeared()
@@ -121,34 +111,40 @@ def test_stream_event_appeared():
     }
     """.encode('UTF-8')
 
-    reply = convo.respond_to(
+    await convo.respond_to(
         InboundMessage(
             uuid4(), TcpCommand.PersistentSubscriptionStreamEventAppeared,
             response.SerializeToString()
-        )
+        ), None
     )
 
-    assert reply.action == ReplyAction.YieldToSubscription
-    assert isinstance(reply.result, Event)
-    assert reply.result.event.id == event_id
+    subscription = await convo.result
+    event = await subscription.events.anext()
 
-    assert reply.next_message is None
+    assert event.event.id == event_id
 
 
-def test_subscription_unsubscribed_midway():
+@pytest.mark.asyncio
+async def test_subscription_unsubscribed_midway():
     convo = ConnectPersistentSubscription(
         'my-subscription', 'my-stream', max_in_flight=57
     )
-    confirm_subscription(convo)
-    reply = drop_subscription(convo, SubscriptionDropReason.Unsubscribed)
-    assert reply.action == ReplyAction.FinishSubscription
+    await confirm_subscription(convo)
+    subscription = await convo.result
+
+    await drop_subscription(convo, SubscriptionDropReason.Unsubscribed)
+    with pytest.raises(StopAsyncIteration):
+        await subscription.events.anext()
 
 
-def test_subscription_failed_midway():
+@pytest.mark.asyncio
+async def test_subscription_failed_midway():
     convo = ConnectPersistentSubscription(
         'my-subscription', 'my-stream', max_in_flight=57
     )
-    confirm_subscription(convo)
-    reply = drop_subscription(convo, SubscriptionDropReason.AccessDenied)
-    assert reply.action == ReplyAction.RaiseToSubscription
-    assert isinstance(reply.result, exn.SubscriptionFailed)
+    await confirm_subscription(convo)
+    subscription = await convo.result
+
+    await drop_subscription(convo, SubscriptionDropReason.AccessDenied)
+    with pytest.raises(exn.SubscriptionFailed):
+        await subscription.events.anext()

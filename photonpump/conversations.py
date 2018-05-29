@@ -392,9 +392,12 @@ class WriteEvents(MagicConversation):
 
         data = msg.SerializeToString()
 
-        await output.put(OutboundMessage(
-            self.conversation_id, TcpCommand.WriteEvents, data, self.credential
-        ))
+        await output.put(
+            OutboundMessage(
+                self.conversation_id, TcpCommand.WriteEvents, data,
+                self.credential
+            )
+        )
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(TcpCommand.WriteEventsCompleted, message)
@@ -480,7 +483,9 @@ class ReadEvent(ReadStreamEventsBehaviour, MagicConversation):
             credentials=None
     ) -> None:
 
-        MagicConversation.__init__(self, conversation_id, credential=credentials)
+        MagicConversation.__init__(
+            self, conversation_id, credential=credentials
+        )
         ReadStreamEventsBehaviour.__init__(
             self, ReadEventResult, proto.ReadEventCompleted
         )
@@ -498,9 +503,11 @@ class ReadEvent(ReadStreamEventsBehaviour, MagicConversation):
 
         data = msg.SerializeToString()
 
-        await output.put(OutboundMessage(
-            self.conversation_id, TcpCommand.Read, data, self.credential
-        ))
+        await output.put(
+            OutboundMessage(
+                self.conversation_id, TcpCommand.Read, data, self.credential
+            )
+        )
 
     async def success(self, response, output: Queue):
         self.is_complete = True
@@ -533,7 +540,9 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
             conversation_id: UUID = None
     ) -> None:
 
-        MagicConversation.__init__(self, conversation_id, credential=credentials)
+        MagicConversation.__init__(
+            self, conversation_id, credential=credentials
+        )
         ReadStreamEventsBehaviour.__init__(
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
         )
@@ -566,7 +575,9 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
     async def start(self, output):
         await output.put(self._fetch_page_message(self.from_event))
 
-    async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
+    async def success(
+            self, result: proto.ReadStreamEventsCompleted, output: Queue
+    ):
         events = [_make_event(x) for x in result.events]
 
         self.is_complete = True
@@ -651,9 +662,12 @@ class IterStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
     async def start(self, output: Queue):
         await output.put(self._fetch_page_message(self.from_event))
 
-    async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
+    async def success(
+            self, result: proto.ReadStreamEventsCompleted, output: Queue
+    ):
         events = [_make_event(x) for x in result.events]
         await self.iterator.enqueue_items(events)
+
         if not self.has_first_page:
             self.result.set_result(self.iterator)
             self.has_first_page = True
@@ -666,6 +680,7 @@ class IterStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
 
     async def error(self, exn: Exception) -> None:
         self.is_complete = True
+
         if self.has_first_page:
             await self.iterator.asend(exn)
         else:
@@ -692,6 +707,7 @@ class PersistentSubscription:
             initial_commit,
             initial_event_number,
             buffer_size,
+            out_queue,
             auto_ack=False
     ):
         self.initial_commit_position = initial_commit
@@ -701,11 +717,25 @@ class PersistentSubscription:
         self.stream = stream
         self.buffer_size = buffer_size
         self.auto_ack = auto_ack
+        self.events = StreamingIterator()
+        self.out_queue = out_queue
 
     def __str__(self):
         return "Subscription in group %s to %s at event number %d" % (
             self.name, self.stream, self.last_event_number
         )
+
+    async def ack(self, event):
+        payload = proto.PersistentSubscriptionAckEvents()
+        payload.subscription_id = self.name
+        payload.processed_event_ids.append(event.original_event_id.bytes_le)
+        message = OutboundMessage(
+            self.conversation_id,
+            TcpCommand.PersistentSubscriptionAckEvents,
+            payload.SerializeToString(),
+        )
+
+        await self.out_queue.put(message)
 
 
 class CreateVolatileSubscription(Conversation):
@@ -921,12 +951,15 @@ class ConnectPersistentSubscription(MagicConversation):
         msg.event_stream_id = self.stream
         msg.allowed_in_flight_messages = self.max_in_flight
 
-        await output.put(OutboundMessage(
-            self.conversation_id, TcpCommand.ConnectToPersistentSubscription,
-            msg.SerializeToString(), self.credential
-        ))
+        await output.put(
+            OutboundMessage(
+                self.conversation_id,
+                TcpCommand.ConnectToPersistentSubscription,
+                msg.SerializeToString(), self.credential
+            )
+        )
 
-    def reply_from_init(self, response: InboundMessage):
+    def reply_from_init(self, response: InboundMessage, output: Queue):
         self.expect_only(
             TcpCommand.PersistentSubscriptionConfirmation, response
         )
@@ -934,64 +967,60 @@ class ConnectPersistentSubscription(MagicConversation):
         result.ParseFromString(response.payload)
 
         self.state = ConnectPersistentSubscription.State.live
+        self.subscription = PersistentSubscription(
+            result.subscription_id, self.stream, self.conversation_id,
+            result.last_commit_position, result.last_event_number,
+            self.max_in_flight, output, self.auto_ack
+        )
 
-        self.result.set_result(
-            PersistentSubscription(
-                result.subscription_id, self.stream, self.conversation_id,
-                result.last_commit_position, result.last_event_number,
-                self.max_in_flight, self.auto_ack
-            ))
+        self.result.set_result(self.subscription)
 
-    def reply_from_live(self, response: InboundMessage):
+    async def reply_from_live(self, response: InboundMessage):
         if response.command == TcpCommand.PersistentSubscriptionConfirmation:
-            return Reply(ReplyAction.ContinueSubscription, None, None)
+            return
 
         self.expect_only(
             TcpCommand.PersistentSubscriptionStreamEventAppeared, response
         )
         result = proto.StreamEventAppeared()
         result.ParseFromString(response.payload)
+        await self.subscription.events.enqueue(_make_event(result.event))
 
-        return Reply(
-            ReplyAction.YieldToSubscription, _make_event(result.event), None
-        )
-
-    def drop_subscription(self, response: InboundMessage) -> Reply:
+    async def drop_subscription(self, response: InboundMessage) -> Reply:
         body = proto.SubscriptionDropped()
         body.ParseFromString(response.payload)
 
         if (self.state == ConnectPersistentSubscription.State.live and
                 body.reason == messages.SubscriptionDropReason.Unsubscribed):
 
-            return Reply(ReplyAction.FinishSubscription, None, None)
+            await self.subscription.events.enqueue(StopAsyncIteration())
 
         if self.state == ConnectPersistentSubscription.State.live:
-            return self.error(
+            await self.error(
                 exceptions.SubscriptionFailed(
                     self.conversation_id, body.reason
                 )
             )
 
-        return self.error(
+        await self.error(
             exceptions.SubscriptionCreationFailed(
                 self.conversation_id, body.reason
             )
         )
 
-    def error(self, exn) -> Reply:
-        logging.error("Becauseages?")
+    async def error(self, exn) -> None:
         if self.state == CreateVolatileSubscription.State.init:
             self.result.set_exception(exn)
-
-        return Reply(ReplyAction.RaiseToSubscription, exn, None)
+        else:
+            await self.subscription.events.asend(exn)
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
 
         if message.command == TcpCommand.SubscriptionDropped:
-            self.drop_subscription(message)
+            await self.drop_subscription(message)
 
         elif self.state == ConnectPersistentSubscription.State.init:
-            self.reply_from_init(message)
+            self.reply_from_init(message, output)
 
         elif self.state == ConnectPersistentSubscription.State.live:
-            self.reply_from_live(message)
+            await self.reply_from_live(message)

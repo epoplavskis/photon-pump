@@ -395,4 +395,4 @@ async def test_when_connector_reconnected_retry_active_conversations():
 
     message = await out_queue.get()
 
-    assert message == conversation.start()
+    assert message.command == TcpCommand.ConnectToPersistentSubscription
