@@ -578,16 +578,6 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
             self.result.set_exception(exn)
 
 
-class VolatileSubscription:
-
-    def __init__(
-            self, stream, initial_commit, initial_event_number, buffer_size
-    ):
-        self.last_commit_position = initial_commit
-        self.last_event_number = initial_event_number
-        self.stream = stream
-
-
 class PersistentSubscription:
 
     def __init__(
