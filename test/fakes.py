@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from photonpump.connection import Event
-from photonpump.conversations import MagicConversation
+from photonpump.conversations import Conversation
 
 
 class TeeQueue:
@@ -113,19 +113,19 @@ class SpyDispatcher:
 
     async def start_conversation(self, conversation):
         if self.pending_messages:
-            if isinstance(conversation, MagicConversation):
+            if isinstance(conversation, Conversation):
                 await conversation.start(self.pending_messages)
             else:
                 await self.pending_messages.put(conversation.start())
         self.active_conversations[conversation.conversation_id] = (conversation, None)
-        if isinstance(conversation, MagicConversation):
+        if isinstance(conversation, Conversation):
             return conversation.result
 
     async def write_to(self, output):
         self.pending_messages = output
 
         for (conversation, _) in self.active_conversations.values():
-            if isinstance(conversation, MagicConversation):
+            if isinstance(conversation, Conversation):
                 await conversation.start(output)
             else:
                 await self.pending_messages.put(conversation.start())

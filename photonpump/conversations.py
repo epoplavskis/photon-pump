@@ -18,28 +18,6 @@ from photonpump.messages import (
 )
 
 
-class ReplyAction(IntEnum):
-
-    CompleteError = 1
-    CancelFuture = 2
-
-    BeginVolatileSubscription = 7
-    YieldToSubscription = 8
-    FinishSubscription = 9
-    RaiseToSubscription = 10
-
-    ContinueSubscription = 12
-
-    ResubmitMessage = 22
-
-
-class Reply(NamedTuple):
-
-    action: ReplyAction
-    result: Any
-    next_message: OutboundMessage
-
-
 class StreamingIterator:
 
     def __init__(self, size=0):
@@ -82,7 +60,7 @@ class StreamingIterator:
         await self.items.put(item)
 
 
-class MagicConversation:
+class Conversation:
 
     def __init__(
             self,
@@ -100,7 +78,7 @@ class MagicConversation:
         return "<%s %s>" % (type(self).__name__, self.conversation_id)
 
     def __eq__(self, other):
-        if not isinstance(other, MagicConversation):
+        if not isinstance(other, Conversation):
             return False
 
         return self.conversation_id == other.conversation_id
@@ -166,93 +144,7 @@ class MagicConversation:
         return await self.error(exn)
 
 
-class Conversation:
-
-    def __init__(
-            self,
-            conversation_id: Optional[UUID] = None,
-            credential: Optional[Credential] = None
-    ) -> None:
-        self.conversation_id = conversation_id or uuid4()
-        self.result: Future = Future()
-        self.is_complete = False
-        self.credential = credential
-        self._logger = logging.get_named_logger(Conversation)
-
-    def __str__(self):
-        return "<Conversation %s (%s)>" % (type(self), self.conversation_id)
-
-    def __eq__(self, other):
-        if not isinstance(other, Conversation):
-            return False
-
-        return self.conversation_id == other.conversation_id
-
-    def start(self) -> OutboundMessage:
-        pass
-
-    def reply(self, response: InboundMessage) -> Reply:
-        pass
-
-    def error(self, exn: Exception):
-        return Reply(ReplyAction.CompleteError, exn, None)
-
-    def expect_only(self, command: TcpCommand, response: InboundMessage):
-        if response.command != command:
-            raise exceptions.UnexpectedCommand(command, response.command)
-
-    def conversation_error(self, exn_type, response) -> Reply:
-        error = response.payload.decode('UTF-8')
-        exn = exn_type(self.conversation_id, error)
-
-        return self.error(exn)
-
-    def unhandled_message(self, response):
-        body = proto.NotHandled()
-        body.ParseFromString(response.payload)
-
-        if body.reason == NotHandledReason.NotReady:
-            exn = exceptions.NotReady(self.conversation_id)
-        elif body.reason == NotHandledReason.TooBusy:
-            exn = exceptions.TooBusy(self.conversation_id)
-        elif body.reason == NotHandledReason.NotMaster:
-            exn = exceptions.NotMaster(self.conversation_id)
-        else:
-            exn = exceptions.NotHandled(self.conversation_id, body.reason)
-
-        return self.error(exn)
-
-    def timeout(self):
-        return self.error(TimeoutError())
-
-    def stop(self):
-        return Reply(ReplyAction.CancelFuture, None, None)
-
-    def respond_to(self, response: InboundMessage) -> Reply:
-        try:
-            if response.command is TcpCommand.BadRequest:
-                return self.conversation_error(exceptions.BadRequest, response)
-
-            if response.command is TcpCommand.NotAuthenticated:
-                return self.conversation_error(
-                    exceptions.NotAuthenticated, response
-                )
-
-            if response.command is TcpCommand.NotHandled:
-                return self.unhandled_message(response)
-
-            return self.reply(response)
-        except Exception as exn:
-            self._logger.error('Failed to read server response', exc_info=True)
-
-            return self.error(
-                exceptions.PayloadUnreadable(
-                    self.conversation_id, response.payload, exn
-                )
-            )
-
-
-class TimerConversation(MagicConversation):
+class TimerConversation(Conversation):
 
     def __init__(self, conversation_id, credential):
         super().__init__(conversation_id, credential)
@@ -328,7 +220,7 @@ class Ping(TimerConversation):
         await super().reply(message, output)
 
 
-class WriteEvents(MagicConversation):
+class WriteEvents(Conversation):
     """Command class for writing a sequence of events to a single
         stream.
 
@@ -457,7 +349,7 @@ class ReadStreamEventsBehaviour:
             )
 
 
-class ReadEvent(ReadStreamEventsBehaviour, MagicConversation):
+class ReadEvent(ReadStreamEventsBehaviour, Conversation):
     """Command class for reading a single event.
 
     Args:
@@ -482,7 +374,7 @@ class ReadEvent(ReadStreamEventsBehaviour, MagicConversation):
             credentials=None
     ) -> None:
 
-        MagicConversation.__init__(
+        Conversation.__init__(
             self, conversation_id, credential=credentials
         )
         ReadStreamEventsBehaviour.__init__(
@@ -513,7 +405,7 @@ class ReadEvent(ReadStreamEventsBehaviour, MagicConversation):
         self.result.set_result(_make_event(response.event))
 
 
-class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
+class ReadStreamEvents(ReadStreamEventsBehaviour, Conversation):
     """Command class for reading events from a stream.
 
     Args:
@@ -539,7 +431,7 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
             conversation_id: UUID = None
     ) -> None:
 
-        MagicConversation.__init__(
+        Conversation.__init__(
             self, conversation_id, credential=credentials
         )
         ReadStreamEventsBehaviour.__init__(
@@ -588,7 +480,7 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
         )
 
 
-class IterStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
+class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
     """Command class for iterating events from a stream.
 
     Args:
@@ -614,7 +506,7 @@ class IterStreamEvents(ReadStreamEventsBehaviour, MagicConversation):
             conversation_id: UUID = None
     ):
 
-        MagicConversation.__init__(self, conversation_id, credentials)
+        Conversation.__init__(self, conversation_id, credentials)
         ReadStreamEventsBehaviour.__init__(
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
         )
@@ -737,7 +629,7 @@ class PersistentSubscription:
         await self.out_queue.put(message)
 
 
-class CreatePersistentSubscription(MagicConversation):
+class CreatePersistentSubscription(Conversation):
 
     def __init__(
             self,
@@ -830,7 +722,7 @@ class CreatePersistentSubscription(MagicConversation):
             )
 
 
-class ConnectPersistentSubscription(MagicConversation):
+class ConnectPersistentSubscription(Conversation):
 
     class State(IntEnum):
         init = 0
@@ -895,7 +787,7 @@ class ConnectPersistentSubscription(MagicConversation):
         result.ParseFromString(response.payload)
         await self.subscription.events.enqueue(_make_event(result.event))
 
-    async def drop_subscription(self, response: InboundMessage) -> Reply:
+    async def drop_subscription(self, response: InboundMessage) -> None:
         body = proto.SubscriptionDropped()
         body.ParseFromString(response.payload)
 

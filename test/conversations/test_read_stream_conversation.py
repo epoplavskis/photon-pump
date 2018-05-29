@@ -5,7 +5,7 @@ import pytest
 
 from photonpump import messages as msg, exceptions
 from photonpump import messages_pb2 as proto
-from photonpump.conversations import ReplyAction, ReadStreamEvents
+from photonpump.conversations import ReadStreamEvents
 
 
 @pytest.mark.asyncio
