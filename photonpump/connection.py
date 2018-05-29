@@ -684,12 +684,6 @@ class Client:
         async for event in iterator:
             yield event
 
-    async def subscribe_volatile(self, stream: str):
-        cmd = msg.CreateVolatileSubscription(stream, loop=self.loop)
-        await self.dispatcher.start_conversation(cmd)
-
-        return await cmd.future
-
     async def create_subscription(
             self,
             name: str,

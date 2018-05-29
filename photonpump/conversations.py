@@ -737,97 +737,6 @@ class PersistentSubscription:
         await self.out_queue.put(message)
 
 
-class CreateVolatileSubscription(Conversation):
-    """Command class for creating a non-persistent subscription.
-
-    Args:
-        stream: The name of the stream to watch for new events
-    """
-
-    class State(IntEnum):
-        init = 0
-        catch_up = 1
-        live = 2
-
-    def __init__(
-            self,
-            stream: str,
-            resolve_links: bool = True,
-            buffer_size: int = 1,
-            credentials: Credential = None,
-            conversation_id: UUID = None
-    ) -> None:
-        super().__init__(conversation_id, credentials)
-        self.stream = stream
-        self.buffer_size = buffer_size
-        self.resolve_links = resolve_links
-        self.state = CreateVolatileSubscription.State.init
-
-    def error(self, exn) -> Reply:
-        if self.state == CreateVolatileSubscription.State.init:
-            return Reply(ReplyAction.CompleteError, exn, None)
-
-        return Reply(ReplyAction.RaiseToSubscription, exn, None)
-
-    def start(self):
-        msg = proto.SubscribeToStream()
-        msg.event_stream_id = self.stream
-        msg.resolve_link_tos = self.resolve_links
-
-        return OutboundMessage(
-            self.conversation_id, TcpCommand.SubscribeToStream,
-            msg.SerializeToString(), self.credential
-        )
-
-    def reply_from_init(self, response: InboundMessage):
-        self.expect_only(TcpCommand.SubscriptionConfirmation, response)
-        result = proto.SubscriptionConfirmation()
-        result.ParseFromString(response.payload)
-
-        self.state = CreateVolatileSubscription.State.live
-
-        return Reply(
-            ReplyAction.BeginVolatileSubscription,
-            VolatileSubscription(
-                self.stream, result.last_commit_position,
-                result.last_event_number, self.buffer_size
-            ), None
-        )
-
-    def reply_from_live(self, response: InboundMessage):
-        self.expect_only(TcpCommand.StreamEventAppeared, response)
-        result = proto.StreamEventAppeared()
-        result.ParseFromString(response.payload)
-
-        return Reply(
-            ReplyAction.YieldToSubscription, _make_event(result.event), None
-        )
-
-    def drop_subscription(self, response: InboundMessage) -> Reply:
-        body = proto.SubscriptionDropped()
-        body.ParseFromString(response.payload)
-
-        if self.state == CreateVolatileSubscription.State.init:
-            return self.error(
-                exceptions.SubscriptionCreationFailed(
-                    self.conversation_id, body.reason
-                )
-            )
-
-        return Reply(ReplyAction.FinishSubscription, None, None)
-
-    def reply(self, response: InboundMessage):
-
-        if response.command == TcpCommand.SubscriptionDropped:
-            return self.drop_subscription(response)
-
-        if self.state == CreateVolatileSubscription.State.init:
-            return self.reply_from_init(response)
-
-        if self.state == CreateVolatileSubscription.State.live:
-            return self.reply_from_live(response)
-
-
 class CreatePersistentSubscription(MagicConversation):
 
     def __init__(
@@ -941,7 +850,7 @@ class ConnectPersistentSubscription(MagicConversation):
         self.stream = stream
         self.max_in_flight = max_in_flight
         self.name = name
-        self.state = ConnectPersistentSubscription.State.init
+        self.is_live = False
         self.auto_ack = auto_ack
 
     async def start(self, output: Queue) -> None:
@@ -965,13 +874,13 @@ class ConnectPersistentSubscription(MagicConversation):
         result = proto.PersistentSubscriptionConfirmation()
         result.ParseFromString(response.payload)
 
-        self.state = ConnectPersistentSubscription.State.live
         self.subscription = PersistentSubscription(
             result.subscription_id, self.stream, self.conversation_id,
             result.last_commit_position, result.last_event_number,
             self.max_in_flight, output, self.auto_ack
         )
 
+        self.is_live = True
         self.result.set_result(self.subscription)
 
     async def reply_from_live(self, response: InboundMessage, output: Queue):
@@ -990,17 +899,18 @@ class ConnectPersistentSubscription(MagicConversation):
         body = proto.SubscriptionDropped()
         body.ParseFromString(response.payload)
 
-        if (self.state == ConnectPersistentSubscription.State.live and
-                body.reason == messages.SubscriptionDropReason.Unsubscribed):
+        if (self.is_live and body.reason == messages.SubscriptionDropReason.Unsubscribed):
 
             await self.subscription.events.enqueue(StopAsyncIteration())
+            return
 
-        if self.state == ConnectPersistentSubscription.State.live:
+        if self.is_live:
             await self.error(
                 exceptions.SubscriptionFailed(
                     self.conversation_id, body.reason
                 )
             )
+            return
 
         await self.error(
             exceptions.SubscriptionCreationFailed(
@@ -1009,18 +919,18 @@ class ConnectPersistentSubscription(MagicConversation):
         )
 
     async def error(self, exn) -> None:
-        if self.state == CreateVolatileSubscription.State.init:
-            self.result.set_exception(exn)
-        else:
+        if self.is_live:
             await self.subscription.events.asend(exn)
+        else:
+            self.result.set_exception(exn)
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
 
         if message.command == TcpCommand.SubscriptionDropped:
             await self.drop_subscription(message)
 
-        elif self.state == ConnectPersistentSubscription.State.init:
-            self.reply_from_init(message, output)
-
-        elif self.state == ConnectPersistentSubscription.State.live:
+        elif self.is_live:
             await self.reply_from_live(message, output)
+
+        else:
+            self.reply_from_init(message, output)
