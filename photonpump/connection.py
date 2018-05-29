@@ -523,19 +523,6 @@ class MessageDispatcher:
             result.set_exception(reply.result)
             del self.active_conversations[conversation.conversation_id]
 
-        elif reply.action == convo.ReplyAction.BeginPersistentSubscription:
-            self._logger.debug(
-                'Starting new iterator for persistent subscription %s',
-                conversation
-            )
-            # Until we figure things out, we'll run subscriptions with unbounded queues
-            # cos otherwise we block in irritating places.
-            sub = PersistentSubscription(
-                reply.result, convo.StreamingIterator(0), self,
-                output
-            )
-            result.set_result(sub)
-
         elif reply.action == convo.ReplyAction.ContinueSubscription:
             self._logger.debug("Attaching subscription to a new connection")
             sub = await result
