@@ -975,8 +975,9 @@ class ConnectPersistentSubscription(MagicConversation):
 
         self.result.set_result(self.subscription)
 
-    async def reply_from_live(self, response: InboundMessage):
+    async def reply_from_live(self, response: InboundMessage, output: Queue):
         if response.command == TcpCommand.PersistentSubscriptionConfirmation:
+            self.subscription.out_queue = output
             return
 
         self.expect_only(
@@ -1023,4 +1024,4 @@ class ConnectPersistentSubscription(MagicConversation):
             self.reply_from_init(message, output)
 
         elif self.state == ConnectPersistentSubscription.State.live:
-            await self.reply_from_live(message)
+            await self.reply_from_live(message, output)
