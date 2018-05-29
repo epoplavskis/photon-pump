@@ -6,7 +6,7 @@ import pytest
 
 import photonpump.messages as msg
 import photonpump.messages_pb2 as proto
-from photonpump.conversations import ReplyAction, WriteEvents
+from photonpump.conversations import WriteEvents
 
 
 def given_a_write_events_message():

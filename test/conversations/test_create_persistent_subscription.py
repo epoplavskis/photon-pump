@@ -6,7 +6,7 @@ import pytest
 
 from photonpump import exceptions
 from photonpump import messages_pb2 as proto
-from photonpump.conversations import CreatePersistentSubscription, ReplyAction
+from photonpump.conversations import CreatePersistentSubscription
 from photonpump.messages import InboundMessage, SubscriptionResult, TcpCommand
 
 

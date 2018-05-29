@@ -434,26 +434,12 @@ class MessageDispatcher:
     async def start_conversation(
             self, conversation: convo.Conversation
     ) -> asyncio.futures.Future:
-        if isinstance(conversation, convo.MagicConversation):
 
-            if not conversation.one_way:
-                self.active_conversations[conversation.conversation_id] = (conversation, None)
-            if self.output:
-                await conversation.start(self.output)
-            return conversation.result
-
-        else:
-
-            future = asyncio.futures.Future(loop=self._loop)
-            message = conversation.start()
-
-            if not message.one_way:
-                self.active_conversations[conversation.conversation_id] = (conversation, future)
-
-            if self.output:
-                await self.output.put(message)
-
-            return future
+        if not conversation.one_way:
+            self.active_conversations[conversation.conversation_id] = (conversation, None)
+        if self.output:
+            await conversation.start(self.output)
+        return conversation.result
 
     async def write_to(self, output: asyncio.Queue):
         self._logger.info(
@@ -463,12 +449,8 @@ class MessageDispatcher:
         self.output = output
 
         for (conversation, _) in self.active_conversations.values():
-            if isinstance(conversation, convo.MagicConversation):
-                await conversation.start(self.output)
-            else:
-                await output.put(conversation.start())
+            await conversation.start(self.output)
 
-    # Todo: Is the output necessary here?
     async def dispatch(
             self, message: msg.InboundMessage, output: asyncio.Queue
     ):
@@ -489,17 +471,9 @@ class MessageDispatcher:
 
             return
 
-        if isinstance(conversation, convo.MagicConversation):
-            await conversation.respond_to(message, output)
-            if conversation.is_complete:
-                del self.active_conversations[conversation.conversation_id]
-            return
-
-        self._logger.debug(
-            'Received response to conversation %s: %s', conversation, message
-        )
-        reply = conversation.respond_to(message)
-        await self.handle_reply(conversation, result, reply, output)
+        await conversation.respond_to(message, output)
+        if conversation.is_complete:
+            del self.active_conversations[conversation.conversation_id]
 
     def has_conversation(self, id):
         return id in self.active_conversations
@@ -507,49 +481,6 @@ class MessageDispatcher:
     def remove(self, id):
         if id in self.active_conversations:
             del self.active_conversations[id]
-
-    async def handle_reply(
-            self, conversation: convo.Conversation, result: asyncio.Future,
-            reply: convo.ReplyAction, output: asyncio.Queue
-    ):
-
-        self._logger.debug('Reply is %s', reply)
-
-        if reply.action == convo.ReplyAction.CompleteError:
-            self._logger.warn(
-                'Conversation %s received an error %s', conversation,
-                reply.result
-            )
-            result.set_exception(reply.result)
-            del self.active_conversations[conversation.conversation_id]
-
-        elif reply.action == convo.ReplyAction.ContinueSubscription:
-            self._logger.debug("Attaching subscription to a new connection")
-            sub = await result
-            sub.out_queue = output
-
-        elif reply.action == convo.ReplyAction.YieldToSubscription:
-            self._logger.debug(
-                'Pushing new event for subscription %s', conversation
-            )
-            sub = await result
-            await sub.events.enqueue(reply.result)
-
-        elif reply.action == convo.ReplyAction.RaiseToSubscription:
-            sub = await result
-            self._logger.info(
-                "Raising error %s to persistent subscription %s", reply.result,
-                sub
-            )
-            await sub.events.enqueue(reply.result)
-
-        elif reply.action == convo.ReplyAction.FinishSubscription:
-            sub = await result
-            self._logger.info("Completing persistent subscription %s", sub)
-            await sub.events.enqueue(StopIteration())
-
-        if reply.next_message is not None:
-            await output.put(reply.next_message)
 
 
 class Client:

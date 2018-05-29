@@ -2,7 +2,7 @@ import pytest
 from uuid import uuid4
 
 from ..fakes import TeeQueue
-from photonpump.conversations import Heartbeat, Ping, ReplyAction
+from photonpump.conversations import Heartbeat, Ping
 from photonpump.messages import HEADER_LENGTH, InboundMessage, TcpCommand
 
 

@@ -5,7 +5,7 @@ import pytest
 import photonpump.exceptions as exn
 import photonpump.messages as msg
 import photonpump.messages_pb2 as proto
-from photonpump.conversations import Ping, ReplyAction, WriteEvents
+from photonpump.conversations import Ping, WriteEvents
 
 from ..fakes import TeeQueue
 
