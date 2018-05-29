@@ -1,15 +1,17 @@
-from uuid import uuid4
+from typing import NamedTuple
+from uuid import UUID, uuid4
 
 import pytest
 
-from photonpump import messages_pb2 as proto
 from photonpump import exceptions as exn
+from photonpump import messages_pb2 as proto
 from photonpump.conversations import (
     ConnectPersistentSubscription, PersistentSubscription, ReplyAction
 )
 from photonpump.messages import (
     ContentType, Event, InboundMessage, SubscriptionDropReason, TcpCommand
 )
+
 from ..fakes import TeeQueue
 
 
@@ -45,7 +47,13 @@ async def test_connect_request():
     assert payload.allowed_in_flight_messages == 57
 
 
-async def confirm_subscription(convo, commit=23, event_number=56, subscription_id='FUUBARRBAXX'):
+async def confirm_subscription(
+        convo,
+        commit=23,
+        event_number=56,
+        subscription_id='FUUBARRBAXX',
+        queue=None
+):
 
     response = proto.PersistentSubscriptionConfirmation()
     response.last_commit_position = commit
@@ -57,7 +65,7 @@ async def confirm_subscription(convo, commit=23, event_number=56, subscription_i
             convo.conversation_id,
             TcpCommand.PersistentSubscriptionConfirmation,
             response.SerializeToString()
-        ), None
+        ), queue
     )
 
 
@@ -67,7 +75,9 @@ async def test_confirmation():
         'my-subscription', 'my-stream', max_in_flight=57
     )
 
-    await confirm_subscription(convo, subscription_id='my-subscription', event_number=10)
+    await confirm_subscription(
+        convo, subscription_id='my-subscription', event_number=10
+    )
 
     subscription = convo.result.result()
 
@@ -87,15 +97,7 @@ async def test_dropped_on_connect():
         await convo.result
 
 
-@pytest.mark.asyncio
-async def test_stream_event_appeared():
-    convo = ConnectPersistentSubscription(
-        'my-subscription', 'my-stream', max_in_flight=57
-    )
-
-    await confirm_subscription(convo)
-
-    event_id = uuid4()
+def event_appeared(event_id):
     response = proto.PersistentSubscriptionStreamEventAppeared()
 
     response.event.event.event_stream_id = "stream-123"
@@ -110,6 +112,19 @@ async def test_stream_event_appeared():
         'winner': false
     }
     """.encode('UTF-8')
+
+    return response
+
+
+@pytest.mark.asyncio
+async def test_stream_event_appeared():
+    convo = ConnectPersistentSubscription(
+        'my-subscription', 'my-stream', max_in_flight=57
+    )
+
+    event_id = uuid4()
+    await confirm_subscription(convo)
+    response = event_appeared(event_id)
 
     await convo.respond_to(
         InboundMessage(
@@ -148,3 +163,60 @@ async def test_subscription_failed_midway():
     await drop_subscription(convo, SubscriptionDropReason.AccessDenied)
     with pytest.raises(exn.SubscriptionFailed):
         await subscription.events.anext()
+
+
+class stub_event(NamedTuple):
+    original_event_id: UUID
+
+
+@pytest.mark.asyncio
+async def test_acknowledge_event():
+    output = TeeQueue()
+
+    convo = ConnectPersistentSubscription(
+        'my-subscription', 'my-stream', max_in_flight=57
+    )
+
+    await confirm_subscription(convo, subscription_id=convo.name, queue=output)
+    event_id = uuid4()
+
+    subscription = await convo.result
+    await subscription.ack(stub_event(event_id))
+
+    ack = await output.get()
+
+    assert ack.command == TcpCommand.PersistentSubscriptionAckEvents
+    assert ack.conversation_id == convo.conversation_id
+
+    expected_payload = proto.PersistentSubscriptionAckEvents()
+    expected_payload.subscription_id = convo.name
+    expected_payload.processed_event_ids.append(event_id.bytes_le)
+
+    assert expected_payload.SerializeToString() == ack.payload
+
+
+@pytest.mark.asyncio
+async def test_use_new_output_when_reconnected():
+    first_output = TeeQueue()
+    second_output = TeeQueue()
+
+    convo = ConnectPersistentSubscription(
+        'my-subscription', 'my-stream', max_in_flight=57
+    )
+
+    await confirm_subscription(convo, subscription_id=convo.name, queue=first_output)
+    event_id = uuid4()
+
+    subscription = await convo.result
+
+    await confirm_subscription(convo, subscription_id=convo.name, queue=second_output)
+    await subscription.ack(stub_event(event_id))
+
+    ack = await second_output.get()
+
+    assert ack.command == TcpCommand.PersistentSubscriptionAckEvents
+    assert ack.conversation_id == convo.conversation_id
+
+    assert not first_output.items
+
+
