@@ -2,7 +2,6 @@ import asyncio
 
 
 class FakeProtocol(asyncio.Protocol):
-
     def __init__(self, name):
         self.name = name
         self.connections_made = 0

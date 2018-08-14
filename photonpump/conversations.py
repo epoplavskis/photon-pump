@@ -25,7 +25,7 @@ class StreamingIterator:
         self.finished = False
         self.fut = None
 
-    async def __aiter__(self):
+    def __aiter__(self):
         return self
 
     async def enqueue_items(self, items):

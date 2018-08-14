@@ -17,12 +17,7 @@ async def test_single_event_roundtrip(event_loop):
         async with connect(loop=event_loop) as c:
             print("1")
             await c.publish_event(
-                stream_name,
-                'thing_happened',
-                body={
-                    'thing': 1,
-                    'happening': True
-                }
+                stream_name, "thing_happened", body={"thing": 1, "happening": True}
             )
             print("1")
 
@@ -30,12 +25,12 @@ async def test_single_event_roundtrip(event_loop):
 
             print("1")
             assert isinstance(result, messages.Event)
-            assert result.event.type == 'thing_happened'
+            assert result.event.type == "thing_happened"
 
             print("1")
             data = result.event.json()
-            assert data['thing'] == 1
-            assert data['happening'] is True
+            assert data["thing"] == 1
+            assert data["happening"] is True
     except Exception as e:
         print(e)
         assert False
@@ -75,11 +70,11 @@ async def test_read_multiple(event_loop):
 
         event = result[1].event
 
-        assert event.type == 'pony_jumped'
+        assert event.type == "pony_jumped"
 
         data = event.json()
-        assert data['Pony'] == 'Sparkly Hooves'
-        assert data['Height'] == 4
+        assert data["Pony"] == "Sparkly Hooves"
+        assert data["Height"] == 4
 
 
 @pytest.mark.asyncio
@@ -98,10 +93,10 @@ async def test_read_with_max_count(event_loop):
 
         event = result[0].event
 
-        assert event.type == 'pony_jumped'
+        assert event.type == "pony_jumped"
 
         data = event.json()
-        assert data['Pony'] == 'Derpy Hooves'
+        assert data["Pony"] == "Derpy Hooves"
 
 
 @pytest.mark.asyncio
@@ -120,10 +115,10 @@ async def test_read_with_max_count_and_from_event(event_loop):
 
         event = result[0].event
 
-        assert event.type == 'pony_jumped'
+        assert event.type == "pony_jumped"
 
         data = event.json()
-        assert data['Pony'] == 'Unlikely Hooves'
+        assert data["Pony"] == "Unlikely Hooves"
 
 
 @pytest.mark.asyncio
@@ -140,18 +135,17 @@ async def test_streaming_read(event_loop):
         async for event in c.iter(stream_name, batch_size=1):
             logging.info("Handling event!")
             events_read += 1
-            assert event.event.type == 'pony_jumped'
+            assert event.event.type == "pony_jumped"
 
         assert events_read == 3
 
 
 @pytest.mark.asyncio
 async def test_async_comprehension(event_loop):
-
     def embiggen(e):
         data = e.json()
-        data['Height'] *= 10
-        data['Distance'] *= 10
+        data["Height"] *= 10
+        data["Distance"] *= 10
 
     stream_name = str(uuid.uuid4())
 
@@ -160,8 +154,9 @@ async def test_async_comprehension(event_loop):
         await given_a_stream_with_three_events(c, stream_name)
 
         jumps = (
-            e.event async for e in c.iter(stream_name, batch_size=2)
-            if e.event.type == 'pony_jumped'
+            e.event async
+            for e in c.iter(stream_name, batch_size=2)
+            if e.event.type == "pony_jumped"
         )
         big_jumps = (embiggen(e) async for e in jumps)
 
@@ -179,7 +174,7 @@ async def test_iter_from_missing_stream(event_loop):
 
     async with connect(loop=event_loop) as c:
         try:
-            [e async for e in c.iter('my-stream-that-isnt-a-stream')]
+            [e async for e in c.iter("my-stream-that-isnt-a-stream")]
             assert False
         except Exception as e:
             assert isinstance(e, exceptions.StreamNotFound)

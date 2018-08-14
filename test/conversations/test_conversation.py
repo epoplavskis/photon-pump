@@ -1,6 +1,7 @@
 import uuid
 from photonpump.conversations import Ping, Heartbeat
 
+
 def test_conversation_equality_is_based_on_id():
 
     conversation_id_1 = uuid.uuid4()

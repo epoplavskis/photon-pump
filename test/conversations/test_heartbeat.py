@@ -20,7 +20,7 @@ async def test_start_heartbeat_conversation():
     assert not request.one_way
 
     assert request.length == HEADER_LENGTH
-    assert request.payload == b''
+    assert request.payload == b""
     assert request.command == TcpCommand.HeartbeatRequest
 
 
@@ -38,7 +38,7 @@ async def test_respond_to_server_heartbeat():
     assert response.one_way
 
     assert response.length == HEADER_LENGTH
-    assert response.payload == b''
+    assert response.payload == b""
     assert response.command == TcpCommand.HeartbeatResponse
 
     assert conversation.direction == Heartbeat.INBOUND
@@ -53,9 +53,8 @@ async def test_when_server_responds_to_heartbeat():
     conversation = Heartbeat(id, direction=Heartbeat.OUTBOUND)
 
     await conversation.respond_to(
-        InboundMessage(
-            conversation.conversation_id, TcpCommand.HeartbeatResponse, b''
-        ), output
+        InboundMessage(conversation.conversation_id, TcpCommand.HeartbeatResponse, b""),
+        output,
     )
     await conversation.result
 
@@ -73,7 +72,7 @@ async def test_ping_conversation():
 
     assert request.length == HEADER_LENGTH
     assert request.command == TcpCommand.Ping
-    assert request.payload == b''
+    assert request.payload == b""
 
     assert not conversation.is_complete
 
@@ -86,8 +85,7 @@ async def test_ping_response():
     await conversation.start(output)
 
     await conversation.respond_to(
-        InboundMessage(conversation.conversation_id, TcpCommand.Pong, b''),
-        output
+        InboundMessage(conversation.conversation_id, TcpCommand.Pong, b""), output
     )
 
     assert conversation.is_complete

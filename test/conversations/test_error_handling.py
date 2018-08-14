@@ -20,7 +20,7 @@ async def test_bad_request():
     error_message = "That's not an acceptable message, man"
 
     event_type = "pony_jumped"
-    data = {'pony_name': 'Burning Sulphur', 'distance': 6}
+    data = {"pony_name": "Burning Sulphur", "distance": 6}
     event_data = msg.NewEventData(event_id, event_type, data, None)
 
     conversation = WriteEvents(
@@ -30,9 +30,9 @@ async def test_bad_request():
     await conversation.start(output)
     await conversation.respond_to(
         msg.InboundMessage(
-            conversation_id, msg.TcpCommand.BadRequest,
-            error_message.encode('UTF-8')
-        ), output
+            conversation_id, msg.TcpCommand.BadRequest, error_message.encode("UTF-8")
+        ),
+        output,
     )
 
     with pytest.raises(exn.BadRequest) as exc:
@@ -50,7 +50,7 @@ async def test_not_authenticated():
     error_message = "Dude, like who even are you?"
 
     event_type = "pony_jumped"
-    data = {'pony_name': 'Burning Sulphur', 'distance': 6}
+    data = {"pony_name": "Burning Sulphur", "distance": 6}
     event_data = msg.NewEventData(event_id, event_type, data, None)
 
     conversation = WriteEvents(
@@ -60,9 +60,11 @@ async def test_not_authenticated():
     await conversation.start(output)
     await conversation.respond_to(
         msg.InboundMessage(
-            conversation_id, msg.TcpCommand.NotAuthenticated,
-            error_message.encode('UTF-8')
-        ), output
+            conversation_id,
+            msg.TcpCommand.NotAuthenticated,
+            error_message.encode("UTF-8"),
+        ),
+        output,
     )
 
     with pytest.raises(exn.NotAuthenticated) as exc:
@@ -82,7 +84,8 @@ async def test_notready_message():
         await conversation.respond_to(
             msg.InboundMessage(
                 uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()
-            ), output
+            ),
+            output,
         )
 
         await conversation.result
@@ -103,7 +106,7 @@ async def test_too_busy_message():
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()
         ),
-        output
+        output,
     )
 
     with pytest.raises(exn.TooBusy) as exc:
@@ -123,12 +126,13 @@ async def test_not_master():
         msg.InboundMessage(
             uuid4(), msg.TcpCommand.NotHandled, payload.SerializeToString()
         ),
-        output
+        output,
     )
 
     with pytest.raises(exn.NotMaster) as exc:
         await conversation.result
         assert exc.conversation_id == conversation.conversation_id
+
 
 @pytest.mark.asyncio
 async def test_decode_error():
@@ -140,8 +144,7 @@ async def test_decode_error():
     output = TeeQueue()
     conversation = Ping()
     await conversation.respond_to(
-        msg.InboundMessage(uuid4(), msg.TcpCommand.NotHandled, b'\x08\2A'),
-        output
+        msg.InboundMessage(uuid4(), msg.TcpCommand.NotHandled, b"\x08\2A"), output
     )
 
     with pytest.raises(exn.PayloadUnreadable) as exc:

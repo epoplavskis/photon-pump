@@ -21,15 +21,14 @@ async def test_authenticated_request():
 
     request = await output.get()
 
-    assert request.header_bytes == b''.join(
+    assert request.header_bytes == b"".join(
         [
-            b'\x24\x00\x00\x00'  # 36 == header_size
-            b'\x03',  # TcpCommand.Ping
-            b'\x01',  # Authentication bit is set
+            b"\x24\x00\x00\x00" b"\x03",  # 36 == header_size  # TcpCommand.Ping
+            b"\x01",  # Authentication bit is set
             conversation_id.bytes_le,  # Conversation_id
-            b'\x08',  # 8 == len(username)
-            b'username',
-            b'\x08',  # 8 == len(password)
-            b'password'
+            b"\x08",  # 8 == len(username)
+            b"username",
+            b"\x08",  # 8 == len(password)
+            b"password",
         ]
     )

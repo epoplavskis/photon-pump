@@ -16,8 +16,7 @@ async def test_ping_context_mgr(event_loop):
 @pytest.mark.asyncio
 async def test_connect_subscription(event_loop):
 
-    async with connect(username='admin', password='changeit',
-                       loop=event_loop) as conn:
+    async with connect(username="admin", password="changeit", loop=event_loop) as conn:
         subscription_name = str(uuid.uuid4())
         stream_name = str(uuid.uuid4())
         event_id = uuid.uuid4()
@@ -28,5 +27,3 @@ async def test_connect_subscription(event_loop):
 
         event = await subscription.events.anext()
         assert event.original_event_id == event_id
-
-

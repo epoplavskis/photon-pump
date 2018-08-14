@@ -11,14 +11,14 @@ from .fakes import TeeQueue
 
 
 def read_hex(s):
-    return binascii.unhexlify(''.join(s.split()))
+    return binascii.unhexlify("".join(s.split()))
 
 
 heartbeat_data = read_hex(
     "12 00 00 00 01 00 9f 65 81 c1 0b 80 58 4b a8 5d 5f d3 fd c5 23 B9"
 )
 
-heartbeat_id = uuid.UUID('c181659f-800b-4b58-a85d-5fd3fdc523b9')
+heartbeat_id = uuid.UUID("c181659f-800b-4b58-a85d-5fd3fdc523b9")
 
 persistent_stream_event_appeared = read_hex(
     """
@@ -75,7 +75,6 @@ fc 9d cd d8 94 b9 d6 ea 08 50 a4 e6 a4 d6 8e 2c
 
 
 class message_reader:
-
     async def __aenter__(self):
         messages = TeeQueue()
         stream = asyncio.StreamReader()
@@ -107,7 +106,7 @@ async def test_read_event():
 
         event = body.event.event
         assert event.event_number == 0
-        assert event.event_type == 'thing_happened'
+        assert event.event_type == "thing_happened"
 
 
 @pytest.mark.asyncio
@@ -118,7 +117,7 @@ async def test_read_heartbeat_request_single_call():
 
         received = await messages.get()
 
-        assert received.payload == b''
+        assert received.payload == b""
         assert received.command == TcpCommand.HeartbeatRequest
         assert received.length == 18
         assert received.conversation_id == heartbeat_id
@@ -135,7 +134,7 @@ async def test_read_header_multiple_calls():
 
         received = await messages.get()
 
-        assert received.payload == b''
+        assert received.payload == b""
         assert received.command == TcpCommand.HeartbeatRequest
         assert received.length == 18
         assert received.conversation_id == heartbeat_id
@@ -149,7 +148,7 @@ async def test_a_message_with_a_payload():
 
         received = await messages.get()
         assert received.conversation_id == uuid.UUID(
-            'f192d72f-7abd-4ae4-ae05-f206873c749d'
+            "f192d72f-7abd-4ae4-ae05-f206873c749d"
         )
         assert received.command == TcpCommand.PersistentSubscriptionStreamEventAppeared
 
@@ -165,7 +164,7 @@ async def test_two_messages_one_call():
 
         assert heartbeat.conversation_id == heartbeat_id
         assert event.conversation_id == uuid.UUID(
-            'f192d72f-7abd-4ae4-ae05-f206873c749d'
+            "f192d72f-7abd-4ae4-ae05-f206873c749d"
         )
 
 
@@ -185,9 +184,13 @@ async def test_three_messages_two_calls():
 
         [first_heartbeat, event, second_heartbeat] = messages.items
 
-        assert first_heartbeat.conversation_id == heartbeat_id == second_heartbeat.conversation_id
+        assert (
+            first_heartbeat.conversation_id
+            == heartbeat_id
+            == second_heartbeat.conversation_id
+        )
         assert event.conversation_id == uuid.UUID(
-            'f192d72f-7abd-4ae4-ae05-f206873c749d'
+            "f192d72f-7abd-4ae4-ae05-f206873c749d"
         )
 
 
@@ -205,7 +208,7 @@ async def test_two_messages_three_calls():
 
         assert heartbeat.conversation_id == heartbeat_id
         assert event.conversation_id == uuid.UUID(
-            'f192d72f-7abd-4ae4-ae05-f206873c749d'
+            "f192d72f-7abd-4ae4-ae05-f206873c749d"
         )
 
         assert len(messages.items) == 2
