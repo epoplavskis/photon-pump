@@ -13,14 +13,13 @@ def read_stream_events_failure(conversation_id, result):
     payload.is_end_of_stream = False
 
     return msg.InboundMessage(
-        conversation_id, msg.TcpCommand.ReadStreamEventsForwardCompleted,
-        payload.SerializeToString()
+        conversation_id,
+        msg.TcpCommand.ReadStreamEventsForwardCompleted,
+        payload.SerializeToString(),
     )
 
 
-def read_stream_events_completed(
-        conversation_id, stream, events, end_of_stream=False
-):
+def read_stream_events_completed(conversation_id, stream, events, end_of_stream=False):
     payload = proto.ReadStreamEventsCompleted()
     payload.result = msg.ReadStreamResult.Success
     payload.is_end_of_stream = end_of_stream
@@ -40,6 +39,7 @@ def read_stream_events_completed(
         e.event.data = json.dumps(event.data).encode("UTF-8")
 
     return msg.InboundMessage(
-        conversation_id, msg.TcpCommand.ReadStreamEventsForwardCompleted,
-        payload.SerializeToString()
+        conversation_id,
+        msg.TcpCommand.ReadStreamEventsForwardCompleted,
+        payload.SerializeToString(),
     )

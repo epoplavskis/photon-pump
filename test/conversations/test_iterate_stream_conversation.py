@@ -13,7 +13,7 @@ from photonpump.conversations import IterStreamEvents
 async def test_read_stream_request():
 
     output = TeeQueue()
-    convo = IterStreamEvents('my-stream')
+    convo = IterStreamEvents("my-stream")
     await convo.start(output)
     request = await output.get()
 
@@ -21,7 +21,7 @@ async def test_read_stream_request():
     body.ParseFromString(request.payload)
 
     assert request.command is msg.TcpCommand.ReadStreamEventsForward
-    assert body.event_stream_id == 'my-stream'
+    assert body.event_stream_id == "my-stream"
     assert body.from_event_number == 0
     assert body.resolve_link_tos is True
     assert body.require_master is False
@@ -33,7 +33,7 @@ async def test_read_stream_backward():
 
     output = TeeQueue()
     convo = IterStreamEvents(
-        'my-stream', direction=msg.StreamDirection.Backward, batch_size=10
+        "my-stream", direction=msg.StreamDirection.Backward, batch_size=10
     )
     await convo.start(output)
     request = await output.get()
@@ -42,7 +42,7 @@ async def test_read_stream_backward():
     body.ParseFromString(request.payload)
 
     assert request.command is msg.TcpCommand.ReadStreamEventsBackward
-    assert body.event_stream_id == 'my-stream'
+    assert body.event_stream_id == "my-stream"
     assert body.from_event_number == -1
     assert body.resolve_link_tos is True
     assert body.require_master is False
@@ -56,7 +56,7 @@ async def test_end_of_stream():
     event_1_id = uuid4()
     event_2_id = uuid4()
 
-    convo = IterStreamEvents('my-stream')
+    convo = IterStreamEvents("my-stream")
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadEventResult.Success
     response.next_event_number = 10
@@ -68,7 +68,7 @@ async def test_end_of_stream():
     event_1.event.event_stream_id = "stream-123"
     event_1.event.event_number = 32
     event_1.event.event_id = event_1_id.bytes_le
-    event_1.event.event_type = 'event-type'
+    event_1.event.event_type = "event-type"
     event_1.event.data_content_type = msg.ContentType.Json
     event_1.event.metadata_content_type = msg.ContentType.Binary
     event_1.event.data = """
@@ -76,11 +76,13 @@ async def test_end_of_stream():
         'color': 'red',
         'winner': true
     }
-    """.encode('UTF-8')
+    """.encode(
+        "UTF-8"
+    )
 
     event_2 = proto.ResolvedIndexedEvent()
     event_2.CopyFrom(event_1)
-    event_2.event.event_type = 'event-2-type'
+    event_2.event.event_type = "event-2-type"
     event_2.event.event_id = event_2_id.bytes_le
     event_2.event.event_number = 33
 
@@ -88,9 +90,9 @@ async def test_end_of_stream():
 
     await convo.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadEventCompleted,
-            response.SerializeToString()
-        ), output
+            uuid4(), msg.TcpCommand.ReadEventCompleted, response.SerializeToString()
+        ),
+        output,
     )
 
     # Todo: Use a slice here so that we can give information
@@ -99,14 +101,14 @@ async def test_end_of_stream():
 
     result = await convo.result
     [event_1, event_2] = [e async for e in result]
-    assert event_1.event.stream == 'stream-123'
+    assert event_1.event.stream == "stream-123"
     assert event_1.event.id == event_1_id
-    assert event_1.event.type == 'event-type'
+    assert event_1.event.type == "event-type"
     assert event_1.event.event_number == 32
 
-    assert event_2.event.stream == 'stream-123'
+    assert event_2.event.stream == "stream-123"
     assert event_2.event.id == event_2_id
-    assert event_2.event.type == 'event-2-type'
+    assert event_2.event.type == "event-2-type"
     assert event_2.event.event_number == 33
 
 
@@ -114,7 +116,7 @@ async def test_end_of_stream():
 async def test_stream_paging():
 
     output = TeeQueue()
-    convo = IterStreamEvents('my-stream')
+    convo = IterStreamEvents("my-stream")
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadEventResult.Success
     response.next_event_number = 10
@@ -124,9 +126,11 @@ async def test_stream_paging():
 
     await convo.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
-            response.SerializeToString()
-        ), output
+            uuid4(),
+            msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response.SerializeToString(),
+        ),
+        output,
     )
 
     reply = await output.get()
@@ -140,7 +144,7 @@ async def test_stream_paging():
 async def test_stream_not_found():
 
     output = TeeQueue()
-    convo = IterStreamEvents('my-stream')
+    convo = IterStreamEvents("my-stream")
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadStreamResult.NoStream
     response.is_end_of_stream = False
@@ -150,14 +154,16 @@ async def test_stream_not_found():
 
     await convo.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
-            response.SerializeToString()
-        ), output
+            uuid4(),
+            msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response.SerializeToString(),
+        ),
+        output,
     )
 
     with pytest.raises(exceptions.StreamNotFound) as exn:
         await convo.result
-        assert exn.stream == 'my-stream'
+        assert exn.stream == "my-stream"
         assert exn.conversation_id == convo.conversation_id
 
     assert not output.items
@@ -167,7 +173,7 @@ async def test_stream_not_found():
 async def test_error_mid_stream():
 
     output = TeeQueue()
-    convo = IterStreamEvents('my-stream')
+    convo = IterStreamEvents("my-stream")
     response = proto.ReadStreamEventsCompleted()
     response.result = msg.ReadStreamResult.Success
     response.is_end_of_stream = False
@@ -177,18 +183,22 @@ async def test_error_mid_stream():
 
     await convo.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
-            response.SerializeToString()
-        ), output
+            uuid4(),
+            msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response.SerializeToString(),
+        ),
+        output,
     )
 
     response.result = msg.ReadStreamResult.AccessDenied
 
     await convo.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted,
-            response.SerializeToString()
-        ), output
+            uuid4(),
+            msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response.SerializeToString(),
+        ),
+        output,
     )
 
     iterator = await convo.result
@@ -196,6 +206,6 @@ async def test_error_mid_stream():
         await iterator.anext()
 
         assert exn.conversation_id == convo.conversation_id
-        assert exn.conversation_type == 'IterStreamEvents'
+        assert exn.conversation_type == "IterStreamEvents"
 
     assert len(output.items) == 1

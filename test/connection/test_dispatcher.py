@@ -24,21 +24,32 @@ import pytest
 from photonpump import messages_pb2 as proto
 from photonpump.connection import MessageDispatcher
 from photonpump.conversations import (
-    ConnectPersistentSubscription, IterStreamEvents, Ping
+    ConnectPersistentSubscription,
+    IterStreamEvents,
+    Ping,
 )
 from photonpump.exceptions import (
-    NotAuthenticated, PayloadUnreadable, StreamDeleted,
-    SubscriptionCreationFailed, SubscriptionFailed
+    NotAuthenticated,
+    PayloadUnreadable,
+    StreamDeleted,
+    SubscriptionCreationFailed,
+    SubscriptionFailed,
 )
 from photonpump.messages import (
-    InboundMessage, NewEvent, OutboundMessage, ReadStreamResult,
-    SubscriptionDropReason, TcpCommand
+    InboundMessage,
+    NewEvent,
+    OutboundMessage,
+    ReadStreamResult,
+    SubscriptionDropReason,
+    TcpCommand,
 )
 
 from ..data import (
-    persistent_subscription_confirmed, persistent_subscription_dropped,
-    read_stream_events_completed, read_stream_events_failure,
-    subscription_event_appeared
+    persistent_subscription_confirmed,
+    persistent_subscription_dropped,
+    read_stream_events_completed,
+    read_stream_events_failure,
+    subscription_event_appeared,
 )
 from .test_connector import TeeQueue
 
@@ -76,8 +87,7 @@ async def test_when_receiving_a_heartbeat_request():
     heartbeat_id = uuid.uuid4()
 
     await dispatcher.dispatch(
-        InboundMessage(heartbeat_id, TcpCommand.HeartbeatRequest, bytes()),
-        out_queue
+        InboundMessage(heartbeat_id, TcpCommand.HeartbeatRequest, bytes()), out_queue
     )
 
     response = await out_queue.get()
@@ -100,7 +110,8 @@ async def test_when_the_conversation_raises_an_error():
     await dispatcher.dispatch(
         InboundMessage(
             conversation.conversation_id, TcpCommand.NotAuthenticated, bytes()
-        ), out_queue
+        ),
+        out_queue,
     )
 
     with pytest.raises(NotAuthenticated):
@@ -124,9 +135,9 @@ async def test_when_the_conversation_receives_an_unexpected_response():
 
     await dispatcher.dispatch(
         InboundMessage(
-            conversation.conversation_id, TcpCommand.WriteEventsCompleted,
-            bytes()
-        ), out_queue
+            conversation.conversation_id, TcpCommand.WriteEventsCompleted, bytes()
+        ),
+        out_queue,
     )
 
     with pytest.raises(PayloadUnreadable):
@@ -150,18 +161,18 @@ async def test_when_dispatching_stream_iterators():
 
     conversation = IterStreamEvents("my-stream")
     first_msg = read_stream_events_completed(
-        conversation.conversation_id, "my-stream",
-        [NewEvent("event", data={"x": 1})]
+        conversation.conversation_id, "my-stream", [NewEvent("event", data={"x": 1})]
     )
     second_msg = read_stream_events_completed(
-        conversation.conversation_id, "my-stream",
-        [NewEvent("event", data={"x": 2}),
-         NewEvent("event", data={"x": 3})]
+        conversation.conversation_id,
+        "my-stream",
+        [NewEvent("event", data={"x": 2}), NewEvent("event", data={"x": 3})],
     )
     final_msg = read_stream_events_completed(
         conversation.conversation_id,
-        "my-stream", [NewEvent("event", data={"x": 4})],
-        end_of_stream=True
+        "my-stream",
+        [NewEvent("event", data={"x": 4})],
+        end_of_stream=True,
     )
 
     dispatcher = MessageDispatcher()
@@ -175,7 +186,7 @@ async def test_when_dispatching_stream_iterators():
     iterator = await asyncio.wait_for(future, 1)
 
     e = await anext(iterator)
-    assert e.event.json()['x'] == 1
+    assert e.event.json()["x"] == 1
     assert dispatcher.has_conversation(conversation.conversation_id)
 
     # The second message should result in two events on the iterator.
@@ -183,17 +194,17 @@ async def test_when_dispatching_stream_iterators():
     await dispatcher.dispatch(second_msg, output_queue)
 
     e = await anext(iterator)
-    assert e.event.json()['x'] == 2
+    assert e.event.json()["x"] == 2
 
     e = await anext(iterator)
-    assert e.event.json()['x'] == 3
+    assert e.event.json()["x"] == 3
     assert dispatcher.has_conversation(conversation.conversation_id)
 
     # The final message should result in one event and the iterator terminating
     await dispatcher.dispatch(final_msg, output_queue)
 
     [e] = [e async for e in iterator]
-    assert e.event.json()['x'] == 4
+    assert e.event.json()["x"] == 4
     assert not dispatcher.has_conversation(conversation.conversation_id)
 
 
@@ -208,8 +219,7 @@ async def test_when_a_stream_iterator_fails_midway():
     output_queue = TeeQueue()
     conversation = IterStreamEvents("my-stream")
     first_msg = read_stream_events_completed(
-        conversation.conversation_id, "my-stream",
-        [NewEvent("event", data={"x": 1})]
+        conversation.conversation_id, "my-stream", [NewEvent("event", data={"x": 1})]
     )
     second_msg = read_stream_events_failure(
         conversation.conversation_id, ReadStreamResult.StreamDeleted
@@ -223,7 +233,7 @@ async def test_when_a_stream_iterator_fails_midway():
     iterator = await asyncio.wait_for(future, 1)
 
     event = await anext(iterator)
-    assert event.event.json()['x'] == 1
+    assert event.event.json()["x"] == 1
 
     with pytest.raises(StreamDeleted):
         await anext(iterator)
@@ -278,11 +288,12 @@ async def test_when_running_a_persistent_subscription():
     await dispatcher.dispatch(
         subscription_event_appeared(
             conversation.conversation_id, NewEvent("event", data={"x": 2})
-        ), out_queue
+        ),
+        out_queue,
     )
 
     event = await anext(subscription.events)
-    assert event.event.json()['x'] == 2
+    assert event.event.json()["x"] == 2
 
     # Acknowledging the event should place an Ack message on the out_queue
 
@@ -294,7 +305,7 @@ async def test_when_running_a_persistent_subscription():
     expected_message = OutboundMessage(
         conversation.conversation_id,
         TcpCommand.PersistentSubscriptionAckEvents,
-        expected_payload.SerializeToString()
+        expected_payload.SerializeToString(),
     )
 
     ack = await out_queue.get()
@@ -316,7 +327,8 @@ async def test_when_a_persistent_subscription_fails_on_connection():
     await dispatcher.dispatch(
         persistent_subscription_dropped(
             conversation.conversation_id, SubscriptionDropReason.AccessDenied
-        ), None
+        ),
+        None,
     )
 
     with pytest.raises(SubscriptionCreationFailed):
@@ -334,9 +346,7 @@ async def test_when_a_persistent_subscription_fails():
     future = await dispatcher.start_conversation(conversation)
 
     await dispatcher.dispatch(
-        persistent_subscription_confirmed(
-            conversation.conversation_id, "my-sub"
-        ), None
+        persistent_subscription_confirmed(conversation.conversation_id, "my-sub"), None
     )
 
     subscription = await asyncio.wait_for(future, 1)
@@ -344,7 +354,8 @@ async def test_when_a_persistent_subscription_fails():
     await dispatcher.dispatch(
         persistent_subscription_dropped(
             conversation.conversation_id, SubscriptionDropReason.AccessDenied
-        ), None
+        ),
+        None,
     )
 
     with pytest.raises(SubscriptionFailed):
@@ -362,9 +373,7 @@ async def test_when_a_persistent_subscription_is_unsubscribed():
     future = await dispatcher.start_conversation(conversation)
 
     await dispatcher.dispatch(
-        persistent_subscription_confirmed(
-            conversation.conversation_id, "my-sub"
-        ), None
+        persistent_subscription_confirmed(conversation.conversation_id, "my-sub"), None
     )
 
     subscription = await asyncio.wait_for(future, 1)
@@ -372,7 +381,8 @@ async def test_when_a_persistent_subscription_is_unsubscribed():
     await dispatcher.dispatch(
         persistent_subscription_dropped(
             conversation.conversation_id, SubscriptionDropReason.Unsubscribed
-        ), None
+        ),
+        None,
     )
 
     [] = [e async for e in subscription.events]

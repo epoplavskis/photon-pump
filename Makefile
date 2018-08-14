@@ -1,8 +1,8 @@
 fast_tests: lint
-	pytest test/conversations/
+	pipenv run pytest test/conversations/
 all_tests:
-	pytest
+	pipenv run pytest
 lint:
-	flake8
+	pipenv run black .
 continous_test:
-	ptw
+	pipenv run ptw

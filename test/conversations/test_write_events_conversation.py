@@ -15,7 +15,7 @@ def given_a_write_events_message():
     conversation_id = uuid4()
 
     event_type = "pony_jumped"
-    data = {'pony_name': 'Burning Sulphur', 'distance': 6}
+    data = {"pony_name": "Burning Sulphur", "distance": 6}
     event_data = msg.NewEventData(event_id, event_type, data, None)
 
     conversation = WriteEvents(
@@ -34,7 +34,7 @@ async def test_write_one_event():
     conversation_id = uuid4()
 
     event_type = "pony_jumped"
-    data = {'pony_name': 'Burning Sulphur', 'distance': 6}
+    data = {"pony_name": "Burning Sulphur", "distance": 6}
     event_data = msg.NewEventData(event_id, event_type, data, None)
 
     conversation = WriteEvents(
@@ -52,20 +52,20 @@ async def test_write_one_event():
     payload = proto.WriteEvents()
     payload.ParseFromString(request.payload)
 
-    assert payload.event_stream_id == 'my-stream'
+    assert payload.event_stream_id == "my-stream"
     assert payload.expected_version == msg.ExpectedVersion.Any
     assert len(payload.events) == 1
     assert not payload.require_master
 
     [evt] = payload.events
     assert evt.event_id == event_id.bytes_le
-    assert evt.event_type == 'pony_jumped'
+    assert evt.event_type == "pony_jumped"
 
     assert evt.data_content_type == msg.ContentType.Json
-    assert evt.data == json.dumps(data).encode('UTF-8')
+    assert evt.data == json.dumps(data).encode("UTF-8")
 
     assert evt.metadata_content_type == msg.ContentType.Binary
-    assert evt.metadata == b''
+    assert evt.metadata == b""
 
 
 @pytest.mark.asyncio
@@ -84,9 +84,11 @@ async def test_one_event_response():
 
     await conversation.respond_to(
         msg.InboundMessage(
-            conversation.conversation_id, msg.TcpCommand.WriteEventsCompleted,
-            payload.SerializeToString()
-        ), output
+            conversation.conversation_id,
+            msg.TcpCommand.WriteEventsCompleted,
+            payload.SerializeToString(),
+        ),
+        output,
     )
 
     result = await conversation.result
@@ -109,7 +111,6 @@ async def test_timeout():
     await conversation.start(output)
 
     await conversation.timeout()
-
 
 
 @pytest.mark.skip(reason="upcoming feature")

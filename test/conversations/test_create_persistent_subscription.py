@@ -11,7 +11,7 @@ from photonpump.messages import InboundMessage, SubscriptionResult, TcpCommand
 
 
 def read_hex(s):
-    return binascii.unhexlify(''.join(s.split()))
+    return binascii.unhexlify("".join(s.split()))
 
 
 @pytest.mark.asyncio
@@ -28,8 +28,8 @@ async def test_create_persistent_subscription_request():
     body.ParseFromString(request.payload)
 
     assert request.command == TcpCommand.CreatePersistentSubscription
-    assert body.subscription_group_name == 'my-subscription'
-    assert body.event_stream_id == 'my-stream'
+    assert body.subscription_group_name == "my-subscription"
+    assert body.event_stream_id == "my-stream"
 
 
 async def complete_subscription(convo, result):
@@ -38,9 +38,11 @@ async def complete_subscription(convo, result):
 
     await convo.respond_to(
         InboundMessage(
-            uuid4(), TcpCommand.CreatePersistentSubscriptionCompleted,
-            response.SerializeToString()
-        ), None
+            uuid4(),
+            TcpCommand.CreatePersistentSubscriptionCompleted,
+            response.SerializeToString(),
+        ),
+        None,
     )
 
 
@@ -48,9 +50,7 @@ async def complete_subscription(convo, result):
 async def test_persistent_subscription_already_exists():
 
     output = Queue()
-    convo = CreatePersistentSubscription(
-        "my-other-subscription", "my-other-stream"
-    )
+    convo = CreatePersistentSubscription("my-other-subscription", "my-other-stream")
 
     await convo.start(output)
 
@@ -58,9 +58,11 @@ async def test_persistent_subscription_already_exists():
     response.result = SubscriptionResult.AlreadyExists
     await convo.respond_to(
         InboundMessage(
-            uuid4(), TcpCommand.CreatePersistentSubscriptionCompleted,
-            response.SerializeToString()
-        ), output
+            uuid4(),
+            TcpCommand.CreatePersistentSubscriptionCompleted,
+            response.SerializeToString(),
+        ),
+        output,
     )
 
     with pytest.raises(exceptions.SubscriptionCreationFailed):
@@ -70,9 +72,7 @@ async def test_persistent_subscription_already_exists():
 @pytest.mark.asyncio
 async def test_persistent_subscription_access_denied():
 
-    convo = CreatePersistentSubscription(
-        "my-other-subscription", "my-other-stream"
-    )
+    convo = CreatePersistentSubscription("my-other-subscription", "my-other-stream")
 
     await complete_subscription(convo, SubscriptionResult.AccessDenied)
     with pytest.raises(exceptions.AccessDenied):
@@ -97,7 +97,7 @@ async def test_subscription_configuration():
         checkpoint_max_count=1000,
         checkpoint_min_count=10,
         subscriber_max_count=0,
-        conversation_id=UUID('8ff5727b-58a9-4805-823a-451d5eb307f7')
+        conversation_id=UUID("8ff5727b-58a9-4805-823a-451d5eb307f7"),
     )
 
     output = Queue()

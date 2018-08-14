@@ -6,7 +6,6 @@ from photonpump.conversations import Conversation
 
 
 class TeeQueue:
-
     def __init__(self):
         self.items = []
         self.queue = asyncio.Queue()
@@ -34,24 +33,19 @@ class TeeQueue:
 
 
 class EchoServerClientProtocol(asyncio.Protocol):
-
     def __init__(self, cb, number):
         self.cb = cb
         self.number = number
 
     def connection_made(self, transport):
-        peername = transport.get_extra_info('peername')
-        logging.info(
-            'Connection from {} to protocol {}'.format(peername, self.number)
-        )
+        peername = transport.get_extra_info("peername")
+        logging.info("Connection from {} to protocol {}".format(peername, self.number))
         self.transport = transport
         self.cb(transport)
 
     def data_received(self, data):
         # message = data
-        logging.info(
-            'ServerProtocol {} received data: {!r}'.format(self.number, data)
-        )
+        logging.info("ServerProtocol {} received data: {!r}".format(self.number, data))
 
         # print('Send: {!r}'.format(message))
         self.transport.write(data)
@@ -61,7 +55,6 @@ class EchoServerClientProtocol(asyncio.Protocol):
 
 
 class EchoServer:
-
     def __init__(self, addr, loop):
         self.host = addr.address
         self.port = addr.port
@@ -71,9 +64,7 @@ class EchoServer:
 
     async def __aenter__(self):
         self.transports = []
-        server = self.loop.create_server(
-            self.make_protocol, self.host, self.port
-        )
+        server = self.loop.create_server(self.make_protocol, self.host, self.port)
         self._server = await server
         self.running = True
         logging.info("Echo server is running %s", self._server)
@@ -83,9 +74,7 @@ class EchoServer:
     def make_protocol(self):
         self.protocol_counter += 1
 
-        return EchoServerClientProtocol(
-            self.transports.append, self.protocol_counter
-        )
+        return EchoServerClientProtocol(self.transports.append, self.protocol_counter)
 
     async def __aexit__(self, exc_type, exc, tb):
         self.stop()
@@ -101,7 +90,6 @@ class EchoServer:
 
 
 class SpyDispatcher:
-
     def __init__(self):
         self.received = TeeQueue()
         self.pending_messages = None
@@ -131,9 +119,8 @@ class SpyDispatcher:
                 await self.pending_messages.put(conversation.start())
 
 
-class FakeConnector():
-
-    def __init__(self, ):
+class FakeConnector:
+    def __init__(self,):
         self.connected = Event()
         self.disconnected = Event()
         self.stopped = Event()

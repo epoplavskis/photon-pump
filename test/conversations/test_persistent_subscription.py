@@ -6,10 +6,15 @@ import pytest
 from photonpump import exceptions as exn
 from photonpump import messages_pb2 as proto
 from photonpump.conversations import (
-    ConnectPersistentSubscription, PersistentSubscription
+    ConnectPersistentSubscription,
+    PersistentSubscription,
 )
 from photonpump.messages import (
-    ContentType, Event, InboundMessage, SubscriptionDropReason, TcpCommand
+    ContentType,
+    Event,
+    InboundMessage,
+    SubscriptionDropReason,
+    TcpCommand,
 )
 
 from ..fakes import TeeQueue
@@ -22,9 +27,9 @@ async def drop_subscription(convo, reason=SubscriptionDropReason):
 
     await convo.respond_to(
         InboundMessage(
-            uuid4(), TcpCommand.SubscriptionDropped,
-            response.SerializeToString()
-        ), None
+            uuid4(), TcpCommand.SubscriptionDropped, response.SerializeToString()
+        ),
+        None,
     )
 
 
@@ -33,7 +38,7 @@ async def test_connect_request():
 
     output = TeeQueue()
     convo = ConnectPersistentSubscription(
-        'my-subscription', 'my-stream', max_in_flight=57
+        "my-subscription", "my-stream", max_in_flight=57
     )
     await convo.start(output)
     [request] = output.items
@@ -42,17 +47,13 @@ async def test_connect_request():
     payload.ParseFromString(request.payload)
 
     assert request.command == TcpCommand.ConnectToPersistentSubscription
-    assert payload.subscription_id == 'my-subscription'
-    assert payload.event_stream_id == 'my-stream'
+    assert payload.subscription_id == "my-subscription"
+    assert payload.event_stream_id == "my-stream"
     assert payload.allowed_in_flight_messages == 57
 
 
 async def confirm_subscription(
-        convo,
-        commit=23,
-        event_number=56,
-        subscription_id='FUUBARRBAXX',
-        queue=None
+    convo, commit=23, event_number=56, subscription_id="FUUBARRBAXX", queue=None
 ):
 
     response = proto.PersistentSubscriptionConfirmation()
@@ -64,32 +65,33 @@ async def confirm_subscription(
         InboundMessage(
             convo.conversation_id,
             TcpCommand.PersistentSubscriptionConfirmation,
-            response.SerializeToString()
-        ), queue
+            response.SerializeToString(),
+        ),
+        queue,
     )
 
 
 @pytest.mark.asyncio
 async def test_confirmation():
     convo = ConnectPersistentSubscription(
-        'my-subscription', 'my-stream', max_in_flight=57
+        "my-subscription", "my-stream", max_in_flight=57
     )
 
     await confirm_subscription(
-        convo, subscription_id='my-subscription', event_number=10
+        convo, subscription_id="my-subscription", event_number=10
     )
 
     subscription = convo.result.result()
 
-    assert subscription.name == 'my-subscription'
-    assert subscription.stream == 'my-stream'
+    assert subscription.name == "my-subscription"
+    assert subscription.stream == "my-stream"
     assert subscription.last_event_number == 10
 
 
 @pytest.mark.asyncio
 async def test_dropped_on_connect():
     convo = ConnectPersistentSubscription(
-        'my-subscription', 'my-stream', max_in_flight=57
+        "my-subscription", "my-stream", max_in_flight=57
     )
 
     with pytest.raises(exn.SubscriptionCreationFailed):
@@ -103,7 +105,7 @@ def event_appeared(event_id):
     response.event.event.event_stream_id = "stream-123"
     response.event.event.event_number = 32
     response.event.event.event_id = event_id.bytes_le
-    response.event.event.event_type = 'event-type'
+    response.event.event.event_type = "event-type"
     response.event.event.data_content_type = ContentType.Json
     response.event.event.metadata_content_type = ContentType.Binary
     response.event.event.data = """
@@ -111,7 +113,9 @@ def event_appeared(event_id):
         'color': 'blue',
         'winner': false
     }
-    """.encode('UTF-8')
+    """.encode(
+        "UTF-8"
+    )
 
     return response
 
@@ -119,7 +123,7 @@ def event_appeared(event_id):
 @pytest.mark.asyncio
 async def test_stream_event_appeared():
     convo = ConnectPersistentSubscription(
-        'my-subscription', 'my-stream', max_in_flight=57
+        "my-subscription", "my-stream", max_in_flight=57
     )
 
     event_id = uuid4()
@@ -128,9 +132,11 @@ async def test_stream_event_appeared():
 
     await convo.respond_to(
         InboundMessage(
-            uuid4(), TcpCommand.PersistentSubscriptionStreamEventAppeared,
-            response.SerializeToString()
-        ), None
+            uuid4(),
+            TcpCommand.PersistentSubscriptionStreamEventAppeared,
+            response.SerializeToString(),
+        ),
+        None,
     )
 
     subscription = await convo.result
@@ -142,7 +148,7 @@ async def test_stream_event_appeared():
 @pytest.mark.asyncio
 async def test_subscription_unsubscribed_midway():
     convo = ConnectPersistentSubscription(
-        'my-subscription', 'my-stream', max_in_flight=57
+        "my-subscription", "my-stream", max_in_flight=57
     )
     await confirm_subscription(convo)
     subscription = await convo.result
@@ -155,7 +161,7 @@ async def test_subscription_unsubscribed_midway():
 @pytest.mark.asyncio
 async def test_subscription_failed_midway():
     convo = ConnectPersistentSubscription(
-        'my-subscription', 'my-stream', max_in_flight=57
+        "my-subscription", "my-stream", max_in_flight=57
     )
     await confirm_subscription(convo)
     subscription = await convo.result
@@ -174,7 +180,7 @@ async def test_acknowledge_event():
     output = TeeQueue()
 
     convo = ConnectPersistentSubscription(
-        'my-subscription', 'my-stream', max_in_flight=57
+        "my-subscription", "my-stream", max_in_flight=57
     )
 
     await confirm_subscription(convo, subscription_id=convo.name, queue=output)
@@ -201,7 +207,7 @@ async def test_use_new_output_when_reconnected():
     second_output = TeeQueue()
 
     convo = ConnectPersistentSubscription(
-        'my-subscription', 'my-stream', max_in_flight=57
+        "my-subscription", "my-stream", max_in_flight=57
     )
 
     await confirm_subscription(convo, subscription_id=convo.name, queue=first_output)
@@ -218,5 +224,3 @@ async def test_use_new_output_when_reconnected():
     assert ack.conversation_id == convo.conversation_id
 
     assert not first_output.items
-
-

@@ -5,9 +5,19 @@ import pytest
 from aioresponses import aioresponses
 
 from photonpump.discovery import (
-    ClusterDiscovery, DiscoveredNode, DiscoveryFailed, DiscoveryRetryPolicy,
-    NodeService, NodeState, SingleNodeDiscovery, StaticSeedFinder, Stats,
-    fetch_new_gossip, get_discoverer, read_gossip, select
+    ClusterDiscovery,
+    DiscoveredNode,
+    DiscoveryFailed,
+    DiscoveryRetryPolicy,
+    NodeService,
+    NodeState,
+    SingleNodeDiscovery,
+    StaticSeedFinder,
+    Stats,
+    fetch_new_gossip,
+    get_discoverer,
+    read_gossip,
+    select,
 )
 
 from . import data
@@ -18,7 +28,7 @@ GOOD_NODE = DiscoveredNode(
     internal_tcp=None,
     internal_http=None,
     external_http=None,
-    external_tcp=NodeService('10.128.10.10', 1113, None)
+    external_tcp=NodeService("10.128.10.10", 1113, None),
 )
 
 
@@ -50,8 +60,8 @@ def test_selector_with_a_dead_node():
 def test_selector_with_nodes_in_bad_states():
 
     gossip = [
-        GOOD_NODE._replace(state=s) for s in
-        [NodeState.Manager, NodeState.Shutdown, NodeState.ShuttingDown]
+        GOOD_NODE._replace(state=s)
+        for s in [NodeState.Manager, NodeState.Shutdown, NodeState.ShuttingDown]
     ]
 
     selected = select(gossip)
@@ -70,7 +80,7 @@ def test_selector_with_nodes_in_all_states():
 def test_selector_with_slave_and_clone():
     gossip = [
         GOOD_NODE._replace(state=NodeState.Clone),
-        GOOD_NODE._replace(state=NodeState.Slave)
+        GOOD_NODE._replace(state=NodeState.Slave),
     ]
 
     selected = select(gossip)
@@ -81,7 +91,7 @@ def test_selector_with_slave_and_clone():
 def test_selector_with_master_and_slave():
     gossip = [
         GOOD_NODE._replace(state=NodeState.Master),
-        GOOD_NODE._replace(state=NodeState.Slave)
+        GOOD_NODE._replace(state=NodeState.Slave),
     ]
 
     selected = select(gossip)
@@ -90,7 +100,6 @@ def test_selector_with_master_and_slave():
 
 
 def gossip_nodes(nodes: List[NodeService]):
-
     async def foo():
         return nodes
 
@@ -111,17 +120,15 @@ def test_gossip_reader():
 
     assert gossip[1].internal_tcp.port == 1112
     assert gossip[2].external_http.port == 2113
-    assert gossip[0].internal_http.address == '172.31.224.200'
+    assert gossip[0].internal_http.address == "172.31.224.200"
 
 
 @pytest.mark.asyncio
 async def test_fetch_gossip():
-    node = NodeService(address='10.10.10.10', port=2113, secure_port=None)
+    node = NodeService(address="10.10.10.10", port=2113, secure_port=None)
 
     with aioresponses() as mock:
-        mock.get(
-            'http://10.10.10.10:2113/gossip', status=200, payload=data.GOSSIP
-        )
+        mock.get("http://10.10.10.10:2113/gossip", status=200, payload=data.GOSSIP)
         async with aiohttp.ClientSession() as session:
             gossip = await fetch_new_gossip(session, node)
 
@@ -130,10 +137,10 @@ async def test_fetch_gossip():
 
 @pytest.mark.asyncio
 async def test_aiohttp_failure():
-    node = NodeService(address='10.10.10.10', port=2113, secure_port=None)
+    node = NodeService(address="10.10.10.10", port=2113, secure_port=None)
 
     with aioresponses() as mock:
-        mock.get('http://10.10.10.10:2113/gossip', status=502)
+        mock.get("http://10.10.10.10:2113/gossip", status=502)
         async with aiohttp.ClientSession() as session:
             gossip = await fetch_new_gossip(session, node)
 
@@ -147,12 +154,10 @@ async def test_discovery_with_a_single_node():
     discovery information, we should receive an async generator
     that returns the same node over and over.
     """
-    discoverer = get_discoverer('localhost', 1113, None, None)
+    discoverer = get_discoverer("localhost", 1113, None, None)
 
     for i in range(0, 5):
-        assert await discoverer.discover() == NodeService(
-            'localhost', 1113, None
-        )
+        assert await discoverer.discover() == NodeService("localhost", 1113, None)
 
 
 @pytest.mark.asyncio
@@ -166,31 +171,23 @@ async def test_discovery_with_a_static_seed():
     nodes to find gossip.
     """
 
-    seed_ip = '10.10.10.10'
-    first_node_ip = '172.31.0.1'
-    second_node_ip = '192.168.168.192'
+    seed_ip = "10.10.10.10"
+    first_node_ip = "172.31.0.1"
+    second_node_ip = "192.168.168.192"
 
     first_gossip = data.make_gossip(first_node_ip)
     second_gossip = data.make_gossip(second_node_ip)
 
     discoverer = get_discoverer(None, None, seed_ip, 2113)
     with aioresponses() as mock:
-        mock.get(
-            f'http://{seed_ip}:2113/gossip', status=200, payload=first_gossip
-        )
+        mock.get(f"http://{seed_ip}:2113/gossip", status=200, payload=first_gossip)
 
         mock.get(
-            f'http://{first_node_ip}:2113/gossip',
-            status=200,
-            payload=second_gossip
+            f"http://{first_node_ip}:2113/gossip", status=200, payload=second_gossip
         )
 
-        assert await discoverer.discover() == NodeService(
-            first_node_ip, 1113, None
-        )
-        assert await discoverer.discover() == NodeService(
-            second_node_ip, 1113, None
-        )
+        assert await discoverer.discover() == NodeService(first_node_ip, 1113, None)
+        assert await discoverer.discover() == NodeService(second_node_ip, 1113, None)
         discoverer.close()
 
 
@@ -201,7 +198,6 @@ async def test_discovery_failure_for_static_seed():
     """
 
     class always_succeed(DiscoveryRetryPolicy):
-
         def __init__(self):
             super().__init__()
             self.stats = Stats()
@@ -212,8 +208,8 @@ async def test_discovery_failure_for_static_seed():
         async def wait(self, seed):
             pass
 
-    seed = NodeService('1.2.3.4', 2113, None)
-    gossip = data.make_gossip('2.3.4.5')
+    seed = NodeService("1.2.3.4", 2113, None)
+    gossip = data.make_gossip("2.3.4.5")
     retry = always_succeed()
     session = aiohttp.ClientSession()
     with aioresponses() as mock:
@@ -221,11 +217,11 @@ async def test_discovery_failure_for_static_seed():
             StaticSeedFinder([seed]), session, retry
         )
 
-        mock.get('http://1.2.3.4:2113/gossip', status=500)
-        mock.get('http://1.2.3.4:2113/gossip', payload=gossip)
+        mock.get("http://1.2.3.4:2113/gossip", status=500)
+        mock.get("http://1.2.3.4:2113/gossip", payload=gossip)
 
         assert await successful_discoverer.discover() == NodeService(
-            '2.3.4.5', 1113, None
+            "2.3.4.5", 1113, None
         )
         stats = retry.stats[seed]
 
@@ -244,7 +240,6 @@ async def test_repeated_discovery_failure_for_static_seed():
     """
 
     class always_fail(DiscoveryRetryPolicy):
-
         def __init__(self):
             super().__init__()
 
@@ -254,20 +249,20 @@ async def test_repeated_discovery_failure_for_static_seed():
         async def wait(self, seed):
             pass
 
-    seed = NodeService('1.2.3.4', 2113, None)
+    seed = NodeService("1.2.3.4", 2113, None)
     retry = always_fail()
-    gossip = data.make_gossip('2.3.4.5')
+    gossip = data.make_gossip("2.3.4.5")
     with aioresponses() as mock:
         successful_discoverer = ClusterDiscovery(
             StaticSeedFinder([seed]), aiohttp.ClientSession(), retry
         )
 
-        mock.get('http://1.2.3.4:2113/gossip', status=500)
-        mock.get('http://1.2.3.4:2113/gossip', payload=gossip)
+        mock.get("http://1.2.3.4:2113/gossip", status=500)
+        mock.get("http://1.2.3.4:2113/gossip", payload=gossip)
 
         with pytest.raises(DiscoveryFailed):
             assert await successful_discoverer.discover() == NodeService(
-                '2.3.4.5', 1113, None
+                "2.3.4.5", 1113, None
             )
             stats = retry.stats[seed]
 
@@ -284,7 +279,7 @@ async def test_single_node_mark_failed():
     after calling mark_failed.
     """
 
-    node = NodeService('2.3.4.5', 1234, None)
+    node = NodeService("2.3.4.5", 1234, None)
     discoverer = SingleNodeDiscovery(node)
 
     assert await discoverer.discover() == node
@@ -302,11 +297,10 @@ async def test_cluster_discovery_mark_failed():
     """
 
     class spy_seed_finder(List):
-
         def mark_failed(self, node):
             self.append(node)
 
-    node = NodeService('2.3.4.5', 1234, None)
+    node = NodeService("2.3.4.5", 1234, None)
     finder = spy_seed_finder()
     discoverer = ClusterDiscovery(finder, None, None)
 

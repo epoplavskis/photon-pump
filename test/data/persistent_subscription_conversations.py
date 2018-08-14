@@ -12,16 +12,18 @@ def persistent_subscription_confirmed(conversation_id: UUID, subscription_id: st
     payload.subscription_id = subscription_id
 
     return msg.OutboundMessage(
-        conversation_id, msg.TcpCommand.PersistentSubscriptionConfirmation,
-        payload.SerializeToString()
+        conversation_id,
+        msg.TcpCommand.PersistentSubscriptionConfirmation,
+        payload.SerializeToString(),
     )
 
 
 def subscription_event_appeared(
-        conversation_id: UUID,
-        event: msg.NewEventData,
-        stream: str="my-stream",
-        event_number: int=1):
+    conversation_id: UUID,
+    event: msg.NewEventData,
+    stream: str = "my-stream",
+    event_number: int = 1,
+):
     payload = proto.PersistentSubscriptionStreamEventAppeared()
     e = payload.event.event
     e.event_stream_id = stream
@@ -33,16 +35,18 @@ def subscription_event_appeared(
     e.data = json.dumps(event.data).encode("UTF-8")
 
     return msg.InboundMessage(
-            conversation_id,
-            msg.TcpCommand.PersistentSubscriptionStreamEventAppeared,
-            payload.SerializeToString())
+        conversation_id,
+        msg.TcpCommand.PersistentSubscriptionStreamEventAppeared,
+        payload.SerializeToString(),
+    )
 
 
-def persistent_subscription_dropped(conversation_id: UUID, reason: msg.SubscriptionDropReason):
+def persistent_subscription_dropped(
+    conversation_id: UUID, reason: msg.SubscriptionDropReason
+):
     payload = proto.SubscriptionDropped()
     payload.reason = reason
 
     return msg.OutboundMessage(
-        conversation_id, msg.TcpCommand.SubscriptionDropped,
-        payload.SerializeToString()
+        conversation_id, msg.TcpCommand.SubscriptionDropped, payload.SerializeToString()
     )
