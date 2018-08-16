@@ -16,8 +16,7 @@ before_install:
 install: make
 
 script:
-  - pytest --cov =./
-  - flake8 --exit-zero
+  - make travis
 
 after_success:
   - codecov
