@@ -30,3 +30,5 @@ def get_named_logger(cls, name=None):
 logging.Logger.trace = trace
 logging.Logger.insane = insane
 logging.get_named_logger = get_named_logger
+logging.TRACE = TRACE_LEVEL_NUM
+logging.INSANE = INSANE_LEVEL_NUM

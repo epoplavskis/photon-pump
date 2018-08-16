@@ -257,6 +257,72 @@ class Connector:
                 raise NotImplementedError("WAT DO?")
 
 
+class PaceMaker:
+    """
+    Handles heartbeat requests and responses to keep the connection alive.
+    """
+
+    def __init__(
+        self,
+        output_queue: asyncio.Queue,
+        connector: Connector,
+        response_timeout=10,
+        heartbeat_period=30,
+        heartbeat_id=None,
+    ) -> None:
+        self._output = output_queue
+        self.heartbeat_id = heartbeat_id or uuid.uuid4()
+        self._connector = connector
+        self.response_timeout = response_timeout
+        self.heartbeat_period = heartbeat_period
+        self._fut = None
+
+    async def handle_request(self, message: msg.InboundMessage):
+        response = convo.Heartbeat(message.conversation_id)
+        await response.start(self._output)
+
+        return
+
+    async def handle_response(self, message: msg.InboundMessage):
+        if message.conversation_id == self.heartbeat_id:
+            if self._fut:
+                self._fut.set_result(message.conversation_id)
+
+    async def send_heartbeat(self) -> asyncio.Future:
+        fut = asyncio.Future()
+        logging.debug("Sending heartbeat %s to server", self.heartbeat_id)
+        hb = convo.Heartbeat(self.heartbeat_id, direction=convo.Heartbeat.OUTBOUND)
+        await hb.start(self._output)
+        self._fut = fut
+
+        return fut
+
+    async def await_heartbeat_response(self):
+        try:
+            await asyncio.wait_for(self._fut, self.response_timeout)
+            logging.debug("Received heartbeat response from server")
+            self._connector.heartbeat_received(self.heartbeat_id)
+        except asyncio.TimeoutError as e:
+            logging.warning("Heartbeat %s timed out", self.heartbeat_id)
+            self._connector.heartbeat_failed(e)
+        except asyncio.CancelledError:
+            logging.debug("Heartbeat waiter cancelled.")
+            raise
+        except Exception as exn:
+            logging.exception("Heartbeat %s failed", self.heartbeat_id)
+            self._connector.heartbeat_failed(exn)
+
+    async def send_heartbeats(self):
+        while True:
+            try:
+                await self.send_heartbeat()
+                await self.await_heartbeat_response()
+                await asyncio.sleep(self.heartbeat_period)
+            except asyncio.CancelledError:
+                logging.debug("Heartbeat loop cancelled")
+                break
+
+
 class MessageWriter:
     def __init__(
         self,
@@ -296,7 +362,12 @@ class MessageReader:
     HEAD_PACK = struct.Struct("<IBB")
 
     def __init__(
-        self, reader: asyncio.StreamReader, connection_number: int, queue, loop=None
+        self,
+        reader: asyncio.StreamReader,
+        connection_number: int,
+        queue,
+        pacemaker: PaceMaker,
+        loop=None,
     ):
         self._loop = loop or asyncio.get_event_loop()
         self.header_bytes = array.array("B", [0] * (self.MESSAGE_MIN_SIZE))
@@ -308,6 +379,8 @@ class MessageReader:
         self.message_buffer = None
         self._logger = logging.get_named_logger(MessageReader, connection_number)
         self.reader = reader
+        self.pacemaker = pacemaker
+        self._trace_enabled = self._logger.getEffectiveLevel() <= logging.TRACE
 
     def feed_data(self, data):
         self.reader.feed_data(data)
@@ -319,11 +392,13 @@ class MessageReader:
         while True:
             try:
                 data = await self.reader.read(8192)
-                self._logger.trace(
-                    "Received %d bytes from remote server:\n%s",
-                    len(data),
-                    msg.dump(data),
-                )
+
+                if self._trace_enabled:
+                    self._logger.trace(
+                        "Received %d bytes from remote server:\n%s",
+                        len(data),
+                        msg.dump(data),
+                    )
                 await self.process(data)
             except asyncio.CancelledError:
                 return
@@ -392,7 +467,14 @@ class MessageReader:
                     self.conversation_id, self.cmd, self.message_buffer or b""
                 )
                 self._logger.trace("Received message %r", message)
-                await self.queue.put(message)
+
+                if message.command == msg.TcpCommand.HeartbeatRequest:
+                    await self.pacemaker.handle_request(message)
+                elif message.command == msg.TcpCommand.HeartbeatResponse:
+                    await self.pacemaker.handle_response(message)
+                else:
+                    await self.queue.put(message)
+
                 self.length = -1
                 self.message_offset = 0
                 self.conversation_id = None
@@ -417,8 +499,10 @@ class MessageDispatcher:
                 conversation,
                 None,
             )
+
         if self.output:
             await conversation.start(self.output)
+
         return conversation.result
 
     async def write_to(self, output: asyncio.Queue):
@@ -434,12 +518,6 @@ class MessageDispatcher:
     async def dispatch(self, message: msg.InboundMessage, output: asyncio.Queue):
         self._logger.debug("Received message %s", message)
 
-        if message.command == msg.TcpCommand.HeartbeatRequest.value:
-            response = convo.Heartbeat(message.conversation_id)
-            await response.start(output)
-
-            return
-
         conversation, result = self.active_conversations.get(
             message.conversation_id, (None, None)
         )
@@ -450,6 +528,7 @@ class MessageDispatcher:
             return
 
         await conversation.respond_to(message, output)
+
         if conversation.is_complete:
             del self.active_conversations[conversation.conversation_id]
 
@@ -474,22 +553,11 @@ class Client:
         self.connector = connector
         self.dispatcher = dispatcher
 
-        self.connector.connected.append(self.on_connected)
-        self.connector.disconnected.append(self.on_disconnected)
-
         self.credential = credential
         self.outstanding_heartbeat = None
-        self.heartbeat_loop = None
 
     async def connect(self):
         await self.connector.start()
-
-    def on_connected(self, *args):
-        self.heartbeat_loop = asyncio.ensure_future(self.send_heartbeats())
-
-    def on_disconnected(self, *args):
-        if self.heartbeat_loop:
-            self.heartbeat_loop.cancel()
 
     async def close(self):
         await self.connector.stop()
@@ -666,32 +734,6 @@ class Client:
         )
         await self.dispatcher.start_conversation(cmd)
 
-    async def send_heartbeats(self):
-        heartbeat_id = uuid.uuid4()
-
-        while True:
-            logging.debug("Sending heartbeat %s to server", heartbeat_id)
-            hb = convo.Heartbeat(heartbeat_id, direction=convo.Heartbeat.OUTBOUND)
-            fut = await self.dispatcher.start_conversation(hb)
-
-            try:
-                await asyncio.wait_for(fut, 10)
-                logging.debug("Received heartbeat response from server")
-                self.connector.heartbeat_received(hb.conversation_id)
-                await asyncio.sleep(30)
-            except asyncio.TimeoutError as e:
-                logging.warning("Heartbeat %s timed out", hb.conversation_id)
-                self.connector.heartbeat_failed(e)
-                self.dispatcher.remove(hb.conversation_id)
-            except asyncio.CancelledError:
-                self.dispatcher.remove(hb.conversation_id)
-
-                return
-            except Exception as exn:
-                logging.exception("Heartbeat %s failed", hb.conversation_id)
-                self.dispatcher.remove(hb.conversation_id)
-                self.connector.heartbeat_failed(exn)
-
     async def __aenter__(self):
         await self.connect()
 
@@ -728,9 +770,10 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
         stream_reader = asyncio.StreamReader(loop=self.loop)
         stream_reader.set_transport(transport)
         stream_writer = asyncio.StreamWriter(transport, self, stream_reader, self.loop)
+        self.pacemaker = PaceMaker(self.output_queue, self.connector)
 
         self.reader = MessageReader(
-            stream_reader, self.connection_number, self.input_queue
+            stream_reader, self.connection_number, self.input_queue, self.pacemaker
         )
         self.writer = MessageWriter(
             stream_writer, self.connection_number, self.output_queue
@@ -739,6 +782,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
         self.write_loop = asyncio.ensure_future(self.writer.start())
         self.read_loop = asyncio.ensure_future(self.reader.start())
         self.dispatch_loop = asyncio.ensure_future(self.dispatch())
+        self.heartbeat_loop = asyncio.ensure_future(self.pacemaker.send_heartbeats())
         self.connector.connection_made(self.node, self)
 
     def data_received(self, data):
@@ -753,6 +797,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
                 break
             except:
                 logging.exception("Dispatch loop failed")
+
                 break
 
     def connection_lost(self, exn):
@@ -767,11 +812,13 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
             self.read_loop.cancel()
             self.write_loop.cancel()
             self.dispatch_loop.cancel()
+            self.heartbeat_loop.cancel()
             self._log.debug("Waiting for coroutines to end")
             await asyncio.gather(
                 self.read_loop,
                 self.write_loop,
                 self.dispatch_loop,
+                self.heartbeat_loop,
                 loop=self.loop,
                 return_exceptions=True,
             )
