@@ -124,3 +124,11 @@ class FakeConnector:
         self.connected = Event()
         self.disconnected = Event()
         self.stopped = Event()
+        self.failures = []
+        self.successes = 0
+
+    def heartbeat_received(self, conversation_id):
+        self.successes += 1
+
+    def heartbeat_failed(self, exn):
+        self.failures.append(exn)

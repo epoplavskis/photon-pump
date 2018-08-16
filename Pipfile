@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+aioresponses = "*"
+pytest-asyncio = "*"
+colorama = "*"
+"flake8" = "*"
+black = "*"
+pytest-watch = "*"
+testfixtures = "*"
+codecov = "*"
+pytest = "*"
+photon-pump = {editable = true, path = "."}
+pytest-cov = "*"
+neovim = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.7"
