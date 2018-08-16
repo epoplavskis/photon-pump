@@ -11,7 +11,8 @@ services:
 before_install:
   - docker run -d -p 127.0.0.1:1113:1113 eventstore/eventstore
 
-install: make
+install:
+  - "make init"
 
 script:
   - "make travis"
