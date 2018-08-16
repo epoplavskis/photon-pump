@@ -549,6 +549,10 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
         await output.put(self._fetch_page_message(self.from_event))
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
+
+        if not result.is_end_of_stream:
+            await output.put(self._fetch_page_message(result.next_event_number))
+
         events = [_make_event(x) for x in result.events]
         await self.iterator.enqueue_items(events)
 
@@ -559,8 +563,6 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
         if result.is_end_of_stream:
             self.is_complete = True
             await self.iterator.asend(StopAsyncIteration())
-        else:
-            await output.put(self._fetch_page_message(result.next_event_number))
 
     async def error(self, exn: Exception) -> None:
         self.is_complete = True
