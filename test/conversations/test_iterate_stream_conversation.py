@@ -101,15 +101,15 @@ async def test_end_of_stream():
 
     result = await convo.result
     [event_1, event_2] = [e async for e in result]
-    assert event_1.event.stream == "stream-123"
-    assert event_1.event.id == event_1_id
-    assert event_1.event.type == "event-type"
-    assert event_1.event.event_number == 32
+    assert event_1.stream == "stream-123"
+    assert event_1.id == event_1_id
+    assert event_1.type == "event-type"
+    assert event_1.event_number == 32
 
-    assert event_2.event.stream == "stream-123"
-    assert event_2.event.id == event_2_id
-    assert event_2.event.type == "event-2-type"
-    assert event_2.event.event_number == 33
+    assert event_2.stream == "stream-123"
+    assert event_2.id == event_2_id
+    assert event_2.type == "event-2-type"
+    assert event_2.event_number == 33
 
 
 @pytest.mark.asyncio

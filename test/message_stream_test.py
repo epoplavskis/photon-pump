@@ -111,9 +111,9 @@ async def test_read_event():
         body = proto.ReadEventCompleted()
         body.ParseFromString(received.payload)
 
-        event = body.event.event
-        assert event.event_number == 0
-        assert event.event_type == "thing_happened"
+        event = body.event
+        assert event.event.event_number == 0
+        assert event.event.event_type == "thing_happened"
 
 
 @pytest.mark.asyncio

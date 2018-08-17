@@ -288,6 +288,13 @@ class Event:
     def __init__(self, event: EventRecord, link: EventRecord) -> None:
         self.event = event
         self.link = link
+        self.stream = event.stream
+        self.id = event.id
+        self.event_number = event.event_number
+        self.type = event.type
+        self.data = event.data
+        self.metadata = event.metadata
+        self.created = event.created
 
     @property
     def original_event(self) -> EventRecord:
@@ -296,6 +303,9 @@ class Event:
     @property
     def original_event_id(self) -> UUID:
         return self.original_event.id
+
+    def json(self):
+        return json.loads(self.data.decode("UTF-8"))
 
 
 class StreamSlice(list):

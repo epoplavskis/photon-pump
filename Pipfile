@@ -4,6 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+
+[dev-packages]
 aioresponses = "*"
 pytest-asyncio = "*"
 colorama = "*"
@@ -17,7 +19,6 @@ photon-pump = {editable = true, path = "."}
 pytest-cov = "*"
 neovim = "*"
 
-[dev-packages]
 
 [requires]
 python_version = "3.7"

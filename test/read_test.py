@@ -68,7 +68,7 @@ async def test_read_multiple(event_loop):
         assert isinstance(result, messages.StreamSlice)
         assert len(result) == 3
 
-        event = result[1].event
+        event = result[1]
 
         assert event.type == "pony_jumped"
 
@@ -91,7 +91,7 @@ async def test_read_with_max_count(event_loop):
         assert isinstance(result, list)
         assert len(result) == 1
 
-        event = result[0].event
+        event = result[0]
 
         assert event.type == "pony_jumped"
 
@@ -113,7 +113,7 @@ async def test_read_with_max_count_and_from_event(event_loop):
         assert isinstance(result, list)
         assert len(result) == 1
 
-        event = result[0].event
+        event = result[0]
 
         assert event.type == "pony_jumped"
 
@@ -135,7 +135,7 @@ async def test_streaming_read(event_loop):
         async for event in c.iter(stream_name, batch_size=1):
             logging.info("Handling event!")
             events_read += 1
-            assert event.event.type == "pony_jumped"
+            assert event.type == "pony_jumped"
 
         assert events_read == 3
 
@@ -156,7 +156,7 @@ async def test_async_comprehension(event_loop):
         jumps = (
             e.event async
             for e in c.iter(stream_name, batch_size=2)
-            if e.event.type == "pony_jumped"
+            if e.type == "pony_jumped"
         )
         big_jumps = (embiggen(e) async for e in jumps)
 
