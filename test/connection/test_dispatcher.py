@@ -76,27 +76,6 @@ async def test_when_enqueuing_a_conversation():
 
 
 @pytest.mark.asyncio
-async def test_when_receiving_a_heartbeat_request():
-    """
-    When we receive a HeartbeatRequest from the server, we should
-    immediately respond with a HeartbeatResponse
-    """
-    dispatcher = MessageDispatcher()
-    out_queue = TeeQueue()
-
-    heartbeat_id = uuid.uuid4()
-
-    await dispatcher.dispatch(
-        InboundMessage(heartbeat_id, TcpCommand.HeartbeatRequest, bytes()), out_queue
-    )
-
-    response = await out_queue.get()
-    assert response == OutboundMessage(
-        heartbeat_id, TcpCommand.HeartbeatResponse, bytes()
-    )
-
-
-@pytest.mark.asyncio
 async def test_when_the_conversation_raises_an_error():
     """
     If the conversation raises an error, that error should be returned
@@ -293,7 +272,7 @@ async def test_when_running_a_persistent_subscription():
     )
 
     event = await anext(subscription.events)
-    assert event.event.json()["x"] == 2
+    assert event.json()["x"] == 2
 
     # Acknowledging the event should place an Ack message on the out_queue
 

@@ -97,7 +97,7 @@ async def test_when_a_server_disconnects(event_loop):
         server.stop()
 
         disconnect = await queue.next_event()
-        assert disconnect.command == ConnectorCommand.HandleConnectionClosed
+        assert disconnect.command == ConnectorCommand.HandleConnectionFailed
 
         reconnect = await queue.next_event()
         assert reconnect.command == ConnectorCommand.Connect

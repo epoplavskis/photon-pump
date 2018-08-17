@@ -142,7 +142,7 @@ async def test_stream_event_appeared():
     subscription = await convo.result
     event = await subscription.events.anext()
 
-    assert event.event.id == event_id
+    assert event.id == event_id
 
 
 @pytest.mark.asyncio
