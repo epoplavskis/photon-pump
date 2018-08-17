@@ -104,7 +104,7 @@ async def test_read_with_max_count_and_from_event(event_loop):
 
     stream_name = str(uuid.uuid4())
 
-    async with connect(loop=event_loop) as c:
+    async with connect(loop=event_loop, name="max-count-and-from") as c:
 
         await given_a_stream_with_three_events(c, stream_name)
 
@@ -126,7 +126,7 @@ async def test_streaming_read(event_loop):
 
     stream_name = str(uuid.uuid4())
 
-    async with connect(loop=event_loop) as c:
+    async with connect(loop=event_loop, name="streaming-read") as c:
 
         await given_a_stream_with_three_events(c, stream_name)
 
@@ -149,7 +149,7 @@ async def test_async_comprehension(event_loop):
 
     stream_name = str(uuid.uuid4())
 
-    async with connect(loop=event_loop) as c:
+    async with connect(loop=event_loop, name="comprehensions") as c:
 
         await given_a_stream_with_three_events(c, stream_name)
 

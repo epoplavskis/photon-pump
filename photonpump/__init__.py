@@ -27,7 +27,7 @@ def get_named_logger(cls, *names):
             % (
                 cls.__module__,
                 cls.__name__,
-                ".".join([name for name in names if name is not None]),
+                ".".join([str(name) for name in names if name is not None]),
             )
         )
 
