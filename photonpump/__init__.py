@@ -20,9 +20,16 @@ def insane(self, message, *args, **kws):
         self._log(INSANE_LEVEL_NUM, message, args, **kws)
 
 
-def get_named_logger(cls, name=None):
-    if name:
-        return logging.getLogger("%s.%s.%s" % (cls.__module__, cls.__name__, name))
+def get_named_logger(cls, *names):
+    if names:
+        return logging.getLogger(
+            "%s.%s.%s"
+            % (
+                cls.__module__,
+                cls.__name__,
+                ".".join([name for name in names if name is not None]),
+            )
+        )
 
     return logging.getLogger("%s.%s" % (cls.__module__, cls.__name__))
 

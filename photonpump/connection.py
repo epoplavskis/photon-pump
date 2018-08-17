@@ -58,8 +58,10 @@ class Connector:
         retry_policy=None,
         ctrl_queue=None,
         connect_timeout=5,
+        name=None,
         loop=None,
     ):
+        self.name = name
         self.connection_counter = 0
         self.dispatcher = dispatcher
         self.loop = loop or asyncio.get_event_loop()
@@ -68,7 +70,7 @@ class Connector:
         self.disconnected = Event()
         self.stopped = Event()
         self.ctrl_queue = ctrl_queue or asyncio.Queue(loop=self.loop)
-        self.log = logging.getLogger("photonpump.connection.Connector")
+        self.log = logging.get_named_logger(Connector)
         self._run_loop = asyncio.ensure_future(self._run())
         self.heartbeat_failures = 0
         self.connect_timeout = connect_timeout
@@ -153,7 +155,7 @@ class Connector:
         try:
             self.connection_counter += 1
             protocol = PhotonPumpProtocol(
-                node, self.connection_counter, self.dispatcher, self, self.loop
+                node, self.connection_counter, self.dispatcher, self, self.loop, self.name
             )
             await asyncio.wait_for(
                 self.loop.create_connection(lambda: protocol, node.address, node.port),
@@ -263,9 +265,10 @@ class MessageWriter:
         writer: asyncio.StreamWriter,
         connection_number: int,
         output_queue: asyncio.Queue,
+        name=None,
         loop=None,
     ):
-        self._logger = logging.get_named_logger(MessageWriter, connection_number)
+        self._logger = logging.get_named_logger(MessageWriter, name, connection_number)
         self.writer = writer
         self._queue = output_queue
 
@@ -296,7 +299,7 @@ class MessageReader:
     HEAD_PACK = struct.Struct("<IBB")
 
     def __init__(
-        self, reader: asyncio.StreamReader, connection_number: int, queue, loop=None
+        self, reader: asyncio.StreamReader, connection_number: int, queue, name=None, loop=None
     ):
         self._loop = loop or asyncio.get_event_loop()
         self.header_bytes = array.array("B", [0] * (self.MESSAGE_MIN_SIZE))
@@ -306,7 +309,7 @@ class MessageReader:
         self.message_offset = 0
         self.conversation_id = None
         self.message_buffer = None
-        self._logger = logging.get_named_logger(MessageReader, connection_number)
+        self._logger = logging.get_named_logger(MessageReader, name, connection_number)
         self.reader = reader
 
     def feed_data(self, data):
@@ -402,9 +405,9 @@ class MessageReader:
 
 
 class MessageDispatcher:
-    def __init__(self, loop=None):
+    def __init__(self, name=None, loop=None):
         self.active_conversations = {}
-        self._logger = logging.get_named_logger(MessageDispatcher)
+        self._logger = logging.get_named_logger(MessageDispatcher, name)
         self.output = None
         self._loop = loop or asyncio.get_event_loop()
 
@@ -708,9 +711,11 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
         connection_number: int,
         dispatcher: MessageDispatcher,
         connector,
-        loop=None,
+        loop,
+        name
     ):
-        self._log = logging.get_named_logger(PhotonPumpProtocol, connection_number)
+        self.name = name
+        self._log = logging.get_named_logger(PhotonPumpProtocol, self.name, connection_number)
         self.transport = None
         self.loop = loop or asyncio.get_event_loop()
         super().__init__(self.loop)
@@ -730,10 +735,10 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
         stream_writer = asyncio.StreamWriter(transport, self, stream_reader, self.loop)
 
         self.reader = MessageReader(
-            stream_reader, self.connection_number, self.input_queue
+            stream_reader, self.connection_number, self.input_queue, name=self.name
         )
         self.writer = MessageWriter(
-            stream_writer, self.connection_number, self.output_queue
+            stream_writer, self.connection_number, self.output_queue, name=self.name
         )
 
         self.write_loop = asyncio.ensure_future(self.writer.start())
@@ -789,6 +794,7 @@ def connect(
     username=None,
     password=None,
     loop=None,
+    name=None
 ) -> Client:
     """ Create a new client.
 
@@ -820,6 +826,17 @@ def connect(
             >>> async with connect(username='admin', password='changeit') as c:
             >>>     await c.ping()
 
+            Ordinarily you will create a single Client per application, but for
+            advanced scenarios you might want multiple connections. In this
+            situation, you can name each connection in order to get better logging.
+
+            >>> async with connect(name="event-reader"):
+            >>>     await c.ping()
+
+            >>> async with connect(name="event-writer"):
+            >>>     await c.ping()
+
+
         Args:
             host: The IP or DNS entry to connect with, defaults to 'localhost'.
             port: The port to connect with, defaults to 1113.
@@ -831,8 +848,8 @@ def connect(
 
     """
     discovery = get_discoverer(host, port, discovery_host, discovery_port)
-    dispatcher = MessageDispatcher(loop)
-    connector = Connector(discovery, dispatcher)
+    dispatcher = MessageDispatcher(name=name, loop=loop)
+    connector = Connector(discovery, dispatcher, name=name)
 
     credential = msg.Credential(username, password) if username and password else None
 
