@@ -74,13 +74,20 @@ fc 9d cd d8 94 b9 d6 ea 08 50 a4 e6 a4 d6 8e 2c
 )
 
 
+class FakePacemaker(TeeQueue):
+    async def handle_request(self, request):
+        await self.put(request)
+
+
 class message_reader:
     async def __aenter__(self):
+        pacemaker = FakePacemaker()
         messages = TeeQueue()
         stream = asyncio.StreamReader()
-        reader = MessageReader(stream, 1, messages)
+        reader = MessageReader(stream, 1, messages, pacemaker)
         self.read_loop = asyncio.ensure_future(reader.start())
-        return reader, messages
+
+        return reader, messages, pacemaker
 
     async def __aexit__(self, *args, **kwargs):
         self.read_loop.cancel()
@@ -92,7 +99,7 @@ class message_reader:
 
 @pytest.mark.asyncio
 async def test_read_event():
-    async with message_reader() as (stream, messages):
+    async with message_reader() as (stream, messages, _):
 
         stream.feed_data(ReadEventResult)
 
@@ -112,10 +119,10 @@ async def test_read_event():
 @pytest.mark.asyncio
 async def test_read_heartbeat_request_single_call():
 
-    async with message_reader() as (stream, messages):
+    async with message_reader() as (stream, messages, pacemaker):
         stream.feed_data(heartbeat_data)
 
-        received = await messages.get()
+        received = await pacemaker.get()
 
         assert received.payload == b""
         assert received.command == TcpCommand.HeartbeatRequest
@@ -125,14 +132,14 @@ async def test_read_heartbeat_request_single_call():
 
 @pytest.mark.asyncio
 async def test_read_header_multiple_calls():
-    async with message_reader() as (stream, messages):
+    async with message_reader() as (stream, messages, pacemaker):
         stream.feed_data(heartbeat_data[0:2])
         stream.feed_data(heartbeat_data[2:7])
         stream.feed_data([])
         stream.feed_data(heartbeat_data[7:14])
         stream.feed_data(heartbeat_data[14:])
 
-        received = await messages.get()
+        received = await pacemaker.get()
 
         assert received.payload == b""
         assert received.command == TcpCommand.HeartbeatRequest
@@ -142,7 +149,7 @@ async def test_read_header_multiple_calls():
 
 @pytest.mark.asyncio
 async def test_a_message_with_a_payload():
-    async with message_reader() as (stream, messages):
+    async with message_reader() as (stream, messages, _):
 
         stream.feed_data(persistent_stream_event_appeared)
 
@@ -156,10 +163,10 @@ async def test_a_message_with_a_payload():
 @pytest.mark.asyncio
 async def test_two_messages_one_call():
 
-    async with message_reader() as (stream, messages):
+    async with message_reader() as (stream, messages, pacemaker):
         stream.feed_data(heartbeat_data + persistent_stream_event_appeared)
 
-        heartbeat = await messages.get()
+        heartbeat = await pacemaker.get()
         event = await messages.get()
 
         assert heartbeat.conversation_id == heartbeat_id
@@ -173,16 +180,18 @@ async def test_three_messages_two_calls():
 
     data = heartbeat_data + persistent_stream_event_appeared + heartbeat_data
 
-    async with message_reader() as (stream, messages):
+    async with message_reader() as (stream, messages, pacemaker):
 
         stream.feed_data(data[0:250])
-        await messages.next_event()
-        assert len(messages.items) == 1
+        await pacemaker.next_event()
+        assert len(pacemaker.items) == 1
 
         stream.feed_data(data[250:])
-        await messages.next_event(count=2)
+        await messages.next_event()
+        await pacemaker.next_event()
 
-        [first_heartbeat, event, second_heartbeat] = messages.items
+        [first_heartbeat, second_heartbeat] = pacemaker.items
+        [event] = messages.items
 
         assert (
             first_heartbeat.conversation_id
@@ -199,11 +208,11 @@ async def test_two_messages_three_calls():
 
     data = heartbeat_data + persistent_stream_event_appeared
 
-    async with message_reader() as (stream, messages):
+    async with message_reader() as (stream, messages, pacemaker):
 
         stream.feed_data(data[0:125])
         stream.feed_data(data[125:])
-        heartbeat = await messages.get()
+        heartbeat = await pacemaker.get()
         event = await messages.get()
 
         assert heartbeat.conversation_id == heartbeat_id
@@ -211,4 +220,5 @@ async def test_two_messages_three_calls():
             "f192d72f-7abd-4ae4-ae05-f206873c749d"
         )
 
-        assert len(messages.items) == 2
+        assert len(messages.items) == 1
+        assert len(pacemaker.items) == 1

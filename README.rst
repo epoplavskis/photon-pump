@@ -16,7 +16,7 @@ Installation
 
 Photon pump is available on the `cheese shop`_. ::
 
-    pip install photonpump
+    pip install photon-pump
 
 You will need to install lib-protobuf 3.2.0 or above.
 
