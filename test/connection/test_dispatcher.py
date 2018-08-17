@@ -293,7 +293,7 @@ async def test_when_running_a_persistent_subscription():
     )
 
     event = await anext(subscription.events)
-    assert event.event.json()["x"] == 2
+    assert event.json()["x"] == 2
 
     # Acknowledging the event should place an Ack message on the out_queue
 
