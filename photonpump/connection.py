@@ -155,7 +155,12 @@ class Connector:
         try:
             self.connection_counter += 1
             protocol = PhotonPumpProtocol(
-                node, self.connection_counter, self.dispatcher, self, self.loop, self.name
+                node,
+                self.connection_counter,
+                self.dispatcher,
+                self,
+                self.loop,
+                self.name,
             )
             await asyncio.wait_for(
                 self.loop.create_connection(lambda: protocol, node.address, node.port),
@@ -755,10 +760,12 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
         dispatcher: MessageDispatcher,
         connector,
         loop,
-        name
+        name,
     ):
         self.name = name
-        self._log = logging.get_named_logger(PhotonPumpProtocol, self.name, connection_number)
+        self._log = logging.get_named_logger(
+            PhotonPumpProtocol, self.name, connection_number
+        )
         self.transport = None
         self.loop = loop or asyncio.get_event_loop()
         super().__init__(self.loop)
@@ -779,7 +786,11 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
         self.pacemaker = PaceMaker(self.output_queue, self.connector)
 
         self.reader = MessageReader(
-            stream_reader, self.connection_number, self.input_queue, self.pacemaker, name=self.name
+            stream_reader,
+            self.connection_number,
+            self.input_queue,
+            self.pacemaker,
+            name=self.name,
         )
         self.writer = MessageWriter(
             stream_writer, self.connection_number, self.output_queue, name=self.name
@@ -842,7 +853,7 @@ def connect(
     username=None,
     password=None,
     loop=None,
-    name=None
+    name=None,
 ) -> Client:
     """ Create a new client.
 
