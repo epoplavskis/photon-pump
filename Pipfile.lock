@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "c2ee4c0d92c72019816eb0391d6883add7409fef35c78551cd6b03bd522a8d08"
+            "sha256": "cabf8928567f6cdd2e642a83cd863d36fb88ed63aadd3152f67a17849c22f4c3"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -15,7 +15,8 @@
             }
         ]
     },
-    "default": {
+    "default": {},
+    "develop": {
         "aiodns": {
             "hashes": [
                 "sha256:99d0652f2c02f73bfa646bf44af82705260a523014576647d7959e664830b26b",
@@ -470,6 +471,5 @@
             "markers": "python_version >= '3.4.1'",
             "version": "==1.2.6"
         }
-    },
-    "develop": {}
+    }
 }
