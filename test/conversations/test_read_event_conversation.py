@@ -162,3 +162,50 @@ async def test_access_denied():
     with pytest.raises(exceptions.AccessDenied) as exn:
         await convo.result
         assert exn.conversation_type == "ReadEvent"
+
+
+@pytest.mark.asyncio
+async def test_event_exposes_event_record():
+    """
+    See github.com/madedotcom/photon-pump/issues/42
+
+    Briefly, the Event type should expose the properties of its wrapped
+    EventRecord to make things more usable.
+    """
+
+    event_id = uuid4()
+
+    convo = ReadEvent("my-stream", 23)
+    response = proto.ReadEventCompleted()
+    response.result = msg.ReadEventResult.Success
+
+    response.event.event.event_stream_id = "stream-123"
+    response.event.event.event_number = 32
+    response.event.event.event_id = event_id.bytes_le
+    response.event.event.event_type = "event-type"
+    response.event.event.data_content_type = msg.ContentType.Json
+    response.event.event.metadata_content_type = msg.ContentType.Binary
+    response.event.event.data = """
+    {
+        'color': 'red',
+        'winner': true
+    }
+    """.encode(
+        "UTF-8"
+    )
+
+    await convo.respond_to(
+        msg.InboundMessage(
+            uuid4(), msg.TcpCommand.ReadEventCompleted, response.SerializeToString()
+        ),
+        None,
+    )
+
+    result = await convo.result
+
+    assert result.stream == "stream-123"
+    assert result.id == event_id
+    assert result.type == "event-type"
+    assert result.event_number == 32
+
+    assert result.link is None
