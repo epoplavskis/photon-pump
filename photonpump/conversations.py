@@ -1,3 +1,4 @@
+from enum import Enum
 import json
 import logging
 import time
@@ -765,6 +766,7 @@ class ConnectPersistentSubscription(Conversation):
     async def reply_from_live(self, response: InboundMessage, output: Queue):
         if response.command == TcpCommand.PersistentSubscriptionConfirmation:
             self.subscription.out_queue = output
+
             return
 
         self.expect_only(TcpCommand.PersistentSubscriptionStreamEventAppeared, response)
@@ -779,12 +781,14 @@ class ConnectPersistentSubscription(Conversation):
         if self.is_live and body.reason == messages.SubscriptionDropReason.Unsubscribed:
 
             await self.subscription.events.enqueue(StopAsyncIteration())
+
             return
 
         if self.is_live:
             await self.error(
                 exceptions.SubscriptionFailed(self.conversation_id, body.reason)
             )
+
             return
 
         await self.error(
@@ -807,3 +811,68 @@ class ConnectPersistentSubscription(Conversation):
 
         else:
             self.reply_from_init(message, output)
+
+
+class SubscribeToStream(Conversation):
+    class State(Enum):
+        init = 0
+        connected = 1
+        disconnected = 2
+
+    def __init__(
+        self, stream, resolve_link_tos=True, conversation_id=None, credentials=None
+    ):
+        self.state = SubscribeToStream.State.init
+        self.stream = stream
+        self.resolve_link_tos = resolve_link_tos
+        super().__init__(conversation_id, credentials)
+
+    async def start(self, output: Queue) -> None:
+        msg = proto.SubscribeToStream()
+        msg.event_stream_id = self.stream
+        msg.resolve_link_tos = self.resolve_link_tos
+
+        await output.put(
+            OutboundMessage(
+                self.conversation_id,
+                TcpCommand.SubscribeToStream,
+                msg.SerializeToString(),
+                self.credential,
+            )
+        )
+
+    async def reply_from_init(self, message: InboundMessage):
+        self.expect_only(TcpCommand.SubscriptionConfirmation, message)
+
+        result = proto.SubscriptionConfirmation()
+        result.ParseFromString(message.payload)
+
+        self.subscription = VolatileSubscription(
+            self.stream, result.last_event_number, result.last_commit_position
+        )
+
+        self.state = SubscribeToStream.State.connected
+        self.result.set_result(self.subscription)
+
+    async def reply_from_live(self, message: InboundMessage) -> None:
+        self.expect_only(TcpCommand.StreamEventAppeared, message)
+        result = proto.StreamEventAppeared()
+        result.ParseFromString(message.payload)
+
+        await self.subscription.events.enqueue(_make_event(result.event))
+
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        if self.state == SubscribeToStream.State.init:
+            await self.reply_from_init(message)
+        elif self.state == SubscribeToStream.State.connected:
+            await self.reply_from_live(message)
+
+
+class VolatileSubscription:
+    def __init__(self, stream, event_number, commit_position):
+        self.stream = stream
+        self.first_event_number = event_number
+        self.first_commit_position = commit_position
+        self.last_event_number = event_number
+        self.last_commit_position = commit_position
+        self.events = StreamingIterator()
