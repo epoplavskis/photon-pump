@@ -327,6 +327,7 @@ class PaceMaker:
                 await asyncio.sleep(self.heartbeat_period)
             except asyncio.CancelledError:
                 logging.debug("Heartbeat loop cancelled")
+
                 break
 
 
@@ -733,6 +734,12 @@ class Client:
 
         return await future
 
+    async def subscribe_to(self, stream, resolve_link_tos=True):
+        cmd = convo.SubscribeToStream(stream, resolve_link_tos)
+        future = await self.dispatcher.start_conversation(cmd)
+
+        return await future
+
     async def ack(self, subscription, message_ids, correlation_id=None):
         cmd = msg.PersistentSubscriptionAckEvents(
             subscription,
@@ -837,6 +844,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
                 self.dispatch_loop,
                 self.heartbeat_loop,
                 loop=self.loop,
+
                 return_exceptions=True,
             )
             self.transport.close()

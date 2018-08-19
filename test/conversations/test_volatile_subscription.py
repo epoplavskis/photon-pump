@@ -1,14 +1,13 @@
-from typing import NamedTuple
-from uuid import UUID, uuid4
+import asyncio
+from uuid import uuid4
+from photonpump import exceptions as exn
 
 import pytest
 
-from photonpump import exceptions as exn
 from photonpump import messages_pb2 as proto
-from photonpump.conversations import SubscribeToStream, VolatileSubscription
+from photonpump.conversations import SubscribeToStream
 from photonpump.messages import (
     ContentType,
-    Event,
     InboundMessage,
     SubscriptionDropReason,
     TcpCommand,
@@ -17,7 +16,15 @@ from photonpump.messages import (
 from ..fakes import TeeQueue
 
 
-async def drop_subscription(convo, reason=SubscriptionDropReason):
+async def anext(it):
+    return await asyncio.wait_for(it.anext(), 1)
+
+
+async def respond_to(convo, message, queue=None):
+    await convo.respond_to(message, queue)
+
+
+async def drop_subscription(convo, reason=SubscriptionDropReason.Unsubscribed):
 
     response = proto.SubscriptionDropped()
     response.reason = reason
@@ -45,6 +52,7 @@ async def confirm_subscription(convo, event_number=1, commit_pos=1):
 
 
 def event_appeared(event_id, commit_position=1, prepare_position=1):
+    message_id = uuid4()
     response = proto.StreamEventAppeared()
 
     response.event.event.event_stream_id = "stream-123"
@@ -64,7 +72,9 @@ def event_appeared(event_id, commit_position=1, prepare_position=1):
         "UTF-8"
     )
 
-    return response
+    return InboundMessage(
+        message_id, TcpCommand.StreamEventAppeared, response.SerializeToString()
+    )
 
 
 @pytest.mark.asyncio
@@ -106,13 +116,7 @@ async def test_event_appeared():
     await confirm_subscription(convo, event_number=10, commit_pos=10)
     subscription = convo.result.result()
 
-    response = event_appeared(event_id, commit_position=42, prepare_position=43)
-    await convo.respond_to(
-        InboundMessage(
-            uuid4(), TcpCommand.StreamEventAppeared, response.SerializeToString()
-        ),
-        None,
-    )
+    await respond_to(convo, event_appeared(event_id))
 
     event = await subscription.events.anext()
     assert event.id == event_id
@@ -120,4 +124,42 @@ async def test_event_appeared():
 
 @pytest.mark.asyncio
 async def test_subscription_dropped_mid_stream():
-    assert False
+    convo = SubscribeToStream("my-stream")
+    event_id = uuid4()
+
+    await confirm_subscription(convo, event_number=10, commit_pos=10)
+    subscription = convo.result.result()
+
+    await respond_to(convo, event_appeared(event_id))
+    await drop_subscription(convo)
+
+    events = [e async for e in subscription.events]
+    assert len(events) == 1
+
+
+@pytest.mark.asyncio
+async def test_subscription_failure_mid_stream():
+    convo = SubscribeToStream("my-stream")
+    event_id = uuid4()
+
+    await confirm_subscription(convo, event_number=10, commit_pos=10)
+    subscription = convo.result.result()
+
+    await respond_to(convo, event_appeared(event_id))
+    await drop_subscription(convo, SubscriptionDropReason.SubscriberMaxCountReached)
+
+    with pytest.raises(exn.SubscriptionFailed):
+        event = await anext(subscription.events)
+        assert event.id == event_id
+
+        await anext(subscription.events)
+
+
+@pytest.mark.asyncio
+async def test_failure_on_subscribe():
+    convo = SubscribeToStream("my-stream")
+
+    await drop_subscription(convo, SubscriptionDropReason.SubscriberMaxCountReached)
+
+    with pytest.raises(exn.SubscriptionCreationFailed):
+        await convo.result

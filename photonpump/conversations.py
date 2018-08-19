@@ -814,17 +814,13 @@ class ConnectPersistentSubscription(Conversation):
 
 
 class SubscribeToStream(Conversation):
-    class State(Enum):
-        init = 0
-        connected = 1
-        disconnected = 2
 
     def __init__(
         self, stream, resolve_link_tos=True, conversation_id=None, credentials=None
     ):
-        self.state = SubscribeToStream.State.init
         self.stream = stream
         self.resolve_link_tos = resolve_link_tos
+        self.is_live = False
         super().__init__(conversation_id, credentials)
 
     async def start(self, output: Queue) -> None:
@@ -841,6 +837,33 @@ class SubscribeToStream(Conversation):
             )
         )
 
+    async def drop_subscription(self, response: InboundMessage) -> None:
+        body = proto.SubscriptionDropped()
+        body.ParseFromString(response.payload)
+
+        if self.is_live and body.reason == messages.SubscriptionDropReason.Unsubscribed:
+
+            await self.subscription.events.enqueue(StopAsyncIteration())
+
+            return
+
+        if self.is_live:
+            await self.error(
+                exceptions.SubscriptionFailed(self.conversation_id, body.reason)
+            )
+
+            return
+
+        await self.error(
+            exceptions.SubscriptionCreationFailed(self.conversation_id, body.reason)
+        )
+
+    async def error(self, exn) -> None:
+        if self.is_live:
+            await self.subscription.events.asend(exn)
+        else:
+            self.result.set_exception(exn)
+
     async def reply_from_init(self, message: InboundMessage):
         self.expect_only(TcpCommand.SubscriptionConfirmation, message)
 
@@ -851,7 +874,7 @@ class SubscribeToStream(Conversation):
             self.stream, result.last_event_number, result.last_commit_position
         )
 
-        self.state = SubscribeToStream.State.connected
+        self.is_live = True
         self.result.set_result(self.subscription)
 
     async def reply_from_live(self, message: InboundMessage) -> None:
@@ -862,10 +885,12 @@ class SubscribeToStream(Conversation):
         await self.subscription.events.enqueue(_make_event(result.event))
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
-        if self.state == SubscribeToStream.State.init:
-            await self.reply_from_init(message)
-        elif self.state == SubscribeToStream.State.connected:
+        if message.command == TcpCommand.SubscriptionDropped:
+            await self.drop_subscription(message)
+        elif self.is_live:
             await self.reply_from_live(message)
+        else:
+            await self.reply_from_init(message)
 
 
 class VolatileSubscription:
