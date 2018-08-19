@@ -24,7 +24,6 @@ msgpack==0.5.6
 multidict==4.4.0a38
 neovim==0.2.6
 pathtools==0.1.2
--e git+git@github.com:madedotcom/photon-pump.git@14321042e9910e5cea7e232a7c6c3c8cd4418396#egg=photon_pump
 pluggy==0.7.1
 protobuf==3.6.1
 py==1.5.4
