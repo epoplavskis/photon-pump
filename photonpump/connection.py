@@ -327,6 +327,7 @@ class PaceMaker:
                 await asyncio.sleep(self.heartbeat_period)
             except asyncio.CancelledError:
                 logging.debug("Heartbeat loop cancelled")
+
                 break
 
 
@@ -729,6 +730,12 @@ class Client:
             credentials=self.credential,
             conversation_id=conversation_id,
         )
+        future = await self.dispatcher.start_conversation(cmd)
+
+        return await future
+
+    async def subscribe_to(self, stream, resolve_link_tos=True):
+        cmd = convo.SubscribeToStream(stream, resolve_link_tos)
         future = await self.dispatcher.start_conversation(cmd)
 
         return await future
