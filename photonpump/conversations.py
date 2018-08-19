@@ -814,7 +814,6 @@ class ConnectPersistentSubscription(Conversation):
 
 
 class SubscribeToStream(Conversation):
-
     def __init__(
         self, stream, resolve_link_tos=True, conversation_id=None, credentials=None
     ):

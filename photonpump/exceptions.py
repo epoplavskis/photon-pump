@@ -113,10 +113,9 @@ class SubscriptionFailed(ConversationException):
 
 
 class UnexpectedCommand(ConversationException):
-
     def __init__(self, expected, actual):
         self.expected = expected
         self.actual = actual
 
     def __str__(self):
-        return ("Unexpected command: %s, expected %s" % (self.actual, self.expected))
+        return "Unexpected command: %s, expected %s" % (self.actual, self.expected)
