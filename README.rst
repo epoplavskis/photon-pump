@@ -203,7 +203,11 @@ This extends to asynchronous comprehensions:
 Persistent Subscriptions
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Sometimes we want to watch a stream continuously and be notified when a new event occurs. Eventstore supports persistent subscriptions for this use case. Multiple clients can connect to the same subscription to support competing consumer scenarios.
+Sometimes we want to watch a stream continuously and be notified when a new event occurs. Eventstore supports volatile and persistent subscriptions for this use case. 
+
+A persistent subscription stores its state on the server. When your application restarts, you can connect to the subscription again and continue where you left off. Multiple clients can connect to the same persistent subscription to support competing consumer scenarios. To support these features, persistent subscriptions have to run against the master node of an Eventstore cluster.
+
+Firstly, we need to create the subscription.
 
     >>> async def create_subscription(subscription_name, stream_name, conn):
     >>>     await conn.create_subscription(subscription_name, stream_name)
@@ -217,6 +221,18 @@ Once we have a subscription, we can connect to it to begin receiving events. A p
     >>>         await subscription.ack(event)
 
 Eventstore will send each event to one consumer at a time. When you have handled the event, you must acknowledge receipt. Eventstore will resend messages that are unacknowledged.
+
+
+Volatile Subscriptions
+~~~~~~~~~~~~~~~~~~~~~~
+
+In a volatile subscription, state is stored by the client. When your application restarts, you must re-subscribe to the stream. There is no support in Eventstore for competing consumers to a volatile subscription. Volatile subscriptions can run against any node in a cluster.
+
+Volatile subsciptions do not support event acknowledgement.
+
+    >>> async def subscribe_to_stream(stream, conn):
+    >>>     async for event in conn.subscribe_to(stream):
+    >>>         print(event)
 
 
 High-Availability Scenarios

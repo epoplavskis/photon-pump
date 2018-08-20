@@ -15,19 +15,15 @@ async def test_single_event_roundtrip(event_loop):
 
     try:
         async with connect(loop=event_loop) as c:
-            print("1")
             await c.publish_event(
                 stream_name, "thing_happened", body={"thing": 1, "happening": True}
             )
-            print("1")
 
-            result = await c.get_event(stream_name, 0)
+            result = await c.get_event(stream_name, 1)
 
-            print("1")
             assert isinstance(result, messages.Event)
             assert result.event.type == "thing_happened"
 
-            print("1")
             data = result.event.json()
             assert data["thing"] == 1
             assert data["happening"] is True

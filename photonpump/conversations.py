@@ -311,7 +311,6 @@ class ReadStreamEventsBehaviour:
         pass
 
     async def reply(self, message: InboundMessage, output: Queue):
-        logging.error("HERRO")
         result = self.response_cls()
         result.ParseFromString(message.payload)
 

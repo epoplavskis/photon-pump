@@ -704,6 +704,7 @@ class Client:
         Examples:
 
             >>> async with connection() as conn:
+            >>>     await conn.publish("inventory_item-1", "item_created")
             >>>     event = await conn.get_event("inventory_item-1", 1)
             >>>     print(event)
         """
@@ -928,6 +929,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
                 self.dispatch_loop,
                 self.heartbeat_loop,
                 loop=self.loop,
+
                 return_exceptions=True,
             )
             self.transport.close()
