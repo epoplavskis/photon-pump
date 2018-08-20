@@ -19,7 +19,7 @@ async def test_single_event_roundtrip(event_loop):
                 stream_name, "thing_happened", body={"thing": 1, "happening": True}
             )
 
-            result = await c.get_event(stream_name, 1)
+            result = await c.get_event(stream_name, 0)
 
             assert isinstance(result, messages.Event)
             assert result.event.type == "thing_happened"

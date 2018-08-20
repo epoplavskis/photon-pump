@@ -611,6 +611,7 @@ class Client:
         Publish a single event to the EventStore.
 
         This method publishes a single event to the remote server and waits
+
         for acknowledgement.
 
         Args:
@@ -708,8 +709,14 @@ class Client:
             >>>     event = await conn.get_event("inventory_item-1", 1)
             >>>     print(event)
         """
-        correlation_id = correlation_id
-        cmd = convo.ReadEvent(stream, resolve_links, require_master)
+        correlation_id = correlation_id or uuid.uuid4()
+        cmd = convo.ReadEvent(
+            stream,
+            event_number,
+            resolve_links,
+            require_master,
+            conversation_id=correlation_id,
+        )
 
         result = await self.dispatcher.start_conversation(cmd)
 
