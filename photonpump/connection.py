@@ -928,7 +928,6 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
                 self.dispatch_loop,
                 self.heartbeat_loop,
                 loop=self.loop,
-
                 return_exceptions=True,
             )
             self.transport.close()
