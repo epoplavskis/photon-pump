@@ -8,7 +8,6 @@ from typing import Any, NamedTuple, Optional, Sequence
 
 from . import conversations as convo
 from . import messages as msg
-from . import messages_pb2 as proto
 from .discovery import DiscoveryRetryPolicy, NodeService, get_discoverer
 
 HEADER_LENGTH = 1 + 1 + 16
@@ -567,12 +566,32 @@ class Client:
         self.outstanding_heartbeat = None
 
     async def connect(self):
+        """
+        Sends a start message to the Connector.
+        """
         await self.connector.start()
 
     async def close(self):
+        """
+        Stop the client from sending and receiving messages.
+        """
         await self.connector.stop()
 
-    async def ping(self, conversation_id: uuid.UUID = None):
+    async def ping(self, conversation_id: uuid.UUID = None) -> float:
+        """
+        Send a message to the remote server to check liveness.
+
+        Returns:
+            The round-trip time to receive a Pong message in fractional seconds
+
+        Examples:
+
+            >>> async with connect() as conn:
+            >>>     print("Sending a PING to the server")
+            >>>     time_secs = await conn.ping()
+            >>>     print("Received a PONG after {} secs".format(time_secs))
+
+        """
         cmd = convo.Ping(conversation_id=conversation_id or uuid.uuid4())
         result = await self.dispatcher.start_conversation(cmd)
 
@@ -580,14 +599,56 @@ class Client:
 
     async def publish_event(
         self,
-        stream,
-        type,
-        body=None,
-        id=None,
-        metadata=None,
-        expected_version=-2,
-        require_master=False,
-    ):
+        stream: str,
+        type: str,
+        body: Optional[Any] = None,
+        id: Optional[uuid.UUID] = None,
+        metadata: Optional[Any] = None,
+        expected_version: int = -2,
+        require_master: bool = False,
+    ) -> None:
+        """
+        Publish a single event to the EventStore.
+
+        This method publishes a single event to the remote server and waits
+        for acknowledgement.
+
+        Args:
+            stream: The stream to publish the event to.
+            type: the event's type.
+            body: a serializable body for the event.
+            id: a unique id for the event. PhotonPump will automatically generate an
+                id if none is provided.
+            metadata: Optional serializable metadata block for the event.
+            expected_version: Used for concurrency control.
+                If a positive integer is provided, EventStore will check that the stream
+                is at that version before accepting a write.
+
+                There are three magic values:
+                    -4: StreamMustExist. Checks that the stream already exists.
+                    -2: Any. Disables concurrency checks
+                    -1: NoStream. Checks that the stream does not yet exist.
+                    0: EmptyStream. Checks that the stream has been explicitly created but
+                    does not yet contain any events.
+            require_master: If true, slave nodes will reject this message.
+
+        Examples:
+
+            >>> async with connect() as conn:
+            >>>     await conn.publish_event(
+            >>>         "inventory_item-1",
+            >>>         "item_created",
+            >>>         body={ "item-id": 1, "created-date": "2018-08-19" },
+            >>>         expected_version=ExpectedVersion.StreamMustNotExist
+            >>>     )
+            >>>
+            >>>     await conn.publish_event(
+            >>>         "inventory_item-1",
+            >>>         "item_deleted",
+            >>>         expected_version=1,
+            >>>         metadata={'deleted-by': 'bob' }
+            >>>     )
+        """
         event = msg.NewEvent(type, id or uuid.uuid4(), body, metadata)
         conversation = convo.WriteEvents(
             stream,
@@ -619,10 +680,33 @@ class Client:
     async def get_event(
         self,
         stream: str,
+        event_number: int,
         resolve_links=True,
         require_master=False,
         correlation_id: uuid.UUID = None,
-    ):
+    ) -> msg.Event:
+        """
+        Get a single event by stream and event number.
+
+        Args:
+            stream: The name of the stream containing the event.
+            event_number: The sequence number of the event to read.
+            resolve_links (optional): True if eventstore should
+                automatically resolve Link Events, otherwise False.
+            required_master (optional): True if this command must be
+                sent direct to the master node, otherwise False.
+            correlation_id (optional): A unique identifer for this
+                command.
+
+        Returns:
+            The resolved event if found, else None.
+
+        Examples:
+
+            >>> async with connection() as conn:
+            >>>     event = await conn.get_event("inventory_item-1", 1)
+            >>>     print(event)
+        """
         correlation_id = correlation_id
         cmd = convo.ReadEvent(stream, resolve_links, require_master)
 
@@ -844,6 +928,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
                 self.dispatch_loop,
                 self.heartbeat_loop,
                 loop=self.loop,
+
                 return_exceptions=True,
             )
             self.transport.close()

@@ -163,7 +163,7 @@ class TimerConversation(Conversation):
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         logging.info("Replying from conversation %s", self)
         responded_at = time.perf_counter()
-        self.result.set_result(self.started_at - responded_at)
+        self.result.set_result(responded_at - self.started_at)
         self.is_complete = True
 
 
