@@ -908,11 +908,9 @@ class VolatileSubscription:
         self.is_complete = False
 
     async def unsubscribe(self):
-        await self.output_queue.put(messages.OutboundMessage(
-            self.id,
-            TcpCommand.UnsubscribeFromStream,
-            bytes()
-        ))
+        await self.output_queue.put(
+            messages.OutboundMessage(self.id, TcpCommand.UnsubscribeFromStream, bytes())
+        )
 
     async def raise_error(self, exn: Exception) -> None:
         self.is_complete = True
