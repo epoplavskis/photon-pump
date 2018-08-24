@@ -858,18 +858,22 @@ class SubscribeToStream(Conversation):
 
     async def error(self, exn) -> None:
         if self.is_live:
-            await self.subscription.events.asend(exn)
+            await self.subscription.raise_error(exn)
         else:
             self.result.set_exception(exn)
 
-    async def reply_from_init(self, message: InboundMessage):
+    async def reply_from_init(self, message: InboundMessage, output: Queue):
         self.expect_only(TcpCommand.SubscriptionConfirmation, message)
 
         result = proto.SubscriptionConfirmation()
         result.ParseFromString(message.payload)
 
         self.subscription = VolatileSubscription(
-            self.stream, result.last_event_number, result.last_commit_position
+            self.conversation_id,
+            self.stream,
+            output,
+            result.last_event_number,
+            result.last_commit_position,
         )
 
         self.is_live = True
@@ -888,14 +892,35 @@ class SubscribeToStream(Conversation):
         elif self.is_live:
             await self.reply_from_live(message)
         else:
-            await self.reply_from_init(message)
+            await self.reply_from_init(message, output)
 
 
 class VolatileSubscription:
-    def __init__(self, stream, event_number, commit_position):
+    def __init__(self, conversation_id, stream, queue, event_number, commit_position):
         self.stream = stream
+        self.output_queue = queue
+        self.id = conversation_id
         self.first_event_number = event_number
         self.first_commit_position = commit_position
         self.last_event_number = event_number
         self.last_commit_position = commit_position
         self.events = StreamingIterator()
+        self.is_complete = False
+
+    async def unsubscribe(self):
+        await self.output_queue.put(messages.OutboundMessage(
+            self.id,
+            TcpCommand.UnsubscribeFromStream,
+            bytes()
+        ))
+
+    async def raise_error(self, exn: Exception) -> None:
+        self.is_complete = True
+        await self.events.asend(exn)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        if not self.is_complete:
+            await self.unsubscribe()

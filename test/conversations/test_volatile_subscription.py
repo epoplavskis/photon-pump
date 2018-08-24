@@ -37,7 +37,7 @@ async def drop_subscription(convo, reason=SubscriptionDropReason.Unsubscribed):
     )
 
 
-async def confirm_subscription(convo, event_number=1, commit_pos=1):
+async def confirm_subscription(convo, output_queue=None, event_number=1, commit_pos=1):
 
     response = proto.SubscriptionConfirmation()
     response.last_event_number = event_number
@@ -47,8 +47,10 @@ async def confirm_subscription(convo, event_number=1, commit_pos=1):
         InboundMessage(
             uuid4(), TcpCommand.SubscriptionConfirmation, response.SerializeToString()
         ),
-        None,
+        output_queue,
     )
+
+    return await convo.result
 
 
 def event_appeared(event_id, commit_position=1, prepare_position=1):
@@ -163,3 +165,60 @@ async def test_failure_on_subscribe():
 
     with pytest.raises(exn.SubscriptionCreationFailed):
         await convo.result
+
+
+@pytest.mark.asyncio
+async def test_unsubscription():
+    correlation_id = uuid4()
+    queue = TeeQueue()
+    convo = SubscribeToStream("my-stream", conversation_id=correlation_id)
+    sub = await confirm_subscription(convo, output_queue=queue)
+
+    await sub.unsubscribe()
+
+    [message] = queue.items
+
+    assert message.command == TcpCommand.UnsubscribeFromStream
+    assert message.conversation_id == correlation_id
+
+
+@pytest.mark.asyncio
+async def test_subscribe_with_context_manager():
+    conversation_id = uuid4()
+    convo = SubscribeToStream("my-stream", conversation_id=conversation_id)
+    queue = TeeQueue()
+
+    # Create a subscription with three events in it
+    await confirm_subscription(convo, output_queue=queue)
+
+    for _ in range(0, 3):
+        await respond_to(convo, event_appeared(uuid4()))
+
+    # While reading the events it should not send any messages
+    async with (await convo.result) as subscription:
+        events_seen = 0
+        async for _ in subscription.events:
+            events_seen += 1
+            assert not queue.items
+
+            if events_seen == 3:
+                break
+
+    # Having exited the context manager it should send
+    # an unsubscribe message
+    message = await queue.get()
+
+    assert message.command == TcpCommand.UnsubscribeFromStream
+    assert message.conversation_id == conversation_id
+
+
+@pytest.mark.asyncio
+async def test_erroring_from_a_context_manager():
+    queue = TeeQueue()
+    convo = SubscribeToStream("my-stream")
+
+    await confirm_subscription(convo, output_queue=queue)
+    async with (await convo.result):
+        await drop_subscription(convo, SubscriptionDropReason.SubscriberMaxCountReached)
+
+    assert queue.items == []
