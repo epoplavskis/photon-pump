@@ -50,6 +50,7 @@ class TcpCommand(IntEnum):
     SubscribeToStream = 0xC0
     SubscriptionConfirmation = 0xC1
     StreamEventAppeared = 0xC2
+    UnsubscribeFromStream = 0xC3
     SubscriptionDropped = 0xC4
 
     ConnectToPersistentSubscription = 0xC5
