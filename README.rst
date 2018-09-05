@@ -256,20 +256,4 @@ If you provide both a `host` and `discovery_host`, photonpump will prefer discov
 Debugging
 ~~~~~~~~~
 
-If you want to step through code that uses photonpump, it's helpful to be aware that Event Store's TCP API (which photonpump uses) makes use of a 'heartbeat' to ensure that connections are not left open. This means that if you're sitting at a debugger (e.g. pdb) prompt -- and therefore not running the event loop for tens of seconds at a time -- you'll find that you get disconnected. To prevent that, you can run it with Event Store's heartbeat timeouts set to high values -- e.g. with a `Dockerfile` like this:
-
-    FROM eventstore/eventstore
-    COPY eventstore.conf /etc/eventstore/
-
-and and eventstore.conf alongside that like this:
-
-    IntIp: 0.0.0.0
-    ExtIp: 0.0.0.0
-    IntHttpPrefixes: http://*:2112/
-    ExtHttpPrefixes: http://*:2113/
-    AddInterfacePrefixes: false
-    RunProjections: All
-    IntTcpHeartbeatTimeout: 99999999
-    ExtTcpHeartbeatTimeout: 99999999
-    IntTcpHeartbeatInterval: 99999999
-    ExtTcpHeartbeatInterval: 99999999
+If you want to step through code that uses photonpump, it's helpful to be aware that Event Store's TCP API (which photonpump uses) makes use of a 'heartbeat' to ensure that connections are not left open. This means that if you're sitting at a debugger (e.g. pdb) prompt -- and therefore not running the event loop for tens of seconds at a time -- you'll find that you get disconnected. To prevent that, you can run it with Event Store's heartbeat timeouts set to high values -- e.g. with a `Dockerfile` `like this <http://github.com/jlee1-made/resting-eventstore>`_.
