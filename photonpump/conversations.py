@@ -1,13 +1,10 @@
-from enum import Enum
 import json
 import logging
 import time
-from asyncio import Future, Queue, TimeoutError
+from asyncio import Future, Queue
 from enum import IntEnum
-from typing import Any, NamedTuple, Optional, Sequence, Union
+from typing import Optional, Sequence, Union
 from uuid import UUID, uuid4
-
-from google.protobuf.text_format import MessageToString
 
 from photonpump import exceptions
 from photonpump import messages as messages
@@ -298,9 +295,6 @@ class WriteEvents(Conversation):
 
         self.result.set_result(result)
 
-    def timeout(self):
-        return Reply(ReplyAction.ResubmitMessage, None, self.start())
-
 
 class ReadStreamEventsBehaviour:
     def __init__(self, result_type, response_cls):
@@ -403,7 +397,30 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
         self.result.set_result(_make_event(response.event))
 
 
-class ReadStreamEvents(ReadStreamEventsBehaviour, Conversation):
+class PageStreamEventsBehaviour(Conversation):
+
+    def _fetch_page_message(self, from_event):
+        if self.direction == StreamDirection.Forward:
+            command = TcpCommand.ReadStreamEventsForward
+        else:
+            command = TcpCommand.ReadStreamEventsBackward
+
+        msg = proto.ReadStreamEvents()
+        msg.event_stream_id = self.stream
+        msg.from_event_number = from_event
+        msg.max_count = self.batch_size
+        msg.require_master = self.require_master
+        msg.resolve_link_tos = self.resolve_link_tos
+
+        data = msg.SerializeToString()
+
+        return OutboundMessage(self.conversation_id, command, data, self.credential)
+
+    async def start(self, output):
+        await output.put(self._fetch_page_message(self.from_event))
+
+
+class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
     """Command class for reading events from a stream.
 
     Args:
@@ -433,32 +450,13 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, Conversation):
         ReadStreamEventsBehaviour.__init__(
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
         )
+        self.has_first_page = False
         self.stream = stream
         self.direction = direction
         self.from_event = from_event
-        self.max_count = max_count
+        self.batch_size = max_count
         self.require_master = require_master
         self.resolve_link_tos = resolve_links
-
-    def _fetch_page_message(self, from_event):
-        if self.direction == StreamDirection.Forward:
-            command = TcpCommand.ReadStreamEventsForward
-        else:
-            command = TcpCommand.ReadStreamEventsBackward
-
-        msg = proto.ReadStreamEvents()
-        msg.event_stream_id = self.stream
-        msg.from_event_number = from_event
-        msg.max_count = self.max_count
-        msg.require_master = self.require_master
-        msg.resolve_link_tos = self.resolve_link_tos
-
-        data = msg.SerializeToString()
-
-        return OutboundMessage(self.conversation_id, command, data, self.credential)
-
-    async def start(self, output):
-        await output.put(self._fetch_page_message(self.from_event))
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
         events = [_make_event(x) for x in result.events]
@@ -472,11 +470,33 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, Conversation):
                 None,
                 result.last_commit_position,
                 result.is_end_of_stream,
-            )
+            ))
+
+    def _fetch_page_message(self, from_event):
+        self._logger.debug(
+            "Requesting page of %d events from number %d",
+            self.batch_size,
+            self.from_event,
         )
 
+        if self.direction == StreamDirection.Forward:
+            command = TcpCommand.ReadStreamEventsForward
+        else:
+            command = TcpCommand.ReadStreamEventsBackward
 
-class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
+        msg = proto.ReadStreamEvents()
+        msg.event_stream_id = self.stream
+        msg.from_event_number = from_event
+        msg.max_count = self.batch_size
+        msg.require_master = self.require_master
+        msg.resolve_link_tos = self.resolve_link_tos
+
+        data = msg.SerializeToString()
+
+        return OutboundMessage(self.conversation_id, command, data, self.credential)
+
+
+class IterStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
     """Command class for iterating events from a stream.
 
     Args:
@@ -509,7 +529,7 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
         self.batch_size = batch_size
         self.has_first_page = False
         self.stream = stream
-        self.resolve_links = resolve_links
+        self.resolve_link_tos = resolve_links
         self.require_master = require_master
         self.direction = direction
         self._logger = logging.get_named_logger(IterStreamEvents)
@@ -521,29 +541,6 @@ class IterStreamEvents(ReadStreamEventsBehaviour, Conversation):
         else:
             self.command = TcpCommand.ReadStreamEventsBackward
             self.from_event = from_event or -1
-
-    def _fetch_page_message(self, from_event):
-        self._logger.debug(
-            "Requesting page of %d events from number %d",
-            self.batch_size,
-            self.from_event,
-        )
-
-        if self.direction == StreamDirection.Forward:
-            command = TcpCommand.ReadStreamEventsForward
-        else:
-            command = TcpCommand.ReadStreamEventsBackward
-
-        msg = proto.ReadStreamEvents()
-        msg.event_stream_id = self.stream
-        msg.from_event_number = from_event
-        msg.max_count = self.batch_size
-        msg.require_master = self.require_master
-        msg.resolve_link_tos = self.resolve_links
-
-        data = msg.SerializeToString()
-
-        return OutboundMessage(self.conversation_id, command, data, self.credential)
 
     async def start(self, output: Queue):
         await output.put(self._fetch_page_message(self.from_event))
@@ -896,7 +893,15 @@ class SubscribeToStream(Conversation):
 
 
 class VolatileSubscription:
-    def __init__(self, conversation_id, stream, queue, event_number, commit_position):
+    def __init__(
+        self,
+        conversation_id,
+        stream,
+        queue,
+        event_number,
+        commit_position,
+        iterator=None,
+    ):
         self.stream = stream
         self.output_queue = queue
         self.id = conversation_id
@@ -904,7 +909,7 @@ class VolatileSubscription:
         self.first_commit_position = commit_position
         self.last_event_number = event_number
         self.last_commit_position = commit_position
-        self.events = StreamingIterator()
+        self.events = iterator or StreamingIterator()
         self.is_complete = False
 
     async def unsubscribe(self):
@@ -922,3 +927,44 @@ class VolatileSubscription:
     async def __aexit__(self, exc_type, exc, tb):
         if not self.is_complete:
             await self.unsubscribe()
+
+
+class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
+    def __init__(
+        self, stream, from_event_number=0, credential=None, conversation_id=None
+    ):
+        self.stream = stream
+        self._logger = logging.get_named_logger(CatchupSubscription)
+        self.iterator = StreamingIterator()
+        self.conversation_id = conversation_id
+        self.from_event = from_event_number
+        self.direction = StreamDirection.Forward
+        self.batch_size = 100
+        self.has_first_page = False
+        self.require_master = False
+        self.resolve_link_tos = True
+        self.credential = credential
+        self.result = Future()
+        ReadStreamEventsBehaviour.__init__(
+            self, ReadStreamResult, proto.ReadStreamEventsCompleted
+        )
+
+    async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
+
+        if not result.is_end_of_stream:
+            await output.put(self._fetch_page_message(result.next_event_number))
+
+        events = [_make_event(x) for x in result.events]
+        await self.iterator.enqueue_items(events)
+
+        if not self.has_first_page:
+            self.result.set_result(
+                VolatileSubscription(
+                    self.conversation_id, self.stream, output, 0, 0, self.iterator
+                )
+            )
+            self.has_first_page = True
+
+        if result.is_end_of_stream:
+            self.is_complete = True
+            await self.iterator.asend(StopAsyncIteration())
