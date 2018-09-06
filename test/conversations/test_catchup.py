@@ -48,7 +48,7 @@ async def event_appeared(
     event_id=None,
     type="some-event",
     data=None,
-    stream="stream-123"
+    stream="stream-123",
 ):
     message_id = uuid.uuid4()
     response = proto.StreamEventAppeared()
@@ -62,8 +62,12 @@ async def event_appeared(
     response.event.commit_position = commit_position
     response.event.prepare_position = prepare_position
     response.event.event.data = json.dumps(data).encode("UTF-8") if data else bytes()
-    await convo.respond_to(msg.InboundMessage(
-        message_id, msg.TcpCommand.StreamEventAppeared, response.SerializeToString()), output_queue)
+    await convo.respond_to(
+        msg.InboundMessage(
+            message_id, msg.TcpCommand.StreamEventAppeared, response.SerializeToString()
+        ),
+        output_queue,
+    )
 
 
 class ReadStreamEventsResponseBuilder:
@@ -345,27 +349,30 @@ async def test_should_return_catchup_events_before_subscribed_events():
         (
             ReadStreamEventsResponseBuilder()
             .at_end_of_stream()
-            .with_event(event_number=1, type='a')
+            .with_event(event_number=1, type="a")
         ).to_string(),
         convo,
         output,
     )
     await confirm_subscription(convo, output, event_number=42, commit_pos=40)
-    await event_appeared(convo, output, event_number=4, type='d')
+    await event_appeared(convo, output, event_number=4, type="d")
     await reply_to_read_events(
         (
-            ReadStreamEventsResponseBuilder()
-            .with_event(event_number=2, type='b')
+            ReadStreamEventsResponseBuilder().with_event(event_number=2, type="b")
         ).to_string(),
-        convo, output)
+        convo,
+        output,
+    )
 
     await reply_to_read_events(
         (
             ReadStreamEventsResponseBuilder()
-            .with_event(event_number=3, type='c')
+            .with_event(event_number=3, type="c")
             .at_end_of_stream()
         ).to_string(),
-        convo, output)
+        convo,
+        output,
+    )
 
     events = []
     subscription = await convo.result
@@ -382,4 +389,3 @@ async def test_should_return_catchup_events_before_subscribed_events():
     assert b.event_number == 2
     assert c.event_number == 3
     assert d.event_number == 4
-

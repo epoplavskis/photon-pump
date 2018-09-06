@@ -991,7 +991,6 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
                 await self.iterator.asend(event)
 
     async def reply_from_catch_up(self, message, output):
-        print(message)
         if message.command == TcpCommand.SubscriptionDropped:
             await self.drop_subscription(message)
         elif message.command == TcpCommand.SubscriptionConfirmation:
@@ -1028,7 +1027,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             )
             self.has_first_page = True
 
-        #TODO: We also need to break to the next phase if we've found
+        # TODO: We also need to break to the next phase if we've found
         # the last event in the catchup
         if result.is_end_of_stream:
             await self._move_to_next_phase(output)
