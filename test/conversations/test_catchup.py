@@ -12,6 +12,31 @@ async def anext(it):
     return await asyncio.wait_for(it.anext(), 1)
 
 
+async def reply_to_read_events(message, convo, output):
+    await convo.respond_to(
+        msg.InboundMessage(
+            uuid.uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted, message
+        ),
+        output,
+    )
+
+
+async def confirm_subscription(convo, output_queue=None, event_number=1, commit_pos=1):
+
+    response = proto.SubscriptionConfirmation()
+    response.last_event_number = event_number
+    response.last_commit_position = commit_pos
+
+    await convo.respond_to(
+        msg.InboundMessage(
+           uuid.uuid4(), msg.TcpCommand.SubscriptionConfirmation, response.SerializeToString()
+        ),
+        output_queue,
+    )
+
+    return await convo.result
+
+
 class ReadStreamEventsResponseBuilder:
     def __init__(self, stream=None):
         self.result = msg.ReadStreamResult.Success
@@ -171,15 +196,7 @@ async def test_paging():
         .with_event(event_id=event_4_id, event_number=35)
     ).to_string()
 
-    await convo.respond_to(
-        msg.InboundMessage(
-            uuid.uuid4(),
-            msg.TcpCommand.ReadStreamEventsForwardCompleted,
-            first_response,
-        ),
-        output,
-    )
-
+    await reply_to_read_events(first_response, convo, output)
     subscription = await convo.result
 
     event_1 = await anext(subscription.events)
@@ -192,16 +209,70 @@ async def test_paging():
     body.ParseFromString(reply.payload)
     assert body.from_event_number == 34
 
-    await convo.respond_to(
-        msg.InboundMessage(
-            uuid.uuid4(),
-            msg.TcpCommand.ReadStreamEventsForwardCompleted,
-            second_response,
-        ),
-        output,
-    )
+    await reply_to_read_events(second_response, convo, output)
 
     event_3 = await anext(subscription.events)
     event_4 = await anext(subscription.events)
     assert event_3.id == event_3_id
     assert event_4.id == event_4_id
+
+
+@pytest.mark.asyncio
+async def test_subscribes_at_end_of_stream():
+
+    """
+    When we have read all the events in the stream, we should send a
+    request to subscribe for new events.
+    """
+
+    convo = CatchupSubscription("my-stream")
+    output = TeeQueue()
+    await convo.start(output)
+    await output.get()
+
+    await reply_to_read_events(
+        (ReadStreamEventsResponseBuilder().at_end_of_stream()).to_string(),
+        convo,
+        output,
+    )
+
+    reply = await output.get()
+    payload = proto.SubscribeToStream()
+    payload.ParseFromString(reply.payload)
+
+    assert reply.command == msg.TcpCommand.SubscribeToStream
+    assert payload.event_stream_id == "my-stream"
+    assert payload.resolve_link_tos is True
+
+
+@pytest.mark.asyncio
+async def test_should_perform_a_catchup_when_subscription_is_confirmed():
+
+    """
+    When we have read all the events in the stream, we should send a
+    request to subscribe for new events.
+    """
+
+    convo = CatchupSubscription("my-stream")
+    output = TeeQueue()
+    await convo.start(output)
+
+    await reply_to_read_events(
+        (ReadStreamEventsResponseBuilder().at_end_of_stream()).to_string(),
+        convo,
+        output,
+    )
+    await confirm_subscription(convo, output, event_number=42, commit_pos=40)
+    [read_historial, subscribe, catch_up] = await output.next_event(3)
+
+    assert read_historial.command == msg.TcpCommand.ReadStreamEventsForward
+    assert subscribe.command == msg.TcpCommand.SubscribeToStream
+    assert catch_up.command == msg.TcpCommand.ReadStreamEventsForward
+
+    payload = proto.ReadStreamEvents()
+    payload.ParseFromString(catch_up.payload)
+
+    assert payload.event_stream_id == "my-stream"
+    assert payload.from_event_number == 42
+
+

@@ -957,9 +957,49 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
         )
 
+    async def drop_subscription(self, response: InboundMessage) -> None:
+        body = proto.SubscriptionDropped()
+        body.ParseFromString(response.payload)
+
+        if self.is_live and body.reason == messages.SubscriptionDropReason.Unsubscribed:
+
+            await self.subscription.events.enqueue(StopAsyncIteration())
+
+            return
+
+        if self.is_live:
+            await self.error(
+                exceptions.SubscriptionFailed(self.conversation_id, body.reason)
+            )
+
+            return
+
+        await self.error(
+            exceptions.SubscriptionCreationFailed(self.conversation_id, body.reason)
+        )
+
+    async def _move_to_next_phase(self, output):
+        if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
+            self.phase = CatchupSubscriptionPhase.CATCH_UP
+            await self._subscribe(output)
+
+    async def reply_from_catch_up(self, message, output):
+        if message.command == TcpCommand.SubscriptionDropped:
+            await self.drop_subscription(message)
+
+        if message.command == TcpCommand.SubscriptionConfirmation:
+            confirmation = proto.SubscriptionConfirmation()
+            confirmation.ParseFromString(message.payload)
+            await output.put(self._fetch_page_message(confirmation.last_event_number))
+        else:
+            await ReadStreamEventsBehaviour.reply(self, message, output)
+
     async def reply(self, message: InboundMessage, output: Queue):
         if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
             await ReadStreamEventsBehaviour.reply(self, message, output)
+
+        if self.phase == CatchupSubscriptionPhase.CATCH_UP:
+            await self.reply_from_catch_up(message, output)
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
 
@@ -967,7 +1007,6 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             await output.put(self._fetch_page_message(result.next_event_number))
 
         events = [_make_event(x) for x in result.events]
-        print(events)
         await self.iterator.enqueue_items(events)
 
         if not self.has_first_page:
@@ -979,5 +1018,18 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             self.has_first_page = True
 
         if result.is_end_of_stream:
-            self.is_complete = True
-            await self.iterator.asend(StopAsyncIteration())
+            await self._move_to_next_phase(output)
+
+    async def _subscribe(self, output: Queue) -> None:
+        msg = proto.SubscribeToStream()
+        msg.event_stream_id = self.stream
+        msg.resolve_link_tos = self.resolve_link_tos
+
+        await output.put(
+            OutboundMessage(
+                self.conversation_id,
+                TcpCommand.SubscribeToStream,
+                msg.SerializeToString(),
+                self.credential,
+            )
+        )
