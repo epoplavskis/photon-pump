@@ -953,6 +953,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         self.resolve_link_tos = True
         self.credential = credential
         self.result = Future()
+        self.phase = CatchupSubscriptionPhase.READ_HISTORICAL
         ReadStreamEventsBehaviour.__init__(
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
         )

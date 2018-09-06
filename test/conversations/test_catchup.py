@@ -1,4 +1,5 @@
 import asyncio
+import json
 import pytest
 import uuid
 from ..fakes import TeeQueue
@@ -9,6 +10,62 @@ from photonpump import messages_pb2 as proto
 
 async def anext(it):
     return await asyncio.wait_for(it.anext(), 1)
+
+
+class ReadStreamEventsResponseBuilder:
+    def __init__(self, stream=None):
+        self.result = msg.ReadStreamResult.Success
+        self.next_event_number = 10
+        self.last_event_number = 9
+        self.is_end_of_stream = False
+        self.last_commit_position = 8
+        self.stream = stream or "some-stream"
+        self.events = []
+
+    def at_end_of_stream(self):
+        self.is_end_of_stream = True
+
+        return self
+
+    def with_next_event_number(self, num):
+        self.next_event_number = num
+
+        return self
+
+    def with_last_position(self, event_number=9, commit_position=8):
+        self.last_event_number = event_number
+        self.last_commit_position = commit_position
+
+        return self
+
+    def with_event(self, event_number=10, event_id=None, type="some-event", data=None):
+        event = proto.ResolvedIndexedEvent()
+        event.event.event_stream_id = self.stream
+        event.event.event_number = event_number
+        event.event.event_id = (event_id or uuid.uuid4()).bytes_le
+        event.event.event_type = type
+        event.event.data_content_type = msg.ContentType.Json
+        event.event.metadata_content_type = msg.ContentType.Binary
+        event.event.data = json.dumps(data).encode("UTF-8") if data else bytes()
+
+        self.events.append(event)
+
+        return self
+
+    def build(self):
+        response = proto.ReadStreamEventsCompleted()
+        response.result = self.result
+        response.next_event_number = self.next_event_number
+        response.last_event_number = self.last_event_number
+        response.is_end_of_stream = self.is_end_of_stream
+        response.last_commit_position = self.last_commit_position
+
+        response.events.extend(self.events)
+
+        return response
+
+    def to_string(self):
+        return self.build().SerializeToString()
 
 
 @pytest.mark.asyncio
@@ -53,61 +110,33 @@ async def test_end_of_stream():
     output = TeeQueue()
     await convo.start(output)
 
-
     event_1_id = uuid.uuid4()
     event_2_id = uuid.uuid4()
 
-    response = proto.ReadStreamEventsCompleted()
-    response.result = msg.ReadEventResult.Success
-    response.next_event_number = 10
-    response.last_event_number = 9
-    response.is_end_of_stream = True
-    response.last_commit_position = 8
-
-    event_1 = proto.ResolvedIndexedEvent()
-    event_1.event.event_stream_id = "stream-123"
-    event_1.event.event_number = 32
-    event_1.event.event_id = event_1_id.bytes_le
-    event_1.event.event_type = "event-type"
-    event_1.event.data_content_type = msg.ContentType.Json
-    event_1.event.metadata_content_type = msg.ContentType.Binary
-    event_1.event.data = """
-    {
-        'color': 'red',
-        'winner': true
-    }
-    """.encode(
-        "UTF-8"
-    )
-
-    event_2 = proto.ResolvedIndexedEvent()
-    event_2.CopyFrom(event_1)
-    event_2.event.event_type = "event-2-type"
-    event_2.event.event_id = event_2_id.bytes_le
-    event_2.event.event_number = 33
-
-    response.events.extend([event_1, event_2])
-
+    response = (
+        ReadStreamEventsResponseBuilder(stream="stream-123")
+        .at_end_of_stream()
+        .with_event(event_id=event_1_id, event_number=32)
+        .with_event(event_id=event_2_id, event_number=33)
+    ).to_string()
     await convo.respond_to(
         msg.InboundMessage(
-            uuid.uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted, response.SerializeToString()
+            uuid.uuid4(),
+            msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response,
         ),
         output,
     )
 
-    print(convo.result)
     subscription = await convo.result
-    print("BORP")
 
     event_1 = await anext(subscription.events)
     event_2 = await anext(subscription.events)
 
     assert event_1.stream == "stream-123"
     assert event_1.id == event_1_id
-    assert event_1.type == "event-type"
     assert event_1.event_number == 32
 
     assert event_2.stream == "stream-123"
     assert event_2.id == event_2_id
-    assert event_2.type == "event-2-type"
     assert event_2.event_number == 33
