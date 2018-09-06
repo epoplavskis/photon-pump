@@ -119,11 +119,10 @@ async def test_end_of_stream():
         .with_event(event_id=event_1_id, event_number=32)
         .with_event(event_id=event_2_id, event_number=33)
     ).to_string()
+
     await convo.respond_to(
         msg.InboundMessage(
-            uuid.uuid4(),
-            msg.TcpCommand.ReadStreamEventsForwardCompleted,
-            response,
+            uuid.uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted, response
         ),
         output,
     )
@@ -140,3 +139,70 @@ async def test_end_of_stream():
     assert event_2.stream == "stream-123"
     assert event_2.id == event_2_id
     assert event_2.event_number == 33
+
+
+@pytest.mark.asyncio
+async def test_paging():
+    """
+    During the read phase, we expect to page through multiple batches of
+    events. In this scenario we have two batches, each of two events.
+    """
+
+    convo = CatchupSubscription("my-stream")
+    output = TeeQueue()
+    await convo.start(output)
+    await output.get()
+
+    event_1_id = uuid.uuid4()
+    event_2_id = uuid.uuid4()
+    event_3_id = uuid.uuid4()
+    event_4_id = uuid.uuid4()
+
+    first_response = (
+        ReadStreamEventsResponseBuilder()
+        .with_event(event_id=event_1_id, event_number=32)
+        .with_event(event_id=event_2_id, event_number=33)
+        .with_next_event_number(34)
+    ).to_string()
+
+    second_response = (
+        ReadStreamEventsResponseBuilder()
+        .with_event(event_id=event_3_id, event_number=34)
+        .with_event(event_id=event_4_id, event_number=35)
+    ).to_string()
+
+    await convo.respond_to(
+        msg.InboundMessage(
+            uuid.uuid4(),
+            msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            first_response,
+        ),
+        output,
+    )
+
+    subscription = await convo.result
+
+    event_1 = await anext(subscription.events)
+    event_2 = await anext(subscription.events)
+    assert event_1.id == event_1_id
+    assert event_2.id == event_2_id
+
+    reply = await output.get()
+    body = proto.ReadStreamEvents()
+    body.ParseFromString(reply.payload)
+    assert body.from_event_number == 34
+
+    await convo.respond_to(
+        msg.InboundMessage(
+            uuid.uuid4(),
+            msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            second_response,
+        ),
+        output,
+    )
+
+    event_3 = await anext(subscription.events)
+    event_4 = await anext(subscription.events)
+    assert event_3.id == event_3_id
+    assert event_4.id == event_4_id
+

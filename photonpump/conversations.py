@@ -968,6 +968,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             await output.put(self._fetch_page_message(result.next_event_number))
 
         events = [_make_event(x) for x in result.events]
+        print(events)
         await self.iterator.enqueue_items(events)
 
         if not self.has_first_page:
