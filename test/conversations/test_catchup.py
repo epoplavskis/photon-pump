@@ -29,12 +29,41 @@ async def confirm_subscription(convo, output_queue=None, event_number=1, commit_
 
     await convo.respond_to(
         msg.InboundMessage(
-           uuid.uuid4(), msg.TcpCommand.SubscriptionConfirmation, response.SerializeToString()
+            uuid.uuid4(),
+            msg.TcpCommand.SubscriptionConfirmation,
+            response.SerializeToString(),
         ),
         output_queue,
     )
 
     return await convo.result
+
+
+async def event_appeared(
+    convo,
+    output_queue,
+    commit_position=1,
+    prepare_position=1,
+    event_number=10,
+    event_id=None,
+    type="some-event",
+    data=None,
+    stream="stream-123"
+):
+    message_id = uuid.uuid4()
+    response = proto.StreamEventAppeared()
+
+    response.event.event.event_stream_id = stream
+    response.event.event.event_number = event_number
+    response.event.event.event_id = (event_id or uuid.uuid4()).bytes_le
+    response.event.event.event_type = type
+    response.event.event.data_content_type = msg.ContentType.Json
+    response.event.event.metadata_content_type = msg.ContentType.Binary
+    response.event.commit_position = commit_position
+    response.event.prepare_position = prepare_position
+    response.event.event.data = json.dumps(data).encode("UTF-8") if data else bytes()
+    await convo.respond_to(msg.InboundMessage(
+        message_id, msg.TcpCommand.StreamEventAppeared, response.SerializeToString()), output_queue)
 
 
 class ReadStreamEventsResponseBuilder:
@@ -275,4 +304,82 @@ async def test_should_perform_a_catchup_when_subscription_is_confirmed():
     assert payload.event_stream_id == "my-stream"
     assert payload.from_event_number == 42
 
+
+@pytest.mark.asyncio
+async def test_should_return_catchup_events_before_subscribed_events():
+
+    """
+    It's possible that the following sequence of events occurs:
+        * The client reads the last batch of events from a stream containing
+          50 events.
+        * The client sends SubscribeToStream
+        * Event 51 is written to the stream
+        * The server creates a subscription starting at event 51 and
+          responds with SubscriptionConfirmed
+        * Event 52 is written to the stream
+        * The client receives event 52.
+
+    To solve this problem, the client needs to perform an additional read
+    to fetch any missing events created between the last batch and the
+    subscription confirmation.
+
+    --------------
+
+    In this scenario, we read a single event (1) from the end of the stream
+    and expect to create a subscription.
+
+    We receive event 4 immediately on the subscription. We expect that the
+    client requests missing events.
+
+    We receive two pages, of one event each: 3, and 4.
+
+    Lastly, we expect that the events are yielded in the correct order
+    despite being received out of order.
+    """
+
+    convo = CatchupSubscription("my-stream")
+    output = TeeQueue()
+    await convo.start(output)
+
+    await reply_to_read_events(
+        (
+            ReadStreamEventsResponseBuilder()
+            .at_end_of_stream()
+            .with_event(event_number=1, type='a')
+        ).to_string(),
+        convo,
+        output,
+    )
+    await confirm_subscription(convo, output, event_number=42, commit_pos=40)
+    await event_appeared(convo, output, event_number=4, type='d')
+    await reply_to_read_events(
+        (
+            ReadStreamEventsResponseBuilder()
+            .with_event(event_number=2, type='b')
+        ).to_string(),
+        convo, output)
+
+    await reply_to_read_events(
+        (
+            ReadStreamEventsResponseBuilder()
+            .with_event(event_number=3, type='c')
+            .at_end_of_stream()
+        ).to_string(),
+        convo, output)
+
+    events = []
+    subscription = await convo.result
+    async for e in subscription.events:
+        events.append(e)
+        if len(events) == 4:
+            break
+
+    [a, b, c, d] = events
+
+    print([e.type for e in events])
+
+    assert a.event_number == 1
+    assert b.event_number == 2
+    assert c.event_number == 3
+    assert d.event_number == 4
 

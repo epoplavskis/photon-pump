@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import queue
 from asyncio import Future, Queue
 from enum import IntEnum
 from typing import Optional, Sequence, Union
@@ -953,6 +954,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         self.credential = credential
         self.result = Future()
         self.phase = CatchupSubscriptionPhase.READ_HISTORICAL
+        self.buffer = []
         ReadStreamEventsBehaviour.__init__(
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
         )
@@ -982,15 +984,24 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
             self.phase = CatchupSubscriptionPhase.CATCH_UP
             await self._subscribe(output)
+        elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
+            self.phase = CatchupSubscriptionPhase.LIVE
+            print(self.buffer)
+            for event in self.buffer:
+                await self.iterator.asend(event)
 
     async def reply_from_catch_up(self, message, output):
+        print(message)
         if message.command == TcpCommand.SubscriptionDropped:
             await self.drop_subscription(message)
-
-        if message.command == TcpCommand.SubscriptionConfirmation:
+        elif message.command == TcpCommand.SubscriptionConfirmation:
             confirmation = proto.SubscriptionConfirmation()
             confirmation.ParseFromString(message.payload)
             await output.put(self._fetch_page_message(confirmation.last_event_number))
+        elif message.command == TcpCommand.StreamEventAppeared:
+            result = proto.StreamEventAppeared()
+            result.ParseFromString(message.payload)
+            self.buffer.append(_make_event(result.event))
         else:
             await ReadStreamEventsBehaviour.reply(self, message, output)
 
@@ -998,7 +1009,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
             await ReadStreamEventsBehaviour.reply(self, message, output)
 
-        if self.phase == CatchupSubscriptionPhase.CATCH_UP:
+        elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             await self.reply_from_catch_up(message, output)
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
@@ -1017,6 +1028,8 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             )
             self.has_first_page = True
 
+        #TODO: We also need to break to the next phase if we've found
+        # the last event in the catchup
         if result.is_end_of_stream:
             await self._move_to_next_phase(output)
 
