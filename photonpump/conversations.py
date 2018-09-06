@@ -892,6 +892,13 @@ class SubscribeToStream(Conversation):
             await self.reply_from_init(message, output)
 
 
+class CatchupSubscriptionPhase(IntEnum):
+
+    READ_HISTORICAL = 0
+    CATCH_UP = 1
+    LIVE = 2
+
+
 class VolatileSubscription:
     def __init__(
         self,
@@ -930,6 +937,7 @@ class VolatileSubscription:
 
 
 class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
+
     def __init__(
         self, stream, from_event_number=0, credential=None, conversation_id=None
     ):
@@ -948,6 +956,10 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         ReadStreamEventsBehaviour.__init__(
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
         )
+
+    async def reply(self, message: InboundMessage, output: Queue):
+        if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
+            await ReadStreamEventsBehaviour.reply(self, message, output)
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
 
