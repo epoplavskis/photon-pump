@@ -398,7 +398,6 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
 
 
 class PageStreamEventsBehaviour(Conversation):
-
     def _fetch_page_message(self, from_event):
         if self.direction == StreamDirection.Forward:
             command = TcpCommand.ReadStreamEventsForward
@@ -470,7 +469,8 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
                 None,
                 result.last_commit_position,
                 result.is_end_of_stream,
-            ))
+            )
+        )
 
     def _fetch_page_message(self, from_event):
         self._logger.debug(
@@ -937,7 +937,6 @@ class VolatileSubscription:
 
 
 class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
-
     def __init__(
         self, stream, from_event_number=0, credential=None, conversation_id=None
     ):

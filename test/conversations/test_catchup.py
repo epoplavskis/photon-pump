@@ -205,4 +205,3 @@ async def test_paging():
     event_4 = await anext(subscription.events)
     assert event_3.id == event_3_id
     assert event_4.id == event_4_id
-
