@@ -308,6 +308,9 @@ class Event:
     def json(self):
         return json.loads(self.data.decode("UTF-8"))
 
+    def __repr__(self):
+        return f"Event<{self.event_number}@{self.stream}:{self.type}>"
+
 
 class StreamSlice(list):
     def __init__(

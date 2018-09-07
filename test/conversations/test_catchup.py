@@ -12,13 +12,25 @@ async def anext(it):
     return await asyncio.wait_for(it.anext(), 1)
 
 
-async def reply_to_read_events(message, convo, output):
+async def reply_to(convo, message, output):
+    print(message)
+    command, payload = message
+    await convo.respond_to(msg.InboundMessage(uuid.uuid4(), command, payload), output)
+
+
+async def drop_subscription(convo, reason=msg.SubscriptionDropReason.Unsubscribed):
+
+    response = proto.SubscriptionDropped()
+    response.reason = reason
+
     await convo.respond_to(
         msg.InboundMessage(
-            uuid.uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted, message
+            uuid.uuid4(), msg.TcpCommand.SubscriptionDropped, response.SerializeToString()
         ),
-        output,
+        None,
     )
+
+
 
 
 async def confirm_subscription(convo, output_queue=None, event_number=1, commit_pos=1):
@@ -39,9 +51,7 @@ async def confirm_subscription(convo, output_queue=None, event_number=1, commit_
     return await convo.result
 
 
-async def event_appeared(
-    convo,
-    output_queue,
+def event_appeared(
     commit_position=1,
     prepare_position=1,
     event_number=10,
@@ -50,7 +60,6 @@ async def event_appeared(
     data=None,
     stream="stream-123",
 ):
-    message_id = uuid.uuid4()
     response = proto.StreamEventAppeared()
 
     response.event.event.event_stream_id = stream
@@ -62,12 +71,8 @@ async def event_appeared(
     response.event.commit_position = commit_position
     response.event.prepare_position = prepare_position
     response.event.event.data = json.dumps(data).encode("UTF-8") if data else bytes()
-    await convo.respond_to(
-        msg.InboundMessage(
-            message_id, msg.TcpCommand.StreamEventAppeared, response.SerializeToString()
-        ),
-        output_queue,
-    )
+
+    return (msg.TcpCommand.StreamEventAppeared, response.SerializeToString())
 
 
 class ReadStreamEventsResponseBuilder:
@@ -120,10 +125,7 @@ class ReadStreamEventsResponseBuilder:
 
         response.events.extend(self.events)
 
-        return response
-
-    def to_string(self):
-        return self.build().SerializeToString()
+        return msg.TcpCommand.ReadStreamEventsForwardCompleted, response.SerializeToString()
 
 
 @pytest.mark.asyncio
@@ -176,14 +178,9 @@ async def test_end_of_stream():
         .at_end_of_stream()
         .with_event(event_id=event_1_id, event_number=32)
         .with_event(event_id=event_2_id, event_number=33)
-    ).to_string()
+    ).build()
 
-    await convo.respond_to(
-        msg.InboundMessage(
-            uuid.uuid4(), msg.TcpCommand.ReadStreamEventsForwardCompleted, response
-        ),
-        output,
-    )
+    await reply_to(convo, response, output)
 
     subscription = await convo.result
 
@@ -221,15 +218,15 @@ async def test_paging():
         .with_event(event_id=event_1_id, event_number=32)
         .with_event(event_id=event_2_id, event_number=33)
         .with_next_event_number(34)
-    ).to_string()
+    ).build()
 
     second_response = (
         ReadStreamEventsResponseBuilder()
         .with_event(event_id=event_3_id, event_number=34)
         .with_event(event_id=event_4_id, event_number=35)
-    ).to_string()
+    ).build()
 
-    await reply_to_read_events(first_response, convo, output)
+    await reply_to(convo, first_response, output)
     subscription = await convo.result
 
     event_1 = await anext(subscription.events)
@@ -242,7 +239,7 @@ async def test_paging():
     body.ParseFromString(reply.payload)
     assert body.from_event_number == 34
 
-    await reply_to_read_events(second_response, convo, output)
+    await reply_to(convo, second_response, output)
 
     event_3 = await anext(subscription.events)
     event_4 = await anext(subscription.events)
@@ -263,9 +260,9 @@ async def test_subscribes_at_end_of_stream():
     await convo.start(output)
     await output.get()
 
-    await reply_to_read_events(
-        (ReadStreamEventsResponseBuilder().at_end_of_stream()).to_string(),
+    await reply_to(
         convo,
+        ReadStreamEventsResponseBuilder().at_end_of_stream().build(),
         output,
     )
 
@@ -290,9 +287,9 @@ async def test_should_perform_a_catchup_when_subscription_is_confirmed():
     output = TeeQueue()
     await convo.start(output)
 
-    await reply_to_read_events(
-        (ReadStreamEventsResponseBuilder().at_end_of_stream()).to_string(),
+    await reply_to(
         convo,
+        ReadStreamEventsResponseBuilder().at_end_of_stream().build(),
         output,
     )
     await confirm_subscription(convo, output, event_number=42, commit_pos=40)
@@ -335,55 +332,56 @@ async def test_should_return_catchup_events_before_subscribed_events():
     We receive event 4 immediately on the subscription. We expect that the
     client requests missing events.
 
-    We receive two pages, of one event each: 3, and 4.
+    We receive two pages, of one event each: 3, and 4, and then drop the subscription.
 
     Lastly, we expect that the events are yielded in the correct order
-    despite being received out of order.
+    despite being received out of order and that we have no duplicates.
     """
 
     convo = CatchupSubscription("my-stream")
     output = TeeQueue()
     await convo.start(output)
+    await output.get()
 
-    await reply_to_read_events(
-        (
-            ReadStreamEventsResponseBuilder()
-            .at_end_of_stream()
-            .with_event(event_number=1, type="a")
-        ).to_string(),
-        convo,
-        output,
-    )
-    await confirm_subscription(convo, output, event_number=42, commit_pos=40)
-    await event_appeared(convo, output, event_number=4, type="d")
-    await reply_to_read_events(
-        (
-            ReadStreamEventsResponseBuilder().with_event(event_number=2, type="b")
-        ).to_string(),
-        convo,
-        output,
+    last_page = (
+        ReadStreamEventsResponseBuilder()
+        .at_end_of_stream()
+        .with_event(event_number=1, type="a")
+        .build()
     )
 
-    await reply_to_read_events(
-        (
-            ReadStreamEventsResponseBuilder()
-            .with_event(event_number=3, type="c")
-            .at_end_of_stream()
-        ).to_string(),
-        convo,
-        output,
-    )
+    subscribed_event = event_appeared(event_number=4, type="d")
+
+    first_catchup = ReadStreamEventsResponseBuilder().with_event(
+        event_number=2, type="b"
+    ).build()
+    second_catchup = (
+        ReadStreamEventsResponseBuilder()
+        .with_event(event_number=3, type="c")
+        .with_event(event_number=4, type="d")
+        .at_end_of_stream()
+    ).build()
+
+    await reply_to(convo, last_page, output)
+    assert (await output.get()).command == msg.TcpCommand.SubscribeToStream
+
+    await confirm_subscription(convo, output, event_number=3)
+    await reply_to(convo, subscribed_event, output)
+    assert (await output.get()).command == msg.TcpCommand.ReadStreamEventsForward
+
+    await reply_to(convo, first_catchup, output)
+    assert (await output.get()).command == msg.TcpCommand.ReadStreamEventsForward
+
+    await reply_to(convo, second_catchup, output)
+    await drop_subscription(convo)
 
     events = []
     subscription = await convo.result
     async for e in subscription.events:
         events.append(e)
-        if len(events) == 4:
-            break
 
+    assert len(events) == 4
     [a, b, c, d] = events
-
-    print([e.type for e in events])
 
     assert a.event_number == 1
     assert b.event_number == 2
