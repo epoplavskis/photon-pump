@@ -997,7 +997,6 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             await self._subscribe(output)
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             self.phase = CatchupSubscriptionPhase.LIVE
-
             for event in self.buffer:
                 await self.iterator.asend(event)
 
