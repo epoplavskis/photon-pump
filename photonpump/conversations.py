@@ -1056,8 +1056,8 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
 
         if not self.has_first_page:
             self.subscription = VolatileSubscription(
-                    self.conversation_id, self.stream, output, 0, 0, self.iterator
-                )
+                self.conversation_id, self.stream, output, 0, 0, self.iterator
+            )
             self.result.set_result(self.subscription)
             self.has_first_page = True
 

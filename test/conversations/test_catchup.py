@@ -455,9 +455,37 @@ async def test_unsubscription():
     sub = convo.result.result()
     await sub.unsubscribe()
 
-    print([e.command for e in output.items])
     [read_historical, subscribe, catch_up, unsubscribe] = output.items
-
 
     assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
     assert unsubscribe.conversation_id == correlation_id
+
+
+@pytest.mark.asyncio
+async def test_subscribe_with_context_manager():
+    conversation_id = uuid.uuid4()
+    output = TeeQueue()
+    convo = CatchupSubscription("my-stream", conversation_id=conversation_id)
+    await convo.start(output)
+
+    # Create a subscription with three events in it
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+
+    for _ in range(0, 3):
+        await reply_to(convo, event_appeared(event_id=uuid.uuid4()), output)
+
+    async with (await convo.result) as subscription:
+        events_seen = 0
+        async for _ in subscription.events:
+            events_seen += 1
+            if events_seen == 3:
+                break
+
+    # Having exited the context manager it should send
+    # an unsubscribe message
+    [read_historical, subscribe, catch_up, unsubscribe] = output.items
+
+    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
+    assert unsubscribe.conversation_id == conversation_id
