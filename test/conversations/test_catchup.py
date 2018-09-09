@@ -1,11 +1,15 @@
 import asyncio
 import json
-import pytest
 import uuid
-from ..fakes import TeeQueue
-from photonpump.conversations import CatchupSubscription
+
+import pytest
+
+from photonpump import exceptions as exn
 from photonpump import messages as msg
 from photonpump import messages_pb2 as proto
+from photonpump.conversations import CatchupSubscription
+
+from ..fakes import TeeQueue
 
 
 async def anext(it):
@@ -13,24 +17,25 @@ async def anext(it):
 
 
 async def reply_to(convo, message, output):
-    print(message)
     command, payload = message
     await convo.respond_to(msg.InboundMessage(uuid.uuid4(), command, payload), output)
 
 
-async def drop_subscription(convo, reason=msg.SubscriptionDropReason.Unsubscribed):
+async def drop_subscription(
+    convo, output, reason=msg.SubscriptionDropReason.Unsubscribed
+):
 
     response = proto.SubscriptionDropped()
     response.reason = reason
 
     await convo.respond_to(
         msg.InboundMessage(
-            uuid.uuid4(), msg.TcpCommand.SubscriptionDropped, response.SerializeToString()
+            uuid.uuid4(),
+            msg.TcpCommand.SubscriptionDropped,
+            response.SerializeToString(),
         ),
-        None,
+        output,
     )
-
-
 
 
 async def confirm_subscription(convo, output_queue=None, event_number=1, commit_pos=1):
@@ -125,7 +130,10 @@ class ReadStreamEventsResponseBuilder:
 
         response.events.extend(self.events)
 
-        return msg.TcpCommand.ReadStreamEventsForwardCompleted, response.SerializeToString()
+        return (
+            msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response.SerializeToString(),
+        )
 
 
 @pytest.mark.asyncio
@@ -140,7 +148,9 @@ async def test_start_read_phase():
     output = TeeQueue()
 
     conversation_id = uuid.uuid4()
-    convo = CatchupSubscription("my-stream", conversation_id=conversation_id)
+    convo = CatchupSubscription(
+        "my-stream", from_event_number=0, conversation_id=conversation_id
+    )
 
     await convo.start(output)
     [request] = output.items
@@ -261,9 +271,7 @@ async def test_subscribes_at_end_of_stream():
     await output.get()
 
     await reply_to(
-        convo,
-        ReadStreamEventsResponseBuilder().at_end_of_stream().build(),
-        output,
+        convo, ReadStreamEventsResponseBuilder().at_end_of_stream().build(), output
     )
 
     reply = await output.get()
@@ -288,9 +296,7 @@ async def test_should_perform_a_catchup_when_subscription_is_confirmed():
     await convo.start(output)
 
     await reply_to(
-        convo,
-        ReadStreamEventsResponseBuilder().at_end_of_stream().build(),
-        output,
+        convo, ReadStreamEventsResponseBuilder().at_end_of_stream().build(), output
     )
     await confirm_subscription(convo, output, event_number=42, commit_pos=40)
     [read_historial, subscribe, catch_up] = await output.next_event(3)
@@ -352,14 +358,13 @@ async def test_should_return_catchup_events_before_subscribed_events():
 
     subscribed_event = event_appeared(event_number=4, type="d")
 
-    first_catchup = ReadStreamEventsResponseBuilder().with_event(
-        event_number=2, type="b"
-    ).build()
+    first_catchup = (
+        ReadStreamEventsResponseBuilder().with_event(event_number=2, type="b").build()
+    )
     second_catchup = (
         ReadStreamEventsResponseBuilder()
         .with_event(event_number=3, type="c")
         .with_event(event_number=4, type="d")
-        .at_end_of_stream()
     ).build()
 
     await reply_to(convo, last_page, output)
@@ -373,7 +378,7 @@ async def test_should_return_catchup_events_before_subscribed_events():
     assert (await output.get()).command == msg.TcpCommand.ReadStreamEventsForward
 
     await reply_to(convo, second_catchup, output)
-    await drop_subscription(convo)
+    await drop_subscription(convo, output)
 
     events = []
     subscription = await convo.result
@@ -387,3 +392,42 @@ async def test_should_return_catchup_events_before_subscribed_events():
     assert b.event_number == 2
     assert c.event_number == 3
     assert d.event_number == 4
+
+
+@pytest.mark.asyncio
+async def test_subscription_dropped_mid_stream():
+    convo = CatchupSubscription("my-stream")
+    output = TeeQueue()
+    empty_page = ReadStreamEventsResponseBuilder(stream="stream-123").at_end_of_stream().build()
+    await reply_to(convo, empty_page, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, empty_page, output)
+    subscription = convo.result.result()
+
+    await reply_to(convo, event_appeared(), output)
+    await drop_subscription(convo, output)
+
+    events = [e async for e in subscription.events]
+    assert len(events) == 1
+
+
+@pytest.mark.asyncio
+async def test_subscription_failure_mid_stream():
+    output = TeeQueue()
+    convo = CatchupSubscription("my-stream")
+    event_id = uuid.uuid4()
+
+    empty_page = ReadStreamEventsResponseBuilder(stream="stream-123").at_end_of_stream().build()
+    await reply_to(convo, empty_page, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, empty_page, output)
+    subscription = convo.result.result()
+
+    await reply_to(convo, event_appeared(event_id=event_id), output)
+    await drop_subscription(convo, output, msg.SubscriptionDropReason.SubscriberMaxCountReached)
+
+    with pytest.raises(exn.SubscriptionFailed):
+        event = await anext(subscription.events)
+        assert event.id == event_id
+
+        await anext(subscription.events)

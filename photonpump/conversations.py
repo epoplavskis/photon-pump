@@ -5,6 +5,7 @@ import queue
 from asyncio import Future, Queue
 from enum import IntEnum
 from typing import Optional, Sequence, Union
+import sys
 from uuid import UUID, uuid4
 
 from photonpump import exceptions
@@ -121,11 +122,11 @@ class Conversation:
             return await self.reply(response, output)
         except Exception as exn:
             self._logger.error("Failed to read server response", exc_info=True)
-
+            exc_info = sys.exc_info()
             return await self.error(
                 exceptions.PayloadUnreadable(
                     self.conversation_id, response.payload, exn
-                )
+                ).with_traceback(exc_info[2])
             )
 
     async def unhandled_message(self, response) -> None:
@@ -310,7 +311,6 @@ class ReadStreamEventsBehaviour:
         result.ParseFromString(message.payload)
 
         if result.result == self.result_type.Success:
-            logging.error(message)
             await self.success(result, output)
         elif result.result == self.result_type.NoStream:
             await self.error(
@@ -974,18 +974,13 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         body = proto.SubscriptionDropped()
         body.ParseFromString(response.payload)
 
-        print(self.is_live)
-        print(body.reason)
-        if (
-            self.is_live and body.reason == messages.SubscriptionDropReason.Unsubscribed
-        ):
+        if body.reason == messages.SubscriptionDropReason.Unsubscribed:
 
             await self.subscription.events.enqueue(StopAsyncIteration())
 
             return
 
-        if self.is_live:
-            await self.subscription.events.enqueue(StopAsyncIteration())
+        if self.result.done():
             await self.error(
                 exceptions.SubscriptionFailed(self.conversation_id, body.reason)
             )
@@ -1034,6 +1029,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
 
     async def reply(self, message: InboundMessage, output: Queue):
         if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
+            self.expect_only(TcpCommand.ReadStreamEventsForwardCompleted, message)
             await ReadStreamEventsBehaviour.reply(self, message, output)
 
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
@@ -1049,7 +1045,6 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         for e in result.events:
             event = _make_event(e)
             events.append(event)
-            print(event.event_number, self.subscribe_from)
             if event.event_number == self.subscribe_from:
                 finished = True
                 break
@@ -1065,9 +1060,6 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
                 )
             self.result.set_result(self.subscription)
             self.has_first_page = True
-
-        # TODO: We also need to break to the next phase if we've found
-        # the last event in the catchup
 
         if finished:
             await self._move_to_next_phase(output)
