@@ -136,6 +136,11 @@ class ReadStreamEventsResponseBuilder:
         )
 
 
+EMPTY_STREAM_PAGE = (
+    ReadStreamEventsResponseBuilder(stream="stream-123").at_end_of_stream().build()
+)
+
+
 @pytest.mark.asyncio
 async def test_start_read_phase():
     """
@@ -398,7 +403,9 @@ async def test_should_return_catchup_events_before_subscribed_events():
 async def test_subscription_dropped_mid_stream():
     convo = CatchupSubscription("my-stream")
     output = TeeQueue()
-    empty_page = ReadStreamEventsResponseBuilder(stream="stream-123").at_end_of_stream().build()
+    empty_page = (
+        ReadStreamEventsResponseBuilder(stream="stream-123").at_end_of_stream().build()
+    )
     await reply_to(convo, empty_page, output)
     await confirm_subscription(convo, output, event_number=10, commit_pos=10)
     await reply_to(convo, empty_page, output)
@@ -417,17 +424,40 @@ async def test_subscription_failure_mid_stream():
     convo = CatchupSubscription("my-stream")
     event_id = uuid.uuid4()
 
-    empty_page = ReadStreamEventsResponseBuilder(stream="stream-123").at_end_of_stream().build()
-    await reply_to(convo, empty_page, output)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
     await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-    await reply_to(convo, empty_page, output)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
     subscription = convo.result.result()
 
     await reply_to(convo, event_appeared(event_id=event_id), output)
-    await drop_subscription(convo, output, msg.SubscriptionDropReason.SubscriberMaxCountReached)
+    await drop_subscription(
+        convo, output, msg.SubscriptionDropReason.SubscriberMaxCountReached
+    )
 
     with pytest.raises(exn.SubscriptionFailed):
         event = await anext(subscription.events)
         assert event.id == event_id
 
         await anext(subscription.events)
+
+
+@pytest.mark.asyncio
+async def test_unsubscription():
+    correlation_id = uuid.uuid4()
+    output = TeeQueue()
+    convo = CatchupSubscription("my-stream", conversation_id=correlation_id)
+    await convo.start(output)
+
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+
+    sub = convo.result.result()
+    await sub.unsubscribe()
+
+    print([e.command for e in output.items])
+    [read_historical, subscribe, catch_up, unsubscribe] = output.items
+
+
+    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
+    assert unsubscribe.conversation_id == correlation_id
