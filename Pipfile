@@ -5,6 +5,8 @@ name = "pypi"
 
 [packages]
 pylint = "*"
+pre-commit = "*"
+black = "*"
 
 [dev-packages]
 aioresponses = "*"

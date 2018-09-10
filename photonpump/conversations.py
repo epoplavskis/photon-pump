@@ -399,7 +399,6 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
 
 
 class PageStreamEventsBehaviour(Conversation):
-
     def _fetch_page_message(self, from_event):
         if self.direction == StreamDirection.Forward:
             command = TcpCommand.ReadStreamEventsForward
@@ -945,7 +944,9 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         self.stream = stream
         self.iterator = StreamingIterator()
         self.conversation_id = conversation_id or uuid4()
-        self._logger = logging.get_named_logger(CatchupSubscription, self.conversation_id)
+        self._logger = logging.get_named_logger(
+            CatchupSubscription, self.conversation_id
+        )
         self._logger.info("Herllo!")
         self.from_event = from_event_number
         self.direction = StreamDirection.Forward
@@ -1001,7 +1002,9 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
     async def _move_to_next_phase(self, output):
         if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
             self.phase = CatchupSubscriptionPhase.CATCH_UP
-            self._logger.info("Caught up with historical events, creating volatile subscription")
+            self._logger.info(
+                "Caught up with historical events, creating volatile subscription"
+            )
             await self._subscribe(output)
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             self.phase = CatchupSubscriptionPhase.LIVE
@@ -1026,7 +1029,10 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             confirmation = proto.SubscriptionConfirmation()
             confirmation.ParseFromString(message.payload)
             self.subscribe_from = confirmation.last_event_number
-            self._logger.info("Subscribed successfully, catching up with missed events from %s", confirmation.last_event_number)
+            self._logger.info(
+                "Subscribed successfully, catching up with missed events from %s",
+                confirmation.last_event_number,
+            )
             await output.put(self._fetch_page_message(confirmation.last_event_number))
         elif message.command == TcpCommand.StreamEventAppeared:
             result = proto.StreamEventAppeared()
