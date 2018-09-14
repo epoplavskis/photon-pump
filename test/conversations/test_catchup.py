@@ -12,8 +12,14 @@ from photonpump.conversations import CatchupSubscription
 from ..fakes import TeeQueue
 
 
-async def anext(it):
-    return await asyncio.wait_for(it.anext(), 1)
+async def anext(it, count=1):
+    if count == 1:
+        return await asyncio.wait_for(it.anext(), 1)
+    result = []
+
+    while len(result) < count:
+        result.append(await asyncio.wait_for(it.anext(), 1))
+    return result
 
 
 async def reply_to(convo, message, output):
@@ -650,9 +656,7 @@ async def test_historical_duplicates():
     await reply_to(convo, two_events, output)
     await reply_to(convo, three_events, output)
 
-    event_1 = await anext(convo.subscription.events)
-    event_2 = await anext(convo.subscription.events)
-    event_3 = await anext(convo.subscription.events)
+    [event_1, event_2, event_3] = await anext(convo.subscription.events, 3)
 
     assert event_1.event_number == 1
     assert event_2.event_number == 2
@@ -666,21 +670,70 @@ async def test_subscription_duplicates():
     If we restart the conversation at that point we need to make sure we clear our buffer
     and do not raise duplicate events.
 
-    Read an empty page.
-    Connect to subscription.
-    Request catchup
-    Receive subscribed event 2
-    Receive event 1 in catch up, not at the end of the stream.
+    => Request historical
+    <= Empty
+    => Subscribe to stream
+    <= Confirmed
+    => Request catchup
+    <= Subscribed event 2 appeared
+    <= Event 1, not end of stream
 
-    Restart the conversation.
-    We should start the historical read from event 2 since we've read event 1
-    Receive event 2 at end of stream
-    Connect to subscription
-    Receive empty catch up
+    RESTART
 
-    We should not raise a duplicate event 2 from the subscription buffer.
+    => Drop subscription
+    <= Dropped
+    => Request historical from_event = 1
+    <= Receive event 2 at end of stream
+    => Subscribe
+    <= Confirmed
+    => Catchup
+    <= Subscribed event 3 appeared
+    <= Empty
+
+    Should yield [event 1, event 2, event 3]
     """
-    pass
+    event_1_not_end_of_stream = (
+        ReadStreamEventsResponseBuilder()
+        .with_event(event_number=1)
+        .with_next_event_number(2)
+        .build()
+    )
+
+    event_2_at_end_of_stream = (
+        ReadStreamEventsResponseBuilder()
+        .with_event(event_number=2)
+        .with_next_event_number(2)
+        .at_end_of_stream()
+        .build()
+    )
+
+    output = TeeQueue()
+    convo = CatchupSubscription("my-stream")
+    await convo.start(output)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, event_appeared(event_number=2), output)
+    await reply_to(convo, event_1_not_end_of_stream, output)
+
+    # RESTART
+    await convo.start(output)
+    output.items.clear()
+
+    await drop_subscription(convo, output)
+
+    second_read_historical = read_as(proto.ReadStreamEvents, output.items[0])
+
+    await reply_to(convo, event_2_at_end_of_stream, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, event_appeared(event_number=3), output)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+
+    [event_1, event_2, event_3] = await anext(convo.subscription.events, 3)
+    assert event_1.event_number == 1
+    assert event_2.event_number == 2
+    assert event_3.event_number == 3
+
+    assert second_read_historical.from_event_number == 2
 
 
 @pytest.mark.asyncio

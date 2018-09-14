@@ -1017,6 +1017,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         for event in events:
             if event.event_number <= self.last_event_number:
                 continue
+            print(event)
             await self.iterator.asend(event)
             self.last_event_number = event.event_number
 
