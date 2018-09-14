@@ -823,9 +823,51 @@ class Client:
             conversation_id=conversation_id,
         )
         future = await self.dispatcher.start_conversation(cmd)
+
         return await future
 
     async def subscribe_to(self, stream, resolve_link_tos=True, start_from=-1):
+
+        """
+        Subscribe to receive notifications when a new event is published
+        to a stream.
+
+        Args:
+            stream: The name of the stream.
+            start_from: The first event to read.
+                This parameter defaults to the magic value -1 which is treated
+                as meaning "from the end of the stream". IF this value is used,
+                no historical events will be returned.
+
+                For any other value, photonpump will read all events from
+                start_from until the end of the stream in pages of max_size
+                before subscribing to receive new events as they arrive.
+
+            resolve_links (optional): True if eventstore should
+                automatically resolve Link Events, otherwise False.
+            required_master (optional): True if this command must be
+                sent direct to the master node, otherwise False.
+            correlation_id (optional): A unique identifer for this
+                command.
+
+        Returns:
+            A VolatileSubscription.
+
+        Examples:
+
+            >>> async with connection() as conn:
+            >>>     # Subscribe only to NEW events on the cpu-metrics stream
+            >>>     subs = await conn.subscribe_to("price-changes")
+            >>>     async for event in subs.events:
+            >>>         print(event)
+
+            >>> async with connection() as conn:
+            >>>     # Read all historical events and then receive updates as they
+            >>>     # arrive.
+            >>>     subs = await conn.subscribe_to("price-changes", start_from=0)
+            >>>     async for event in subs.events:
+            >>>         print(event)
+        """
 
         if start_from == -1:
             cmd = convo.SubscribeToStream(stream, resolve_link_tos)
@@ -833,6 +875,7 @@ class Client:
             cmd = convo.CatchupSubscription(stream, start_from)
 
         future = await self.dispatcher.start_conversation(cmd)
+
         return await future
 
     async def __aenter__(self):
@@ -929,6 +972,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
                 self.dispatch_loop,
                 self.heartbeat_loop,
                 loop=self.loop,
+
                 return_exceptions=True,
             )
             self.transport.close()

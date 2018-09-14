@@ -226,7 +226,7 @@ Eventstore will send each event to one consumer at a time. When you have handled
 Volatile Subscriptions
 ~~~~~~~~~~~~~~~~~~~~~~
 
-In a volatile subscription, state is stored by the client. When your application restarts, you must re-subscribe to the stream. There is no support in Eventstore for competing consumers to a volatile subscription. Volatile subscriptions can run against any node in a cluster.
+In a Volatile Subscription, state is stored by the client. When your application restarts, you must re-subscribe to the stream. There is no support in Eventstore for competing consumers to a volatile subscription. Volatile subscriptions can run against any node in a cluster.
 
 Volatile subsciptions do not support event acknowledgement.
 
