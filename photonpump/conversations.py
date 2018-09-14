@@ -1,11 +1,11 @@
 import json
 import logging
-import time
 import queue
+import sys
+import time
 from asyncio import Future, Queue
 from enum import IntEnum
 from typing import Optional, Sequence, Union
-import sys
 from uuid import UUID, uuid4
 
 from photonpump import exceptions
@@ -123,6 +123,7 @@ class Conversation:
         except Exception as exn:
             self._logger.error("Failed to read server response", exc_info=True)
             exc_info = sys.exc_info()
+
             return await self.error(
                 exceptions.PayloadUnreadable(
                     self.conversation_id, response.payload, exn
@@ -898,6 +899,7 @@ class CatchupSubscriptionPhase(IntEnum):
     READ_HISTORICAL = 0
     CATCH_UP = 1
     LIVE = 2
+    RECONNECT = 3
 
 
 class VolatileSubscription:
@@ -938,9 +940,7 @@ class VolatileSubscription:
 
 
 class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
-    def __init__(
-        self, stream, start_from=0, credential=None, conversation_id=None
-    ):
+    def __init__(self, stream, start_from=0, credential=None, conversation_id=None):
         self.stream = stream
         self.iterator = StreamingIterator()
         self.conversation_id = conversation_id or uuid4()
@@ -958,7 +958,8 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         self.phase = CatchupSubscriptionPhase.READ_HISTORICAL
         self.buffer = []
         self.subscribe_from = -1
-        self.next_event_number = self.last_event_number = self.from_event
+        self.next_event_number = self.from_event
+        self.last_event_number = -1
         Conversation.__init__(self, conversation_id, credential)
         ReadStreamEventsBehaviour.__init__(
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
@@ -974,9 +975,21 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         else:
             self.result.set_exception(exn)
 
+    async def reconnect(self, output: Queue) -> None:
+        self.phase = CatchupSubscriptionPhase.RECONNECT
+        await self.subscription.unsubscribe()
+
     async def start(self, output):
+        if self.phase > CatchupSubscriptionPhase.READ_HISTORICAL:
+            self._logger.info("Tear down previous subscription")
+            await self.reconnect(output)
+
+            return
+
         self._logger.info("Starting catchup subscription at %s", self.from_event)
-        self.from_event = max(self.from_event, self.next_event_number, self.last_event_number)
+        self.from_event = max(
+            self.from_event, self.next_event_number, self.last_event_number
+        )
         await PageStreamEventsBehaviour.start(self, output)
 
     async def drop_subscription(self, response: InboundMessage) -> None:
@@ -1002,7 +1015,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
 
     async def _yield_events(self, events):
         for event in events:
-            if event.event_number < self.last_event_number:
+            if event.event_number <= self.last_event_number:
                 continue
             await self.iterator.asend(event)
             self.last_event_number = event.event_number
@@ -1016,11 +1029,12 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             await self._subscribe(output)
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             self.phase = CatchupSubscriptionPhase.LIVE
-            self._yield_events(self.buffer)
+            await self._yield_events(self.buffer)
 
     async def reply_from_live(self, message, output):
         if message.command == TcpCommand.SubscriptionDropped:
             await self.drop_subscription(message)
+
             return
 
         self.expect_only(TcpCommand.StreamEventAppeared, message)
@@ -1038,9 +1052,9 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             self.subscribe_from = confirmation.last_event_number
             self._logger.info(
                 "Subscribed successfully, catching up with missed events from %s",
-                confirmation.last_event_number,
+                self.next_event_number,
             )
-            await output.put(self._fetch_page_message(confirmation.last_event_number))
+            await output.put(self._fetch_page_message(self.next_event_number))
         elif message.command == TcpCommand.StreamEventAppeared:
             result = proto.StreamEventAppeared()
             result.ParseFromString(message.payload)
@@ -1048,14 +1062,21 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         else:
             await ReadStreamEventsBehaviour.reply(self, message, output)
 
+    async def reply_from_reconnect(self, message: InboundMessage, output: Queue):
+        if message.command != TcpCommand.SubscriptionDropped:
+            return
+        self.phase = CatchupSubscriptionPhase.READ_HISTORICAL
+        await self.start(output)
+
     async def reply(self, message: InboundMessage, output: Queue):
+
         if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
             self.expect_only(TcpCommand.ReadStreamEventsForwardCompleted, message)
             await ReadStreamEventsBehaviour.reply(self, message, output)
-
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             await self.reply_from_catch_up(message, output)
-
+        elif self.phase == CatchupSubscriptionPhase.RECONNECT:
+            await self.reply_from_reconnect(message, output)
         else:
             await self.reply_from_live(message, output)
 
@@ -1063,6 +1084,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
 
         finished = False
         events = []
+
         for e in result.events:
             event = _make_event(e)
             events.append(event)
@@ -1071,6 +1093,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         self.next_event_number = result.next_event_number
 
         # Todo: we should finish if the next event > subscription_start_pos
+
         if result.is_end_of_stream:
             finished = True
 
