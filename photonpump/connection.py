@@ -512,7 +512,6 @@ class MessageDispatcher:
         if self.output:
             await conversation.start(self.output)
 
-        print(conversation.result)
         return conversation.result
 
     async def write_to(self, output: asyncio.Queue):
@@ -823,11 +822,7 @@ class Client:
             credentials=self.credential,
             conversation_id=conversation_id,
         )
-        try:
-            future = await self.dispatcher.start_conversation(cmd)
-        except:
-            logging.exception("WA?")
-
+        future = await self.dispatcher.start_conversation(cmd)
         return await future
 
     async def subscribe_to(self, stream, resolve_link_tos=True, start_from=-1):
@@ -839,16 +834,6 @@ class Client:
 
         future = await self.dispatcher.start_conversation(cmd)
         return await future
-
-    async def ack(self, subscription, message_ids, correlation_id=None):
-        cmd = msg.PersistentSubscriptionAckEvents(
-            subscription,
-            message_ids,
-            correlation_id,
-            credentials=self.credential,
-            loop=self.loop,
-        )
-        await self.dispatcher.start_conversation(cmd)
 
     async def __aenter__(self):
         await self.connect()
