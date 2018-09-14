@@ -50,6 +50,7 @@ class TcpCommand(IntEnum):
     SubscribeToStream = 0xC0
     SubscriptionConfirmation = 0xC1
     StreamEventAppeared = 0xC2
+    UnsubscribeFromStream = 0xC3
     SubscriptionDropped = 0xC4
 
     ConnectToPersistentSubscription = 0xC5
@@ -306,6 +307,9 @@ class Event:
 
     def json(self):
         return json.loads(self.data.decode("UTF-8"))
+
+    def __repr__(self):
+        return f"<Event: {self.event_number}@{self.stream}:{self.type}>"
 
 
 class StreamSlice(list):
