@@ -20,6 +20,10 @@ async def reply_to(convo, message, output):
     command, payload = message
     await convo.respond_to(msg.InboundMessage(uuid.uuid4(), command, payload), output)
 
+def read_as(cls, message):
+    body = cls()
+    body.ParseFromString(message.payload)
+    return body
 
 async def drop_subscription(
     convo, output, reason=msg.SubscriptionDropReason.Unsubscribed
@@ -154,7 +158,7 @@ async def test_start_read_phase():
 
     conversation_id = uuid.uuid4()
     convo = CatchupSubscription(
-        "my-stream", from_event_number=0, conversation_id=conversation_id
+        "my-stream", start_from=0, conversation_id=conversation_id
     )
 
     await convo.start(output)
@@ -480,6 +484,7 @@ async def test_subscribe_with_context_manager():
         events_seen = 0
         async for _ in subscription.events:
             events_seen += 1
+
             if events_seen == 3:
                 break
 
@@ -489,3 +494,37 @@ async def test_subscribe_with_context_manager():
 
     assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
     assert unsubscribe.conversation_id == conversation_id
+
+
+@pytest.mark.asyncio
+async def test_restart_from_historical():
+    """
+    If we ask the conversation to start again while we're reading historical events
+    we should re-send the most recent page request.
+
+    In this scenario, we start reading the stream at event 10, we receive a
+    page with 2 events, we request the next page starting at 12.
+
+    When we restart the conversation, we should request the page starting at 12.
+    """
+
+    conversation_id = uuid.uuid4()
+    output = TeeQueue()
+    convo = CatchupSubscription("my-stream", start_from=10, conversation_id=conversation_id)
+
+    await convo.start(output)
+
+    await reply_to(convo, (
+        ReadStreamEventsResponseBuilder(stream="stream-123")
+        .with_event(event_number=10)
+        .with_event(event_number=11)
+        .with_next_event_number(12)
+        .build()
+    ), output)
+
+    await convo.start(output)
+
+    [first_page, second_page, second_page_again] = [read_as(proto.ReadStreamEvents, m) for m in output.items]
+
+    assert second_page.from_event_number == second_page_again.from_event_number
+

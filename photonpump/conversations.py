@@ -939,7 +939,7 @@ class VolatileSubscription:
 
 class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
     def __init__(
-        self, stream, from_event_number=0, credential=None, conversation_id=None
+        self, stream, start_from=0, credential=None, conversation_id=None
     ):
         self.stream = stream
         self.iterator = StreamingIterator()
@@ -947,8 +947,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         self._logger = logging.get_named_logger(
             CatchupSubscription, self.conversation_id
         )
-        self._logger.info("Herllo!")
-        self.from_event = from_event_number
+        self.from_event = start_from
         self.direction = StreamDirection.Forward
         self.batch_size = 100
         self.has_first_page = False
@@ -959,6 +958,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         self.phase = CatchupSubscriptionPhase.READ_HISTORICAL
         self.buffer = []
         self.subscribe_from = -1
+        self.next_event_number = self.last_event_number = self.from_event
         Conversation.__init__(self, conversation_id, credential)
         ReadStreamEventsBehaviour.__init__(
             self, ReadStreamResult, proto.ReadStreamEventsCompleted
@@ -976,6 +976,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
 
     async def start(self, output):
         self._logger.info("Starting catchup subscription at %s", self.from_event)
+        self.from_event = max(self.from_event, self.next_event_number, self.last_event_number)
         await PageStreamEventsBehaviour.start(self, output)
 
     async def drop_subscription(self, response: InboundMessage) -> None:
@@ -999,6 +1000,13 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             exceptions.SubscriptionCreationFailed(self.conversation_id, body.reason)
         )
 
+    async def _yield_events(self, events):
+        for event in events:
+            if event.event_number < self.last_event_number:
+                continue
+            await self.iterator.asend(event)
+            self.last_event_number = event.event_number
+
     async def _move_to_next_phase(self, output):
         if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
             self.phase = CatchupSubscriptionPhase.CATCH_UP
@@ -1008,8 +1016,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             await self._subscribe(output)
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             self.phase = CatchupSubscriptionPhase.LIVE
-            for event in self.buffer:
-                await self.iterator.asend(event)
+            self._yield_events(self.buffer)
 
     async def reply_from_live(self, message, output):
         if message.command == TcpCommand.SubscriptionDropped:
@@ -1020,7 +1027,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         result = proto.StreamEventAppeared()
         result.ParseFromString(message.payload)
 
-        await self.subscription.events.enqueue(_make_event(result.event))
+        await self._yield_events([_make_event(result.event)])
 
     async def reply_from_catch_up(self, message, output):
         if message.command == TcpCommand.SubscriptionDropped:
@@ -1059,14 +1066,13 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         for e in result.events:
             event = _make_event(e)
             events.append(event)
-            if event.event_number == self.subscribe_from:
-                finished = True
-                break
+        await self._yield_events(events)
 
+        self.next_event_number = result.next_event_number
+
+        # Todo: we should finish if the next event > subscription_start_pos
         if result.is_end_of_stream:
             finished = True
-
-        await self.iterator.enqueue_items(events)
 
         if not self.has_first_page:
             self.subscription = VolatileSubscription(
