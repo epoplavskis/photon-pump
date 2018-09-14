@@ -782,5 +782,3 @@ async def test_live_restart():
 
     assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
     assert read_historical.from_event_number == 2
-
-
