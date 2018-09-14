@@ -977,6 +977,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
 
     async def reconnect(self, output: Queue) -> None:
         self.phase = CatchupSubscriptionPhase.RECONNECT
+        self.buffer = []
         await self.subscription.unsubscribe()
 
     async def start(self, output):
@@ -1017,7 +1018,6 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         for event in events:
             if event.event_number <= self.last_event_number:
                 continue
-            print(event)
             await self.iterator.asend(event)
             self.last_event_number = event.event_number
 

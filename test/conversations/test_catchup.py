@@ -19,6 +19,7 @@ async def anext(it, count=1):
 
     while len(result) < count:
         result.append(await asyncio.wait_for(it.anext(), 1))
+
     return result
 
 
@@ -150,7 +151,10 @@ class ReadStreamEventsResponseBuilder:
 
 
 EMPTY_STREAM_PAGE = (
-    ReadStreamEventsResponseBuilder(stream="stream-123").at_end_of_stream().build()
+    ReadStreamEventsResponseBuilder(stream="stream-123")
+    .with_next_event_number(0)
+    .at_end_of_stream()
+    .build()
 )
 
 
@@ -741,5 +745,42 @@ async def test_live_restart():
     """
     If we reset the conversation while we are live, we should first unsubscribe
     then start a historical read from the last read event.
+
+    => Read historial
+    <= empty
+    => subscribe
+    <= confirmed
+    => catchup
+    <= empty
+    <= event 1 appeared
+    <= event 2 appeared
+
+    RESTART
+
+    => unsubscribe
+    <= dropped
+    => Read historical from 2
     """
-    pass
+
+    output = TeeQueue()
+    convo = CatchupSubscription("my-stream")
+    await convo.start(output)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+
+    await reply_to(convo, event_appeared(event_number=1), output)
+    await reply_to(convo, event_appeared(event_number=2), output)
+
+    output.items.clear()
+
+    await convo.start(output)
+    await drop_subscription(convo, output)
+
+    [unsubscribe, read_historical] = output.items
+    read_historical = read_as(proto.ReadStreamEvents, read_historical)
+
+    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
+    assert read_historical.from_event_number == 2
+
+
