@@ -20,7 +20,7 @@ Photon pump is available on the `cheese shop`_. ::
 
 You will need to install lib-protobuf 3.2.0 or above.
 
-Documentation is available on `Read the docs`_. ::
+Documentation is available on `Read the docs`_. 
 
 Basic Usage
 -----------
@@ -207,12 +207,12 @@ Sometimes we want to watch a stream continuously and be notified when a new even
 
 A persistent subscription stores its state on the server. When your application restarts, you can connect to the subscription again and continue where you left off. Multiple clients can connect to the same persistent subscription to support competing consumer scenarios. To support these features, persistent subscriptions have to run against the master node of an Eventstore cluster.
 
-Firstly, we need to create the subscription.
+Firstly, we need to :meth:`create the subscription <photonpump.connection.Client.create_subscription>`.
 
     >>> async def create_subscription(subscription_name, stream_name, conn):
     >>>     await conn.create_subscription(subscription_name, stream_name)
 
-Once we have a subscription, we can connect to it to begin receiving events. A persistent subscription exposes an `events` property, which acts like an asynchronous iterator.
+Once we have a subscription, we can :meth:`connect to it <photonpump.connection.Client.connect_subscription>` to begin receiving events. A persistent subscription exposes an `events` property, which acts like an asynchronous iterator.
 
     >>> async def read_events_from_subscription(subscription_name, stream_name, conn):
     >>>     subscription = await conn.connect_subscription(subscription_name, stream_name)
@@ -238,7 +238,7 @@ Volatile subsciptions do not support event acknowledgement.
 High-Availability Scenarios
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Eventstore supports an HA-cluster deployment topology. In this scenario, Eventstore runs a master node and multiple slaves. Some operations, particularly subscriptions and projections, are handled only by the master node. To connect to an HA-cluster and automatically find the master node, photonpump supports cluster discovery.
+Eventstore supports an HA-cluster deployment topology. In this scenario, Eventstore runs a master node and multiple slaves. Some operations, particularly persistent subscriptions and projections, are handled only by the master node. To connect to an HA-cluster and automatically find the master node, photonpump supports cluster discovery.
 
 The cluster discovery interrogates eventstore gossip to find the active master. You can provide the IP of a maching in the cluster, or a DNS name that resolves to some members of the cluster, and photonpump will discover the others.
 

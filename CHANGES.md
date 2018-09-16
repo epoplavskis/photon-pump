@@ -16,6 +16,7 @@
 - `published_event` reversed order of type and stream
 
 
+[0.6]: https://github.com/madecom/photon-pump/compare/v0.5.0...v0.6.0
 [0.5]: https://github.com/madecom/photon-pump/compare/v0.4.0...v0.5.0
 [0.4]: https://github.com/madecom/photon-pump/compare/v0.3.0...v0.4.0
 [0.3]: https://github.com/madecom/photon-pump/compare/v0.2.5...v0.3
