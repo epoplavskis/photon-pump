@@ -10,3 +10,6 @@ Photonpump API Reference
 
 .. automodule:: photonpump.messages
     :members:
+
+.. automodule:: photonpump.discovery
+    :members:

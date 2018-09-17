@@ -4,7 +4,7 @@ import random
 import socket
 from enum import IntEnum
 from operator import attrgetter
-from typing import Iterable, List, NamedTuple, Optional
+from typing import Callable, Iterable, List, NamedTuple, Optional
 
 import aiodns
 import aiohttp
@@ -26,7 +26,7 @@ class NodeState(IntEnum):
     Shutdown = 10
 
 
-INELIGIBLE_STATE = [NodeState.Manager, NodeState.ShuttingDown, NodeState.Shutdown]
+ELIGIBLE_STATE = [NodeState.Clone, NodeState.Slave, NodeState.Master]
 
 
 class NodeService(NamedTuple):
@@ -47,6 +47,9 @@ class DiscoveredNode(NamedTuple):
     external_http: NodeService
 
 
+Selector = Callable[[List[DiscoveredNode]], Optional[DiscoveredNode]]
+
+
 def first(elems: Iterable):
     LOG.info(elems)
 
@@ -54,17 +57,50 @@ def first(elems: Iterable):
         return elem
 
 
-def select(gossip: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
+def prefer_master(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
+    """
+    Select the master if available, otherwise fall back to a replica.
+    """
+    return max(nodes, key=attrgetter("state"))
+
+
+def prefer_replica(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
+    """
+    Select a random replica if any are available or fall back to the master.
+    """
+    masters = [node for node in nodes if node.state == NodeState.Master]
+    replicas = [node for node in nodes if node.state != NodeState.Master]
+
+    if replicas:
+        return random.choice(replicas)
+    else:
+        # if you have more than one master then you're on your own, bud.
+
+        return masters[0]
+
+
+def select_random(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
+    """
+    Return a random node.
+    """
+    return random.choice(nodes)
+
+
+def select(
+    gossip: List[DiscoveredNode], selector: Optional[Selector] = None
+) -> Optional[DiscoveredNode]:
     eligible_nodes = [
-        node for node in gossip if node.is_alive and node.state not in INELIGIBLE_STATE
+        node for node in gossip if node.is_alive and node.state in ELIGIBLE_STATE
     ]
 
-    LOG.debug("Selecting node from gossip members: %r" % eligible_nodes)
+    LOG.debug("Selecting node from gossip members: %r", eligible_nodes)
 
     if not eligible_nodes:
         return None
 
-    return max(eligible_nodes, key=attrgetter("state"))
+    selector = selector or prefer_master
+
+    return selector(eligible_nodes)
 
 
 def read_gossip(data):
@@ -73,7 +109,7 @@ def read_gossip(data):
 
         return []
 
-    LOG.debug(f"Received gossip for { len(data['members']) } nodes")
+    LOG.debug("Received gossip for {%s} nodes", len(data["members"]))
 
     return [
         DiscoveredNode(
@@ -142,7 +178,7 @@ class DnsSeedFinder:
                 random.shuffle(result)
 
                 if result:
-                    LOG.debug(f"Found { len(result) } hosts for name {self.name}")
+                    LOG.debug("Found %s hosts for name %s", len(result), self.name)
                     current_attempt = 0
                     self.seeds = [
                         NodeService(address=node.host, port=self.port, secure_port=None)
@@ -182,7 +218,7 @@ async def fetch_new_gossip(session, seed):
     if not seed:
         return []
 
-    LOG.debug(f"Fetching gossip from http://{seed.address}:{seed.port}/gossip")
+    LOG.debug("Fetching gossip from http://%s:%s/gossip", seed.address, seed.port)
     try:
         resp = await session.get(f"http://{seed.address}:{seed.port}/gossip")
         data = await resp.json()
@@ -190,7 +226,7 @@ async def fetch_new_gossip(session, seed):
         return read_gossip(data)
     except aiohttp.ClientError:
         LOG.exception(
-            f"Failed loading gossip from http://{seed.address}:{seed.port}/gossip"
+            "Failed loading gossip from http://%s:%s/gossip", seed.address, seed.port
         )
 
         return None
@@ -209,6 +245,7 @@ class SingleNodeDiscovery:
         if self.failed:
             raise DiscoveryFailed()
         LOG.debug("SingleNodeDiscovery returning node %s", self.node)
+
         return self.node
 
 
@@ -245,12 +282,13 @@ class Stats(dict):
 
 
 class ClusterDiscovery:
-    def __init__(self, seed_finder, http_session, retry_policy):
+    def __init__(self, seed_finder, http_session, retry_policy, selector):
         self.session = http_session
         self.seeds = seed_finder
         self.last_gossip = []
         self.best_node = None
         self.retry_policy = retry_policy
+        self.selector = selector
 
     def close(self):
         self.session.close()
@@ -263,7 +301,7 @@ class ClusterDiscovery:
 
         for member in gossip:
             self.seeds.add_node(member.external_http)
-        self.best_node = select(gossip)
+        self.best_node = select(gossip, self.selector)
         self.retry_policy.record_success(node)
 
     async def get_gossip(self):
@@ -343,7 +381,9 @@ class DiscoveryRetryPolicy:
         self.stats.record_failure(node)
 
 
-def get_discoverer(host, port, discovery_host, discovery_port):
+def get_discoverer(
+    host, port, discovery_host, discovery_port, selector: Optional[Selector] = None
+):
     if discovery_host is None:
         LOG.info("Using single-node discoverer")
 
@@ -358,6 +398,7 @@ def get_discoverer(host, port, discovery_host, discovery_port):
             StaticSeedFinder([NodeService(discovery_host, discovery_port, None)]),
             session,
             DiscoveryRetryPolicy(),
+            selector,
         )
     except socket.error:
         LOG.info("Using cluster node discovery with DNS")
@@ -367,4 +408,5 @@ def get_discoverer(host, port, discovery_host, discovery_port):
             DnsSeedFinder(discovery_host, resolver, discovery_port),
             session,
             DiscoveryRetryPolicy(),
+            selector,
         )
