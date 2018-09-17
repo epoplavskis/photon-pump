@@ -18,6 +18,8 @@ from photonpump.discovery import (
     get_discoverer,
     read_gossip,
     select,
+    prefer_master,
+    prefer_replica,
 )
 
 from . import data
@@ -214,7 +216,7 @@ async def test_discovery_failure_for_static_seed():
     session = aiohttp.ClientSession()
     with aioresponses() as mock:
         successful_discoverer = ClusterDiscovery(
-            StaticSeedFinder([seed]), session, retry
+            StaticSeedFinder([seed]), session, retry, None
         )
 
         mock.get("http://1.2.3.4:2113/gossip", status=500)
@@ -254,7 +256,7 @@ async def test_repeated_discovery_failure_for_static_seed():
     gossip = data.make_gossip("2.3.4.5")
     with aioresponses() as mock:
         successful_discoverer = ClusterDiscovery(
-            StaticSeedFinder([seed]), aiohttp.ClientSession(), retry
+            StaticSeedFinder([seed]), aiohttp.ClientSession(), retry, None
         )
 
         mock.get("http://1.2.3.4:2113/gossip", status=500)
@@ -302,8 +304,38 @@ async def test_cluster_discovery_mark_failed():
 
     node = NodeService("2.3.4.5", 1234, None)
     finder = spy_seed_finder()
-    discoverer = ClusterDiscovery(finder, None, None)
+    discoverer = ClusterDiscovery(finder, None, None, None)
 
     discoverer.mark_failed(node)
 
     assert finder == [node]
+
+
+@pytest.mark.asyncio
+async def test_prefer_replica():
+    """
+    If we ask the discoverer to prefer_replica it should return a replica node
+    before returning a master.
+    """
+
+    discoverer = get_discoverer(None, None, "10.0.0.1", 2113, prefer_replica)
+    gossip = data.make_gossip("10.0.0.1", "10.0.0.2")
+    with aioresponses() as mock:
+        mock.get("http://10.0.0.1:2113/gossip", payload=gossip)
+
+        assert await discoverer.discover() == NodeService("10.0.0.2", 1113, None)
+
+
+@pytest.mark.asyncio
+async def test_prefer_master():
+    """
+    If we ask the discoverer to prefer_master it should return a master node
+    before returning a replica.
+    """
+
+    discoverer = get_discoverer(None, None, "10.0.0.1", 2113, prefer_master)
+    gossip = data.make_gossip("10.0.0.1", "10.0.0.2")
+    with aioresponses() as mock:
+        mock.get("http://10.0.0.1:2113/gossip", payload=gossip)
+
+        assert await discoverer.discover() == NodeService("10.0.0.1", 1113, None)

@@ -8,7 +8,7 @@ from typing import Any, NamedTuple, Optional, Sequence
 
 from . import conversations as convo
 from . import messages as msg
-from .discovery import DiscoveryRetryPolicy, NodeService, get_discoverer
+from .discovery import DiscoveryRetryPolicy, NodeService, get_discoverer, select_random
 
 HEADER_LENGTH = 1 + 1 + 16
 SIZE_UINT_32 = 4
@@ -972,7 +972,6 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
                 self.dispatch_loop,
                 self.heartbeat_loop,
                 loop=self.loop,
-
                 return_exceptions=True,
             )
             self.transport.close()
@@ -990,6 +989,7 @@ def connect(
     password=None,
     loop=None,
     name=None,
+    selector=select_random,
 ) -> Client:
     """ Create a new client.
 
@@ -1014,6 +1014,36 @@ def connect(
 
             >>> async with connect(discovery_host="eventstore.test") as c:
             >>>     await c.ping()
+
+            The discovery host returns gossip data about the cluster. We use the
+            gossip to select a node at random from the avaialble cluster members.
+
+            If you're using
+            :meth:`persistent subscriptions <photonpump.connection.Client.create_subscription>`
+            you will always want to connect to the master node of the cluster.
+            The selector parameter is a function that chooses an available node from
+            the gossip result. To select the master node, use the
+            :func:`photonpump.discovery.prefer_master` function. This function will return
+            the master node if there is a live master, and a random replica otherwise.
+            All requests to the server can be made with the require_master flag which
+            will raise an error if the current node is not a master.
+
+            >>> async with connect(
+            >>>     discovery_host="eventstore.test",
+            >>>     selector=discovery.prefer_master,
+            >>> ) as c:
+            >>>     await c.ping(require_master=True)
+
+            Conversely, you might want to avoid connecting to the master node for reasons
+            of scalability. For this you can use the
+            :func:`photonpump.discovery.prefer_replica` function.
+
+            >>> async with connect(
+            >>>     discovery_host="eventstore.test",
+            >>>     selector=discovery.prefer_replica,
+            >>> ) as c:
+            >>>     await c.ping()
+
 
             For some operations, you may need to authenticate your requests by
             providing a username and password to the client.
@@ -1040,6 +1070,8 @@ def connect(
             username: The username to use when communicating with eventstore.
             password: The password to use when communicating with eventstore.
             loop:An Asyncio event loop.
+            selector: An optional function that selects one element from a list of
+                :class:`photonpump.disovery.DiscoveredNode` elements.
 
     """
     discovery = get_discoverer(host, port, discovery_host, discovery_port)
