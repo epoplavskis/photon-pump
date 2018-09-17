@@ -1074,7 +1074,7 @@ def connect(
                 :class:`photonpump.disovery.DiscoveredNode` elements.
 
     """
-    discovery = get_discoverer(host, port, discovery_host, discovery_port)
+    discovery = get_discoverer(host, port, discovery_host, discovery_port, selector)
     dispatcher = MessageDispatcher(name=name, loop=loop)
     connector = Connector(discovery, dispatcher, name=name)
 
