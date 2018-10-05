@@ -352,7 +352,6 @@ def dump(*chunks: bytearray):
 
 
 def _make_event(record: messages_pb2.ResolvedEvent):
-
     link = (
         EventRecord(
             record.link.event_stream_id,
@@ -366,6 +365,9 @@ def _make_event(record: messages_pb2.ResolvedEvent):
         if record.HasField("link")
         else None
     )
+
+    if not record.HasField("event"):
+        return Event(link, None)
 
     event = EventRecord(
         record.event.event_stream_id,
