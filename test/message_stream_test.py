@@ -157,19 +157,18 @@ async def confirm_subscription(
 async def test_read_deleted_event_processing():
     """
     When a stream with events is deleted from evenstore,
-    the events don't disappear from projections.
+    the events don"t disappear from projections.
     Projections hold a link to a deleted event and eventstore would
     return object with a link a but no event data.
 
-    This test case check when such deleted event is given to persistent subscription,
-    subscription will be able to build an event object,
-    which then could be acknowledged by the client service
+    This test case check when such deleted event is given to
+    persistent subscription, subscription will be able to build an
+    event object, which then could be acknowledged by the client service.
     """
 
     async with message_reader() as (stream, messages, _):
 
         stream.feed_data(deleted_event)
-
         received = await messages.get()
 
         assert received.command == TcpCommand.PersistentSubscriptionStreamEventAppeared
@@ -180,20 +179,17 @@ async def test_read_deleted_event_processing():
         )
 
         await confirm_subscription(convo)
-
-        await convo.respond_to(
-            received, None,
-        )
+        await convo.respond_to(received, None)
 
         subscription = await convo.result
         event = await subscription.events.anext()
 
-        assert str(event.id) == '7a8c472c-c92e-4520-990d-a749f6020ba1'
-        assert event.data == b'0@some'
+        assert event.id == uuid.UUID("7a8c472c-c92e-4520-990d-a749f6020ba1")
+        assert event.data == b"0@some"
         assert event.event_number == 0
         assert event.link == None
         assert event.event != None
-        assert event.stream == '$et-turtle'
+        assert event.stream == "$et-turtle"
 
 
 @pytest.mark.asyncio
