@@ -6,7 +6,8 @@ import pytest
 
 from photonpump import messages_pb2 as proto
 from photonpump.connection import MessageReader
-from photonpump.messages import TcpCommand
+from photonpump.messages import TcpCommand, InboundMessage
+from photonpump.conversations import ConnectPersistentSubscription
 from .fakes import TeeQueue
 
 
@@ -56,6 +57,23 @@ d5 ea 08 50 b3 ab 9a d9 8d 2c 12 90 02 0a 10 24
 61 37 61 65 38 31 30 62 61 38 22 7d 48 d2 e3 c7
 d7 e8 ec d5 ea 08 50 d2 ab 9a d9 8d 2c
 """
+)
+
+deleted_event = read_hex(
+    """
+b9 00 00 00 c7 00 8b c0 2f 5a 9b 6b 5e 4b 97 7e
+d0 7b e3 96 fb c7 0a a4 01 12 a1 01 0a 0a 24 65
+74 2d 74 75 72 74 6c 65 10 00 1a 10 2c 47 8c 7a
+2e c9 20 45 99 0d a7 49 f6 02 0b a1 22 02 24 3e
+28 00 30 00 3a 06 30 40 73 6f 6d 65 42 5e 7b 22
+24 76 22 3a 22 34 3a 2d 31 3a 31 3a 33 22 2c 22
+24 63 22 3a 31 30 39 33 34 38 32 2c 22 24 70 22
+3a 31 30 39 33 34 38 32 2c 22 24 63 61 75 73 65
+64 42 79 22 3a 22 37 34 37 39 31 33 38 36 2d 31
+33 38 36 2d 31 33 38 36 2d 31 33 38 36 2d 31 35
+33 38 37 34 37 39 31 33 38 36 22 7d 48 84 ba ae
+cc aa d9 8a eb 08 50 f8 f8 97 a4 e4 2c
+    """
 )
 
 ReadEventResult = read_hex(
@@ -114,6 +132,68 @@ async def test_read_event():
         event = body.event
         assert event.event.event_number == 0
         assert event.event.event_type == "thing_happened"
+
+
+async def confirm_subscription(
+    convo, commit=23, event_number=56, subscription_id="FUUBARRBAXX", queue=None
+):
+
+    response = proto.PersistentSubscriptionConfirmation()
+    response.last_commit_position = commit
+    response.last_event_number = event_number
+    response.subscription_id = subscription_id
+
+    await convo.respond_to(
+        InboundMessage(
+            convo.conversation_id,
+            TcpCommand.PersistentSubscriptionConfirmation,
+            response.SerializeToString(),
+        ),
+        queue,
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_deleted_event_processing():
+    """
+    When a stream with events is deleted from evenstore,
+    the events don't disappear from projections.
+    Projections hold a link to a deleted event and eventstore would
+    return object with a link a but no event data.
+
+    This test case check when such deleted event is given to persistent subscription,
+    subscription will be able to build an event object,
+    which then could be acknowledged by the client service
+    """
+
+    async with message_reader() as (stream, messages, _):
+
+        stream.feed_data(deleted_event)
+
+        received = await messages.get()
+
+        assert received.command == TcpCommand.PersistentSubscriptionStreamEventAppeared
+        assert received.length == 185
+
+        convo = ConnectPersistentSubscription(
+            "random-subscription", "random-stream", max_in_flight=57
+        )
+
+        await confirm_subscription(convo)
+
+        await convo.respond_to(
+            received, None,
+        )
+
+        subscription = await convo.result
+        event = await subscription.events.anext()
+
+        assert str(event.id) == '7a8c472c-c92e-4520-990d-a749f6020ba1'
+        assert event.data == b'0@some'
+        assert event.event_number == 0
+        assert event.link == None
+        assert event.event != None
+        assert event.stream == '$et-turtle'
 
 
 @pytest.mark.asyncio
