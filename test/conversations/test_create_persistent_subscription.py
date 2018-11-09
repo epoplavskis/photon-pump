@@ -120,3 +120,13 @@ E8 07 70 0A 78 00 82 01 0A 52 6F 75 6E 64 52 6F
 
     assert actual_bytes == expected_bytes
     assert len(actual_bytes) == len(expected_bytes)
+
+
+@pytest.mark.asyncio
+async def test_persistent_subscription_success():
+
+    convo = CreatePersistentSubscription("my-other-subscription", "my-other-stream")
+
+    await complete_subscription(convo, SubscriptionResult.Success)
+
+    assert convo.is_complete
