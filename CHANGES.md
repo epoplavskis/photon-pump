@@ -1,3 +1,9 @@
+## [0.6-alpha-5] - 2018-11-09
+Fixed: CreatePersistentSubscription command was never cleaned up after success
+
+## [0.6-alpha-4] - 2018-10-05
+Fixed: We now handle deleted messages correctly.
+
 ## [0.6-alpha-2] - 2018-09-17
 Discovery now supports "selectors" to control how we pick a node from gossip
 
