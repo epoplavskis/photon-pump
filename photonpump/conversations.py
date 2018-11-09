@@ -689,6 +689,7 @@ class CreatePersistentSubscription(Conversation):
         result.ParseFromString(message.payload)
 
         if result.result == SubscriptionResult.Success:
+            self.is_complete = True
             self.result.set_result(None)
 
         elif result.result == SubscriptionResult.AccessDenied:
