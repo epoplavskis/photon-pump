@@ -118,7 +118,7 @@ Assuming that your event was published as json, you can load the body with the `
 
 
     async def read_an_infinite_number_of_events(conn):
-        async for event in conn.stream('ticker_stream'):
+        async for event in conn.iter('ticker_stream'):
             print(event)
 
 
