@@ -826,7 +826,13 @@ class Client:
 
         return await future
 
-    async def subscribe_to(self, stream, resolve_link_tos=True, start_from=-1):
+    async def subscribe_to(
+        self,
+        stream,
+        start_from=-1,
+        resolve_link_tos=True,
+        batch_size: int = 100
+    ):
 
         """
         Subscribe to receive notifications when a new event is published
@@ -834,7 +840,7 @@ class Client:
 
         Args:
             stream: The name of the stream.
-            start_from: The first event to read.
+            start_from (optional): The first event to read.
                 This parameter defaults to the magic value -1 which is treated
                 as meaning "from the end of the stream". IF this value is used,
                 no historical events will be returned.
@@ -849,6 +855,8 @@ class Client:
                 sent direct to the master node, otherwise False.
             correlation_id (optional): A unique identifer for this
                 command.
+            batch_size (optioal): The number of events to pull down from
+                eventstore in one go.
 
         Returns:
             A VolatileSubscription.
@@ -872,7 +880,7 @@ class Client:
         if start_from == -1:
             cmd = convo.SubscribeToStream(stream, resolve_link_tos)
         else:
-            cmd = convo.CatchupSubscription(stream, start_from)
+            cmd = convo.CatchupSubscription(stream, start_from, batch_size)
 
         future = await self.dispatcher.start_conversation(cmd)
 

@@ -941,7 +941,7 @@ class VolatileSubscription:
 
 
 class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
-    def __init__(self, stream, start_from=0, credential=None, conversation_id=None):
+    def __init__(self, stream, start_from=0, batch_size=100, credential=None, conversation_id=None):
         self.stream = stream
         self.iterator = StreamingIterator()
         self.conversation_id = conversation_id or uuid4()
@@ -950,7 +950,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         )
         self.from_event = start_from
         self.direction = StreamDirection.Forward
-        self.batch_size = 100
+        self.batch_size = batch_size
         self.has_first_page = False
         self.require_master = False
         self.resolve_link_tos = True
