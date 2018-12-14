@@ -65,7 +65,7 @@ class TcpCommand(IntEnum):
     UpdatePersistentSubscription = 0xCE
     UpdatePersistentSubscriptionCompleted = 0xCF
 
-    BadRequest = 0xf0
+    BadRequest = 0xF0
     NotHandled = 0xF1
     Authenticate = 0xF2
     Authenticated = 0xF3

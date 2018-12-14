@@ -827,11 +827,7 @@ class Client:
         return await future
 
     async def subscribe_to(
-        self,
-        stream,
-        start_from=-1,
-        resolve_link_tos=True,
-        batch_size: int = 100
+        self, stream, start_from=-1, resolve_link_tos=True, batch_size: int = 100
     ):
 
         """
