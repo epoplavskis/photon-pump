@@ -36,7 +36,7 @@ async def test_subscribe_to(event_loop):
         stream_name = str(uuid.uuid4())
         event_id = uuid.uuid4()
 
-        subscription = await conn.subscribe_to(stream_name)
+        subscription = await conn.subscribe_to(stream_name, batch_size=5)
 
         await conn.publish_event(stream_name, "my-event-type", id=event_id)
 
