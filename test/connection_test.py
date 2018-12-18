@@ -27,3 +27,18 @@ async def test_connect_subscription(event_loop):
 
         event = await subscription.events.anext()
         assert event.original_event_id == event_id
+
+
+@pytest.mark.asyncio
+async def test_subscribe_to(event_loop):
+
+    async with connect(username="admin", password="changeit", loop=event_loop) as conn:
+        stream_name = str(uuid.uuid4())
+        event_id = uuid.uuid4()
+
+        subscription = await conn.subscribe_to(stream_name)
+
+        await conn.publish_event(stream_name, "my-event-type", id=event_id)
+
+        event = await subscription.events.anext()
+        assert event.original_event_id == event_id
