@@ -36,9 +36,9 @@ async def test_subscribe_to(event_loop):
         stream_name = str(uuid.uuid4())
         event_id = uuid.uuid4()
 
-        subscription = await conn.subscribe_to(stream_name, start_from=0)
-
         await conn.publish_event(stream_name, "my-event-type", id=event_id)
+
+        subscription = await conn.subscribe_to(stream_name, start_from=0)
 
         event = await subscription.events.anext()
         assert event.original_event_id == event_id
