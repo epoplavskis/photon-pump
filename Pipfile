@@ -18,10 +18,11 @@ pytest-watch = "*"
 testfixtures = "*"
 codecov = "*"
 pytest = "*"
-photon-pump = {editable = true, path = "."}
+photon-pump = {editable = true,path = "."}
 pytest-cov = "*"
 neovim = "*"
 sphinx = "*"
+versioneer = "*"
 
 [requires]
 python_version = "3.7"

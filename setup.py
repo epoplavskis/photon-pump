@@ -1,5 +1,6 @@
 import io
 import sys
+import versioneer
 
 from setuptools import setup
 from setuptools.command.test import test as TestCommand
@@ -33,12 +34,12 @@ class PyTest(TestCommand):
 
 setup(
     name="photon-pump",
-    version="0.6.0",
+    version=versioneer.get_version(),
     url="http://github.com/madedotcom/photon-pump/",
     license="MIT",
     author="Bob Gregory",
     install_requires=["aiodns>=1.1.1", "aiohttp>=3.1.3", "protobuf>=3.5.1"],
-    cmdclass={"test": PyTest},
+    cmdclass=versioneer.get_cmdclass(),
     author_email="bob@made.com",
     description="Fast, easy to use client for EventStore",
     long_description=long_description,
