@@ -39,3 +39,7 @@ logging.Logger.insane = insane
 logging.get_named_logger = get_named_logger
 logging.TRACE = TRACE_LEVEL_NUM
 logging.INSANE = INSANE_LEVEL_NUM
+
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions

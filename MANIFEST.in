@@ -4,3 +4,5 @@ include README.md
 include CHANGES.md
 include requirements.txt
 include requirements-test.txt
+include versioneer.py
+include photonpump/_version.py
