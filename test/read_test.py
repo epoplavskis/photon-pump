@@ -150,8 +150,8 @@ async def test_async_comprehension(event_loop):
         await given_a_stream_with_three_events(c, stream_name)
 
         jumps = (
-            e.event async
-            for e in c.iter(stream_name, batch_size=2)
+            e.event
+            async for e in c.iter(stream_name, batch_size=2)
             if e.type == "pony_jumped"
         )
         big_jumps = (embiggen(e) async for e in jumps)
