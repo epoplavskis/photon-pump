@@ -7,9 +7,10 @@ name = "pypi"
 pylint = "*"
 pre-commit = "*"
 black = "*"
+idna-ssl = "*"
 
 [dev-packages]
-aioresponses = "*"
+aioresponses = {editable = true,git = "https://github.com/Derfirm/aioresponses.git",ref = "b3232a759f3420a0c291b66f794711c87eb98c62"}
 pytest-asyncio = "*"
 colorama = "*"
 "flake8" = "*"

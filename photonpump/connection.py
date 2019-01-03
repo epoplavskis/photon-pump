@@ -214,7 +214,7 @@ class Connector:
         await self._reconnect(self.target_node)
 
     async def _on_failed_heartbeat(self, exn):
-        self.log.warn("Failed to handle a heartbeat")
+        self.log.warning("Failed to handle a heartbeat")
         self.heartbeat_failures += 1
 
         if self.heartbeat_failures >= 3:

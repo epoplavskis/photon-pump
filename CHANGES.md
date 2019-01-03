@@ -1,3 +1,9 @@
+## [0.6.0.1] - 2019-01-03
+Add automagic deployment to pypi with Travis and Versioneer
+
+## [0.6.0] - 2018-12-21
+Added batch size param to subscribe_to method
+
 ## [0.6.0-alpha-5] - 2018-11-09
 Fixed: CreatePersistentSubscription command was never cleaned up after success
 
@@ -28,6 +34,8 @@ Added support for catch-up subscriptions.
 - `published_event` reversed order of type and stream
 
 
+[0.6.0.1]: https://github.com/madedotcom/photon-pump/compare/v0.6.0..v0.6.0.1
+[0.6.0]: https://github.com/madedotcom/photon-pump/compare/v0.6.0-alpha-5..v0.6.0
 [0.6.0-alpha-5]: https://github.com/madedotcom/photon-pump/compare/v0.6.0-alpha-4..v0.6.0-alpha-5
 [0.6.0-alpha-4]: https://github.com/madedotcom/photon-pump/compare/v0.6.0-alpha-2..v0.6.0-alpha-4
 [0.6.0-alpha-2]: https://github.com/madedotcom/photon-pump/compare/v0.6.0-alpha-1..v0.6.0-alpha-2

@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "b05d764a0ddbf3c1942c9463c6a8e920cdbb62dc745aa30abc2662556570a580"
+            "sha256": "2ef9ee662b9d63fcb5cb601da8fbc1c881730257cf3d0a64a8c68a569ce95f61"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -79,6 +79,20 @@
                 "sha256:2364e24a7699fea0dc910e90740adbab43eef3746eeea4e016029c34123ce66d"
             ],
             "version": "==1.1.8"
+        },
+        "idna": {
+            "hashes": [
+                "sha256:c357b3f628cf53ae2c4c05627ecc484553142ca23264e593d327bcde5e9c3407",
+                "sha256:ea8b7f6188e6fa117537c3df7da9fc686d485087abf6ac197f9c46432f7e4a3c"
+            ],
+            "version": "==2.8"
+        },
+        "idna-ssl": {
+            "hashes": [
+                "sha256:a933e3bb13da54383f9e8f35dc4f9cb9eb9b3b78c6b36f311254d6d0d92c6c7c"
+            ],
+            "index": "pypi",
+            "version": "==1.1.0"
         },
         "importlib-metadata": {
             "hashes": [
@@ -238,12 +252,9 @@
             "version": "==3.5.1"
         },
         "aioresponses": {
-            "hashes": [
-                "sha256:33772517911eb662ca85f2adb055d17ef20fda06b949fdd5c35c963ff1818f4d",
-                "sha256:95d92cbdb2d172d2591fd53a68f43c4b3a44e99a5c0778d15df7fa279ee25006"
-            ],
-            "index": "pypi",
-            "version": "==0.5.0"
+            "editable": true,
+            "git": "https://github.com/Derfirm/aioresponses.git",
+            "ref": "b3232a759f3420a0c291b66f794711c87eb98c62"
         },
         "alabaster": {
             "hashes": [
