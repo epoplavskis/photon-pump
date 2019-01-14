@@ -305,7 +305,7 @@ class Event:
         return json.loads(self.data.decode("UTF-8"))
 
     def __repr__(self):
-        return f"<Event: {self.event_number}@{self.stream}:{self.type}>"
+        return f"<Event {self.created}: {self.event_number}@{self.stream}:{self.type}>"
 
 
 class StreamSlice(list):
@@ -326,6 +326,22 @@ class StreamSlice(list):
         self.is_end_of_stream = is_end_of_stream
         self.events = events
 
+
+class AllStreamSlice(list):
+    def __init__(
+        self,
+        events: Sequence[Event],
+        next_commit_position: int,
+        next_prepare_position: int,
+        prepare_position: int = None,
+        commit_position: int = None,
+    ) -> None:
+        super().__init__(events)
+        self.next_commit_position = next_commit_position
+        self.next_prepare_position = next_prepare_position
+        self.prepare_position = prepare_position
+        self.commit_position = commit_position
+        self.events = events
 
 def dump(*chunks: bytearray):
     data = bytearray()
@@ -397,7 +413,9 @@ def NewEvent(
 
 ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 
-ReadStreamResult = make_enum(messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT)
+ReadStreamResult =  make_enum(messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT)
+
+ReadAllResult =     make_enum(messages_pb2._READALLEVENTSCOMPLETED_READALLRESULT)
 
 SubscriptionResult = make_enum(
     messages_pb2._CREATEPERSISTENTSUBSCRIPTIONCOMPLETED_CREATEPERSISTENTSUBSCRIPTIONRESULT
