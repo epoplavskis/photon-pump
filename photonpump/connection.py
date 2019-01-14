@@ -745,6 +745,30 @@ class Client:
 
         return await result
 
+    async def getAll(
+        self,
+        commit_position: int = 0,
+        direction: msg.StreamDirection = msg.StreamDirection.Forward,
+        prepare_position: int = 0,
+        max_count: int = 100,
+        resolve_links: bool = True,
+        require_master: bool = False,
+        correlation_id: uuid.UUID = None,
+    ):
+        correlation_id = correlation_id
+        cmd = convo.ReadAllEvents(
+            commit_position,
+            prepare_position,
+            max_count,
+            resolve_links,
+            require_master,
+            direction=direction,
+            credentials=self.credential
+        )
+        result = await self.dispatcher.start_conversation(cmd)
+
+        return await result
+
     async def iter(
         self,
         stream: str,
