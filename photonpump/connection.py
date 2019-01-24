@@ -798,7 +798,7 @@ class Client:
         resolve_links: bool = True,
         require_master: bool = False,
         correlation_id: uuid.UUID = None,
-        only_historic: bool = false,
+        only_historic: bool = False,
     ):
         correlation_id = correlation_id
         cmd = convo.IterAllEvents(

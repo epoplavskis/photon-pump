@@ -653,7 +653,7 @@ class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
         direction: StreamDirection = StreamDirection.Forward,
         credentials=None,
         conversation_id: UUID = None,
-        only_historic: bool = false
+        only_historic: bool = False
     ):
 
         Conversation.__init__(self, conversation_id, credentials)
