@@ -662,6 +662,7 @@ class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
         )
         self.batch_size = batch_size
         self.commit_position = from_event
+        self.only_historic = only_historic
         self.has_first_page = False
         self.resolve_link_tos = resolve_links
         self.require_master = require_master
