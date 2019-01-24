@@ -648,12 +648,13 @@ class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
     def __init__(
         self,
         from_event: int = 0,
-        batch_size: int = 100,
+        batch_size: int = 500,
         resolve_links: bool = True,
         require_master: bool = False,
         direction: StreamDirection = StreamDirection.Forward,
         credentials=None,
         conversation_id: UUID = None,
+        only_historic: bool = false
     ):
 
         Conversation.__init__(self, conversation_id, credentials)
@@ -680,6 +681,10 @@ class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
         await output.put(self._fetch_page_message(self.from_event))
 
     async def success(self, result: proto.ReadAllEventsCompleted, output: Queue):
+        no_new_events = only_historic and result.commit_position == result.next_commit_position
+        if no_new_events:
+            self.is_complete = True
+            await self.iterator.asend(StopAsyncIteration())
 
         if result.error == '':
             await output.put(self._fetch_page_message(result.next_commit_position))
