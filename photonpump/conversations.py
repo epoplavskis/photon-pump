@@ -680,7 +680,7 @@ class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
         await output.put(self._fetch_page_message(self.from_event))
 
     async def success(self, result: proto.ReadAllEventsCompleted, output: Queue):
-        no_new_events = only_historic and result.commit_position == result.next_commit_position
+        no_new_events = self.only_historic and result.commit_position == result.next_commit_position
         if no_new_events:
             self.is_complete = True
             await self.iterator.asend(StopAsyncIteration())
