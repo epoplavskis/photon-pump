@@ -793,11 +793,12 @@ class Client:
     async def iterAll(
         self,
         direction: msg.StreamDirection = msg.StreamDirection.Forward,
-        from_event: int = None,
+        from_event: int = 0,
         batch_size: int = 100,
         resolve_links: bool = True,
         require_master: bool = False,
         correlation_id: uuid.UUID = None,
+        only_historic: bool = false,
     ):
         correlation_id = correlation_id
         cmd = convo.IterAllEvents(
@@ -806,7 +807,8 @@ class Client:
             resolve_links,
             require_master,
             direction=direction,
-            credentials=self.credential
+            credentials=self.credential,
+            only_historic=only_historic
         )
         result = await self.dispatcher.start_conversation(cmd)
         iterator = await result
