@@ -26,7 +26,7 @@ async def test_connect_subscription(event_loop):
         await conn.publish_event(stream_name, "my-event-type", id=event_id)
 
         event = await subscription.events.anext()
-        assert event.original_event_id == event_id
+        assert event.received_event.id == event_id
 
 
 @pytest.mark.asyncio
@@ -41,4 +41,4 @@ async def test_subscribe_to(event_loop):
         subscription = await conn.subscribe_to(stream_name, start_from=0)
 
         event = await subscription.events.anext()
-        assert event.original_event_id == event_id
+        assert event.received_event.id == event_id

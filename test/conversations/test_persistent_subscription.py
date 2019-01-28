@@ -172,7 +172,11 @@ async def test_subscription_failed_midway():
 
 
 class stub_event(NamedTuple):
-    original_event_id: UUID
+    id: UUID
+
+    @property
+    def received_event(self):
+        return self
 
 
 @pytest.mark.asyncio

@@ -120,7 +120,7 @@ class ReadStreamEventsResponseBuilder:
 
         return self
 
-    def with_event(self, event_number=10, event_id=None, type="some-event", data=None):
+    def with_event(self, event_number=10, event_id=None, type="some-event", data=None, link_event_number=None):
         event = proto.ResolvedIndexedEvent()
         event.event.event_stream_id = self.stream
         event.event.event_number = event_number
@@ -129,6 +129,16 @@ class ReadStreamEventsResponseBuilder:
         event.event.data_content_type = msg.ContentType.Json
         event.event.metadata_content_type = msg.ContentType.Binary
         event.event.data = json.dumps(data).encode("UTF-8") if data else bytes()
+        if link_event_number is not None:
+            event.link.event_number = link_event_number
+            event.link.event_stream_id = "some-stream-name"
+            event.link.event_id = uuid.uuid4().bytes_le
+            event.link.event_type = "$>"
+            event.link.data_content_type = msg.ContentType.Json
+            event.link.metadata_content_type = msg.ContentType.Binary
+            event.link.data = f"{event_number}@{self.stream}".encode('UTF-8')
+
+
 
         self.events.append(event)
 
@@ -782,3 +792,52 @@ async def test_live_restart():
 
     assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
     assert read_historical.from_event_number == 2
+
+
+@pytest.mark.asyncio
+async def test_paging_projection():
+    """
+    """
+
+    convo = CatchupSubscription("my-stream")
+    output = TeeQueue()
+    await convo.start(output)
+    await output.get()
+
+    event_1_id = uuid.uuid4()
+    event_2_id = uuid.uuid4()
+    event_3_id = uuid.uuid4()
+    event_4_id = uuid.uuid4()
+
+    first_response = (
+        ReadStreamEventsResponseBuilder()
+        .with_event(event_id=event_1_id, event_number=0, link_event_number=32)
+        .with_event(event_id=event_2_id, event_number=0, link_event_number=33)
+        .with_next_event_number(34)
+    ).build()
+
+    second_response = (
+        ReadStreamEventsResponseBuilder()
+        .with_event(event_id=event_3_id, event_number=0, link_event_number=34)
+        .with_event(event_id=event_4_id, event_number=0, link_event_number=35)
+    ).build()
+
+    await reply_to(convo, first_response, output)
+    subscription = await convo.result
+
+    event_1 = await anext(subscription.events)
+    event_2 = await anext(subscription.events)
+    assert event_1.id == event_1_id
+    assert event_2.id == event_2_id
+
+    reply = await output.get()
+    body = proto.ReadStreamEvents()
+    body.ParseFromString(reply.payload)
+    assert body.from_event_number == 34
+
+    await reply_to(convo, second_response, output)
+
+    event_3 = await anext(subscription.events)
+    event_4 = await anext(subscription.events)
+    assert event_3.id == event_3_id
+    assert event_4.id == event_4_id

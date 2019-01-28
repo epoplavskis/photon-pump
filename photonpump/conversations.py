@@ -1,6 +1,5 @@
 import json
 import logging
-import queue
 import sys
 import time
 from asyncio import Future, Queue
@@ -604,7 +603,7 @@ class PersistentSubscription:
     async def ack(self, event):
         payload = proto.PersistentSubscriptionAckEvents()
         payload.subscription_id = self.name
-        payload.processed_event_ids.append(event.original_event_id.bytes_le)
+        payload.processed_event_ids.append(event.received_event.id.bytes_le)
         message = OutboundMessage(
             self.conversation_id,
             TcpCommand.PersistentSubscriptionAckEvents,

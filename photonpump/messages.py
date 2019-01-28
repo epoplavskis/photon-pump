@@ -291,19 +291,19 @@ class Event:
         self.link = link
         self.stream = event.stream
         self.id = event.id
-        self.event_number = event.event_number
+        self.event_number = self.received_event.event_number
         self.type = event.type
         self.data = event.data
         self.metadata = event.metadata
         self.created = event.created
 
     @property
-    def original_event(self) -> EventRecord:
+    def received_event(self) -> EventRecord:
         return self.link or self.event
 
     @property
-    def original_event_id(self) -> UUID:
-        return self.original_event.id
+    def linked_event(self) -> EventRecord:
+        return self.link
 
     def json(self):
         return json.loads(self.data.decode("UTF-8"))
