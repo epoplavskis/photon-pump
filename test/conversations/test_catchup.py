@@ -120,7 +120,14 @@ class ReadStreamEventsResponseBuilder:
 
         return self
 
-    def with_event(self, event_number=10, event_id=None, type="some-event", data=None, link_event_number=None):
+    def with_event(
+        self,
+        event_number=10,
+        event_id=None,
+        type="some-event",
+        data=None,
+        link_event_number=None,
+    ):
         event = proto.ResolvedIndexedEvent()
         event.event.event_stream_id = self.stream
         event.event.event_number = event_number
@@ -136,9 +143,7 @@ class ReadStreamEventsResponseBuilder:
             event.link.event_type = "$>"
             event.link.data_content_type = msg.ContentType.Json
             event.link.metadata_content_type = msg.ContentType.Binary
-            event.link.data = f"{event_number}@{self.stream}".encode('UTF-8')
-
-
+            event.link.data = f"{event_number}@{self.stream}".encode("UTF-8")
 
         self.events.append(event)
 
