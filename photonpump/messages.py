@@ -301,10 +301,6 @@ class Event:
     def received_event(self) -> EventRecord:
         return self.link or self.event
 
-    @property
-    def linked_event(self) -> EventRecord:
-        return self.link
-
     def json(self):
         return json.loads(self.data.decode("UTF-8"))
 
