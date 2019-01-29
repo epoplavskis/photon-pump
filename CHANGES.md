@@ -1,3 +1,11 @@
+## [0.7.0] - 2019-01-29
+Fixed: Volatile subscriptions fail to yield all events for a projection.
+  This was caused by a confusion between the linked event and original event.
+
+### Breaking Changes
+ - `Event.original_event` is now `Event.received_event` because the original name was unclear.
+ - `Event.event_number` is now equal to the value of `received_event.event_number`, not the value of the linked event number.
+
 ## [0.6.0.1] - 2019-01-03
 Add automagic deployment to pypi with Travis and Versioneer
 
@@ -29,11 +37,12 @@ Added support for catch-up subscriptions.
 
 ## [0.3] - 2018-04-11
 ### Fixes
-- `iter` properly supports iterating a stream in reverse. 
+- `iter` properly supports iterating a stream in reverse.
 ### Breaking change
 - `published_event` reversed order of type and stream
 
 
+[0.7.0]: https://github.com/madedotcom/photon-pump/compare/v0.6.0.1..v0.7.0
 [0.6.0.1]: https://github.com/madedotcom/photon-pump/compare/v0.6.0..v0.6.0.1
 [0.6.0]: https://github.com/madedotcom/photon-pump/compare/v0.6.0-alpha-5..v0.6.0
 [0.6.0-alpha-5]: https://github.com/madedotcom/photon-pump/compare/v0.6.0-alpha-4..v0.6.0-alpha-5
