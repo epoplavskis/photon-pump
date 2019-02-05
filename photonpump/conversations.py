@@ -101,8 +101,8 @@ class Conversation:
         self.is_complete = True
         self.result.set_exception(exn)
 
-    def expect_only(self, command: TcpCommand, response: InboundMessage):
-        if response.command != command:
+    def expect_only(self, response: InboundMessage, *commands: TcpCommand):
+        if response.command not in commands:
             raise exceptions.UnexpectedCommand(command, response.command)
 
     async def respond_to(self, response: InboundMessage, output: Queue) -> None:
@@ -196,7 +196,7 @@ class Heartbeat(TimerConversation):
         )
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
-        self.expect_only(TcpCommand.HeartbeatResponse, message)
+        self.expect_only(message, TcpCommand.HeartbeatResponse)
         await super().reply(message, output)
 
 
@@ -217,7 +217,7 @@ class Ping(TimerConversation):
         return self.result
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
-        self.expect_only(TcpCommand.Pong, message)
+        self.expect_only(message, TcpCommand.Pong)
         await super().reply(message, output)
 
 
@@ -291,7 +291,7 @@ class WriteEvents(Conversation):
         )
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
-        self.expect_only(TcpCommand.WriteEventsCompleted, message)
+        self.expect_only(message, TcpCommand.WriteEventsCompleted)
         result = proto.WriteEventsCompleted()
         result.ParseFromString(message.payload)
 
@@ -682,7 +682,7 @@ class CreatePersistentSubscription(Conversation):
         )
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
-        self.expect_only(TcpCommand.CreatePersistentSubscriptionCompleted, message)
+        self.expect_only(message, TcpCommand.CreatePersistentSubscriptionCompleted)
 
         result = proto.CreatePersistentSubscriptionCompleted()
         result.ParseFromString(message.payload)
@@ -743,7 +743,7 @@ class ConnectPersistentSubscription(Conversation):
         )
 
     def reply_from_init(self, response: InboundMessage, output: Queue):
-        self.expect_only(TcpCommand.PersistentSubscriptionConfirmation, response)
+        self.expect_only(response, TcpCommand.PersistentSubscriptionConfirmation)
         result = proto.PersistentSubscriptionConfirmation()
         result.ParseFromString(response.payload)
 
@@ -767,7 +767,7 @@ class ConnectPersistentSubscription(Conversation):
 
             return
 
-        self.expect_only(TcpCommand.PersistentSubscriptionStreamEventAppeared, response)
+        self.expect_only(response, TcpCommand.PersistentSubscriptionStreamEventAppeared)
         result = proto.StreamEventAppeared()
         result.ParseFromString(response.payload)
         await self.subscription.events.enqueue(_make_event(result.event))
@@ -862,7 +862,7 @@ class SubscribeToStream(Conversation):
             self.result.set_exception(exn)
 
     async def reply_from_init(self, message: InboundMessage, output: Queue):
-        self.expect_only(TcpCommand.SubscriptionConfirmation, message)
+        self.expect_only(message, TcpCommand.SubscriptionConfirmation)
 
         result = proto.SubscriptionConfirmation()
         result.ParseFromString(message.payload)
@@ -879,7 +879,9 @@ class SubscribeToStream(Conversation):
         self.result.set_result(self.subscription)
 
     async def reply_from_live(self, message: InboundMessage) -> None:
-        self.expect_only(TcpCommand.StreamEventAppeared, message)
+        self.expect_only(
+            message, TcpCommand.StreamEventAppeared, TcpCommand.SubscriptionConfirmation
+        )
         result = proto.StreamEventAppeared()
         result.ParseFromString(message.payload)
 
@@ -1045,7 +1047,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
 
             return
 
-        self.expect_only(TcpCommand.StreamEventAppeared, message)
+        self.expect_only(message, TcpCommand.StreamEventAppeared)
         result = proto.StreamEventAppeared()
         result.ParseFromString(message.payload)
 
@@ -1079,7 +1081,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
     async def reply(self, message: InboundMessage, output: Queue):
 
         if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
-            self.expect_only(TcpCommand.ReadStreamEventsForwardCompleted, message)
+            self.expect_only(message, TcpCommand.ReadStreamEventsForwardCompleted)
             await ReadStreamEventsBehaviour.reply(self, message, output)
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             await self.reply_from_catch_up(message, output)
