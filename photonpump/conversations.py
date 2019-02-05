@@ -885,6 +885,9 @@ class SubscribeToStream(Conversation):
         result = proto.StreamEventAppeared()
         result.ParseFromString(message.payload)
 
+        if message.command is TcpCommand.SubscriptionConfirmation:
+            return
+
         await self.subscription.events.enqueue(_make_event(result.event))
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:

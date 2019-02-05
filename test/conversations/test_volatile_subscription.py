@@ -158,6 +158,20 @@ async def test_subscription_failure_mid_stream():
 
 
 @pytest.mark.asyncio
+async def test_subscription_confirmation_mid_stream():
+    convo = SubscribeToStream("my-stream")
+    event_id = uuid4()
+
+    await confirm_subscription(convo, event_number=10, commit_pos=10)
+    await respond_to(convo, event_appeared(event_id))
+    await confirm_subscription(convo, event_number=10, commit_pos=10)
+    subscription = convo.result.result()
+
+    event = await subscription.events.anext()
+    assert event.id == event_id
+
+
+@pytest.mark.asyncio
 async def test_failure_on_subscribe():
     convo = SubscribeToStream("my-stream")
 
