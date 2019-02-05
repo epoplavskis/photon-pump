@@ -1,3 +1,6 @@
+## [0.7.1] - 2019-01-29
+Fixed: Volatile subscriptions fail to restart when the connection is recreated.
+
 ## [0.7.0] - 2019-01-29
 Fixed: Volatile subscriptions fail to yield all events for a projection.
   This was caused by a confusion between the linked event and original event.
@@ -42,6 +45,7 @@ Added support for catch-up subscriptions.
 - `published_event` reversed order of type and stream
 
 
+[0.7.1]: https://github.com/madedotcom/photon-pump/compare/v0.7.0..v0.7.1
 [0.7.0]: https://github.com/madedotcom/photon-pump/compare/v0.6.0.1..v0.7.0
 [0.6.0.1]: https://github.com/madedotcom/photon-pump/compare/v0.6.0..v0.6.0.1
 [0.6.0]: https://github.com/madedotcom/photon-pump/compare/v0.6.0-alpha-5..v0.6.0
