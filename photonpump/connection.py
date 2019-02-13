@@ -763,7 +763,7 @@ class Client:
             resolve_links,
             require_master,
             direction=direction,
-            credentials=self.credential
+            credentials=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
 
@@ -781,9 +781,11 @@ class Client:
     ):
         correlation_id = correlation_id
         cmd = convo.IterStreamEvents(
-            from_event, batch_size, resolve_links,
+            from_event,
+            batch_size,
+            resolve_links,
             direction=direction,
-            credentials=self.credential
+            credentials=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
         iterator = await result
@@ -808,7 +810,7 @@ class Client:
             require_master,
             direction=direction,
             credentials=self.credential,
-            only_historic=only_historic
+            only_historic=only_historic,
         )
         result = await self.dispatcher.start_conversation(cmd)
         iterator = await result

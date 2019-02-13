@@ -321,9 +321,7 @@ class ReadAllEventsBehaviour:
         elif result.result == self.result_type.AccessDenied:
             await self.error(
                 exceptions.AccessDenied(
-                    self.conversation_id,
-                    type(self).__name__,
-                    result.error
+                    self.conversation_id, type(self).__name__, result.error
                 )
             )
         elif (
@@ -335,6 +333,7 @@ class ReadAllEventsBehaviour:
                     self.conversation_id, self.stream, self.event_number
                 )
             )
+
 
 class ReadStreamEventsBehaviour:
     def __init__(self, result_type, response_cls):
@@ -435,6 +434,7 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
         self.is_complete = True
         self.result.set_result(_make_event(response.event))
 
+
 class PageAllEventsBehaviour(Conversation):
     def _fetch_page_message(self, commit_position):
         if self.direction == StreamDirection.Forward:
@@ -478,6 +478,7 @@ class PageStreamEventsBehaviour(Conversation):
     async def start(self, output):
         await output.put(self._fetch_page_message(self.from_event))
 
+
 class ReadAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
     """Command class for reading all events from a stream.
 
@@ -491,6 +492,7 @@ class ReadAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
         correlation_id (optional): A unique identifer for this
             command.
     """
+
     def __init__(
         self,
         commit_position: int = 0,
@@ -531,9 +533,7 @@ class ReadAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
 
     def _fetch_page_message(self, from_event):
         self._logger.debug(
-            "Requesting page of %d events from number %d",
-            self.max_count,
-            from_event,
+            "Requesting page of %d events from number %d", self.max_count, from_event
         )
 
         if self.direction == StreamDirection.Forward:
@@ -630,7 +630,6 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         return OutboundMessage(self.conversation_id, command, data, self.credential)
 
 
-
 class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
     """Command class for iterating events from all events.
 
@@ -653,7 +652,7 @@ class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
         direction: StreamDirection = StreamDirection.Forward,
         credentials=None,
         conversation_id: UUID = None,
-        only_historic: bool = False
+        only_historic: bool = False,
     ):
 
         Conversation.__init__(self, conversation_id, credentials)
@@ -681,12 +680,14 @@ class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
         await output.put(self._fetch_page_message(self.from_event))
 
     async def success(self, result: proto.ReadAllEventsCompleted, output: Queue):
-        no_new_events = self.only_historic and result.commit_position == result.next_commit_position
+        no_new_events = (
+            self.only_historic and result.commit_position == result.next_commit_position
+        )
         if no_new_events:
             self.is_complete = True
             await self.iterator.asend(StopAsyncIteration())
 
-        if result.error == '':
+        if result.error == "":
             await output.put(self._fetch_page_message(result.next_commit_position))
 
         events = [_make_event(x) for x in result.events]
@@ -696,7 +697,7 @@ class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
             self.result.set_result(self.iterator)
             self.has_first_page = True
 
-        if not result.error == '':
+        if not result.error == "":
             self.is_complete = True
             await self.iterator.asend(StopAsyncIteration())
 
