@@ -20,8 +20,10 @@ from photonpump.messages import (
     OutboundMessage,
     ReadEventResult,
     ReadStreamResult,
+    ReadAllResult,
     StreamDirection,
     StreamSlice,
+    AllStreamSlice,
     SubscriptionResult,
     TcpCommand,
     _make_event,
@@ -298,6 +300,42 @@ class WriteEvents(Conversation):
         self.result.set_result(result)
 
 
+class ReadAllEventsBehaviour:
+    def __init__(self, result_type, response_cls):
+        self.result_type = result_type
+        self.response_cls = response_cls
+
+    def success(self, result, output: Queue):
+        pass
+
+    async def reply(self, message: InboundMessage, output: Queue):
+        result = self.response_cls()
+        result.ParseFromString(message.payload)
+
+        if result.result == self.result_type.Success:
+            await self.success(result, output)
+        elif result.result == self.result_type.Error:
+            await self.error(
+                exceptions.ReadError(self.conversation_id, self.stream, result.error)
+            )
+        elif result.result == self.result_type.AccessDenied:
+            await self.error(
+                exceptions.AccessDenied(
+                    self.conversation_id,
+                    type(self).__name__,
+                    result.error
+                )
+            )
+        elif (
+            self.result_type == ReadEventResult
+            and result.result == self.result_type.NotFound
+        ):
+            await self.error(
+                exceptions.EventNotFound(
+                    self.conversation_id, self.stream, self.event_number
+                )
+            )
+
 class ReadStreamEventsBehaviour:
     def __init__(self, result_type, response_cls):
         self.result_type = result_type
@@ -397,6 +435,27 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
         self.is_complete = True
         self.result.set_result(_make_event(response.event))
 
+class PageAllEventsBehaviour(Conversation):
+    def _fetch_page_message(self, commit_position):
+        if self.direction == StreamDirection.Forward:
+            command = TcpCommand.ReadAllEventsForward
+        else:
+            command = TcpCommand.ReadAllEventsBackward
+
+        msg = proto.ReadAllEvents()
+        msg.commit_position = commit_position
+        msg.prepare_position = commit_position
+        msg.max_count = self.batch_size
+        msg.resolve_link_tos = self.resolve_link_tos
+        msg.require_master = self.require_master
+
+        data = msg.SerializeToString()
+
+        return OutboundMessage(self.conversation_id, command, data, self.credential)
+
+    async def start(self, output):
+        await output.put(self._fetch_page_message(self.commit_position))
+
 
 class PageStreamEventsBehaviour(Conversation):
     def _fetch_page_message(self, from_event):
@@ -418,6 +477,80 @@ class PageStreamEventsBehaviour(Conversation):
 
     async def start(self, output):
         await output.put(self._fetch_page_message(self.from_event))
+
+class ReadAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
+    """Command class for reading all events from a stream.
+
+    Args:
+        commit_position: The commit_position.
+        event_number: The sequence number of the event to read.
+        resolve_links (optional): True if eventstore should
+            automatically resolve Link Events, otherwise False.
+        required_master (optional): True if this command must be
+            sent direct to the master node, otherwise False.
+        correlation_id (optional): A unique identifer for this
+            command.
+    """
+    def __init__(
+        self,
+        commit_position: int = 0,
+        prepare_position: int = 0,
+        max_count: int = 100,
+        resolve_links: bool = True,
+        require_master: bool = False,
+        direction: StreamDirection = StreamDirection.Forward,
+        credentials=None,
+        conversation_id: UUID = None,
+    ) -> None:
+
+        Conversation.__init__(self, conversation_id, credential=credentials)
+        ReadStreamEventsBehaviour.__init__(
+            self, ReadAllResult, proto.ReadAllEventsCompleted
+        )
+        self.has_first_page = False
+        self.direction = direction
+        self.commit_position = commit_position
+        self.prepare_position = prepare_position
+        self.max_count = max_count
+        self.require_master = require_master
+        self.resolve_link_tos = resolve_links
+
+    async def success(self, result: proto.ReadAllEventsCompleted, output: Queue):
+        events = [_make_event(x) for x in result.events]
+
+        self.is_complete = True
+        self.result.set_result(
+            AllStreamSlice(
+                events,
+                result.next_commit_position,
+                result.next_prepare_position,
+                result.commit_position,
+                result.prepare_position,
+            )
+        )
+
+    def _fetch_page_message(self, from_event):
+        self._logger.debug(
+            "Requesting page of %d events from number %d",
+            self.max_count,
+            from_event,
+        )
+
+        if self.direction == StreamDirection.Forward:
+            command = TcpCommand.ReadAllEventsForward
+        else:
+            command = TcpCommand.ReadAllEventsBackward
+
+        msg = proto.ReadAllEvents()
+        msg.commit_position = from_event
+        msg.prepare_position = self.prepare_position
+        msg.max_count = self.max_count
+        msg.require_master = self.require_master
+        msg.resolve_link_tos = self.resolve_link_tos
+
+        data = msg.SerializeToString()
+
+        return OutboundMessage(self.conversation_id, command, data, self.credential)
 
 
 class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
@@ -495,6 +628,85 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         data = msg.SerializeToString()
 
         return OutboundMessage(self.conversation_id, command, data, self.credential)
+
+
+
+class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
+    """Command class for iterating events from all events.
+
+    Args:
+        resolve_links (optional): True if eventstore should
+            automatically resolve Link Events, otherwise False.
+        required_master (optional): True if this command must be
+            sent direct to the master node, otherwise False.
+        correlation_id (optional): A unique identifer for this
+            command.
+
+    """
+
+    def __init__(
+        self,
+        from_event: int = 0,
+        batch_size: int = 500,
+        resolve_links: bool = True,
+        require_master: bool = False,
+        direction: StreamDirection = StreamDirection.Forward,
+        credentials=None,
+        conversation_id: UUID = None,
+        only_historic: bool = False
+    ):
+
+        Conversation.__init__(self, conversation_id, credentials)
+        ReadAllEventsBehaviour.__init__(
+            self, ReadAllResult, proto.ReadAllEventsCompleted
+        )
+        self.batch_size = batch_size
+        self.commit_position = from_event
+        self.only_historic = only_historic
+        self.has_first_page = False
+        self.resolve_link_tos = resolve_links
+        self.require_master = require_master
+        self.direction = direction
+        self._logger = logging.get_named_logger(IterAllEvents)
+        self.iterator = StreamingIterator(self.batch_size)
+
+        if direction == StreamDirection.Forward:
+            self.command = TcpCommand.ReadAllEventsForward
+            self.from_event = from_event or 0
+        else:
+            self.command = TcpCommand.ReadAllEventsBackward
+            self.from_event = from_event or -1
+
+    async def start(self, output: Queue):
+        await output.put(self._fetch_page_message(self.from_event))
+
+    async def success(self, result: proto.ReadAllEventsCompleted, output: Queue):
+        no_new_events = self.only_historic and result.commit_position == result.next_commit_position
+        if no_new_events:
+            self.is_complete = True
+            await self.iterator.asend(StopAsyncIteration())
+
+        if result.error == '':
+            await output.put(self._fetch_page_message(result.next_commit_position))
+
+        events = [_make_event(x) for x in result.events]
+        await self.iterator.enqueue_items(events)
+
+        if not self.has_first_page:
+            self.result.set_result(self.iterator)
+            self.has_first_page = True
+
+        if not result.error == '':
+            self.is_complete = True
+            await self.iterator.asend(StopAsyncIteration())
+
+    async def error(self, exn: Exception) -> None:
+        self.is_complete = True
+
+        if self.has_first_page:
+            await self.iterator.asend(exn)
+        else:
+            self.result.set_exception(exn)
 
 
 class IterStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
