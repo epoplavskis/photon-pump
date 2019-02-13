@@ -343,6 +343,7 @@ class AllStreamSlice(list):
         self.commit_position = commit_position
         self.events = events
 
+
 def dump(*chunks: bytearray):
     data = bytearray()
 
@@ -413,9 +414,9 @@ def NewEvent(
 
 ReadEventResult = make_enum(messages_pb2._READEVENTCOMPLETED_READEVENTRESULT)
 
-ReadStreamResult =  make_enum(messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT)
+ReadStreamResult = make_enum(messages_pb2._READSTREAMEVENTSCOMPLETED_READSTREAMRESULT)
 
-ReadAllResult =     make_enum(messages_pb2._READALLEVENTSCOMPLETED_READALLRESULT)
+ReadAllResult = make_enum(messages_pb2._READALLEVENTSCOMPLETED_READALLRESULT)
 
 SubscriptionResult = make_enum(
     messages_pb2._CREATEPERSISTENTSUBSCRIPTIONCOMPLETED_CREATEPERSISTENTSUBSCRIPTIONRESULT
