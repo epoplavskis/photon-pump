@@ -316,7 +316,7 @@ class ReadAllEventsBehaviour:
             await self.success(result, output)
         elif result.result == self.result_type.Error:
             await self.error(
-                exceptions.ReadError(self.conversation_id, self.stream, result.error)
+                exceptions.ReadError(self.conversation_id, "$all", result.error)
             )
         elif result.result == self.result_type.AccessDenied:
             await self.error(
@@ -330,7 +330,7 @@ class ReadAllEventsBehaviour:
         ):
             await self.error(
                 exceptions.EventNotFound(
-                    self.conversation_id, self.stream, self.event_number
+                    self.conversation_id, "$all", self.event_number
                 )
             )
 
@@ -696,10 +696,6 @@ class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
         if not self.has_first_page:
             self.result.set_result(self.iterator)
             self.has_first_page = True
-
-        if not result.error == "":
-            self.is_complete = True
-            await self.iterator.asend(StopAsyncIteration())
 
     async def error(self, exn: Exception) -> None:
         self.is_complete = True
