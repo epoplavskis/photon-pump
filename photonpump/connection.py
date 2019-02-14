@@ -781,11 +781,7 @@ class Client:
     ):
         correlation_id = correlation_id
         cmd = convo.IterStreamEvents(
-            from_event,
-            batch_size,
-            resolve_links,
-            direction=direction,
-            credentials=self.credential,
+            stream, from_event, batch_size, resolve_links, direction=direction, credentials=self.credential
         )
         result = await self.dispatcher.start_conversation(cmd)
         iterator = await result
