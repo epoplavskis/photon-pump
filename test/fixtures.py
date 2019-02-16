@@ -21,9 +21,9 @@ async def given_a_stream_with_three_events(c, stream_name):
     )
 
 
-async def given_two_streams_with_two_events(c):
+async def given_two_streams_with_two_events(c, id):
     await c.publish(
-        "stream_one",
+        "stream_one_{}".format(id),
         [
             messages.NewEvent(
                 "pony_splits",
@@ -36,7 +36,7 @@ async def given_two_streams_with_two_events(c):
         ],
     )
     await c.publish(
-        "stream_two",
+        "stream_two_{}".format(id),
         [
             messages.NewEvent(
                 "pony_splits",

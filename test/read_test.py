@@ -185,7 +185,7 @@ async def test_get_all(event_loop):
     async with connect(
         loop=event_loop, name="iter-all", username="admin", password="changeit"
     ) as c:
-        await given_two_streams_with_two_events(c)
+        await given_two_streams_with_two_events(c, "get_all")
 
         result = await c.getAll(max_count=4096)
 
@@ -196,13 +196,13 @@ async def test_get_all(event_loop):
         stream_two_events = []
 
         for event in result:
-            if event.stream == "stream_one":
+            if event.stream == "stream_one_get_all":
                 stream_one_events.append(event)
-            if event.stream == "stream_two":
+            if event.stream == "stream_two_get_all":
                 stream_two_events.append(event)
 
-        assert len(stream_one_events) >= 2
-        assert len(stream_two_events) >= 2
+        assert len(stream_one_events) == 2
+        assert len(stream_two_events) == 2
         event_data = stream_one_events[0].json()
         assert event_data["Pony"] == "Derpy Hooves"
         event_data = stream_one_events[1].json()
@@ -219,12 +219,12 @@ async def test_iter_all(event_loop):
     async with connect(
         loop=event_loop, name="iter-all", username="admin", password="changeit"
     ) as c:
-        await given_two_streams_with_two_events(c)
+        await given_two_streams_with_two_events(c, "iter_all")
 
         events_read = 0
 
         async for event in c.iterAll(batch_size=1):
-            if event.stream == "stream_one" or event.stream == "stream_two":
+            if event.stream == "stream_one_iter_all" or event.stream == "stream_two_iter_all":
                 events_read += 1
 
         assert events_read == 4
