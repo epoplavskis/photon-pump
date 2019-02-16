@@ -224,7 +224,10 @@ async def test_iter_all(event_loop):
         events_read = 0
 
         async for event in c.iterAll(batch_size=1):
-            if event.stream == "stream_one_iter_all" or event.stream == "stream_two_iter_all":
+            if (
+                event.stream == "stream_one_iter_all"
+                or event.stream == "stream_two_iter_all"
+            ):
                 events_read += 1
 
         assert events_read == 4
