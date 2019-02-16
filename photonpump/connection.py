@@ -801,7 +801,6 @@ class Client:
         resolve_links: bool = True,
         require_master: bool = False,
         correlation_id: uuid.UUID = None,
-        only_historic: bool = False,
     ):
         correlation_id = correlation_id
         cmd = convo.IterAllEvents(
@@ -811,7 +810,6 @@ class Client:
             require_master,
             direction=direction,
             credentials=self.credential,
-            only_historic=only_historic,
         )
         result = await self.dispatcher.start_conversation(cmd)
         iterator = await result

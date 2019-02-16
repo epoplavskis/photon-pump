@@ -180,7 +180,7 @@ async def test_iter_from_missing_stream(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_iter_all(event_loop):
+async def test_get_all(event_loop):
 
     async with connect(
         loop=event_loop, name="iter-all", username="admin", password="changeit"
@@ -211,3 +211,20 @@ async def test_iter_all(event_loop):
         assert event_data["Pony"] == "Unlikely Hooves"
         event_data = stream_two_events[1].json()
         assert event_data["Pony"] == "Glitter Hooves"
+
+
+@pytest.mark.asyncio
+async def test_iter_all(event_loop):
+
+    async with connect(
+        loop=event_loop, name="iter-all", username="admin", password="changeit"
+    ) as c:
+        await given_two_streams_with_two_events(c)
+
+        events_read = 0
+
+        async for event in c.iterAll(batch_size=1):
+            if event.stream == "stream_one" or event.stream == "stream_two":
+                events_read += 1
+
+        assert events_read == 4
