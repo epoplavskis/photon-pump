@@ -1,5 +1,5 @@
 aioresponses
-pytest
+pytest==4.2.1
 pytest-asyncio
 pytest-cov
 colorama
