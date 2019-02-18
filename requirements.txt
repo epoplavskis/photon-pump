@@ -1,6 +1,6 @@
 aiodns==1.1.1
 aiohttp==3.4.0a0
-aioresponses==0.4.2
+aioresponses==0.6.0
 appdirs==1.4.3
 argh==0.26.2
 async-timeout==3.0.0
