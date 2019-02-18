@@ -12,7 +12,7 @@ chardet==3.0.4
 click==6.7
 codecov==2.0.15
 colorama==0.3.9
-coverage==5.0a1
+coverage==5.0a4
 docopt==0.6.2
 flake8==3.5.0
 greenlet==0.4.14
