@@ -2,7 +2,7 @@ aioresponses
 pytest
 pytest-asyncio
 pytest-cov
-colorama
+colorama==0.4.1
 flake8
 pytest-watch
 testfixtures
