@@ -15,7 +15,7 @@ colorama==0.3.9
 coverage==5.0a1
 docopt==0.6.2
 flake8==3.5.0
-greenlet==0.4.14
+greenlet==0.4.15
 idna==2.7
 idna-ssl==1.1.0
 mccabe==0.6.1
