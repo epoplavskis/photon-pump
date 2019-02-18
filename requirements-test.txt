@@ -6,4 +6,4 @@ colorama
 flake8
 pytest-watch
 testfixtures
-codecov
+codecov==2.0.15
