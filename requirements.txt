@@ -37,7 +37,7 @@ pytest-watch==4.2.0
 PyYAML==4.2b4
 requests==2.20.1
 six==1.11.0
-testfixtures==6.2.0
+testfixtures==6.5.2
 toml==0.9.4
 urllib3==1.23
 watchdog==0.8.3
