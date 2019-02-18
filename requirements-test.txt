@@ -4,6 +4,6 @@ pytest-asyncio
 pytest-cov
 colorama
 flake8
-pytest-watch
+pytest-watch==4.2.0
 testfixtures
 codecov
