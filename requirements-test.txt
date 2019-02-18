@@ -3,7 +3,7 @@ pytest
 pytest-asyncio
 pytest-cov
 colorama
-flake8
+flake8==3.7.5
 pytest-watch
 testfixtures
 codecov
