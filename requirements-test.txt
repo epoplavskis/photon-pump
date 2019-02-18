@@ -1,7 +1,7 @@
 aioresponses
 pytest
 pytest-asyncio
-pytest-cov
+pytest-cov==2.6.1
 colorama
 flake8
 pytest-watch
