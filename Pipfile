@@ -4,24 +4,18 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pylint = "*"
-pre-commit = "*"
-black = "*"
 idna-ssl = "*"
 
 [dev-packages]
-aioresponses = {editable = true,git = "https://github.com/Derfirm/aioresponses.git",ref = "b3232a759f3420a0c291b66f794711c87eb98c62"}
+aioresponses = "*"
 pytest-asyncio = "*"
 colorama = "*"
-"flake8" = "*"
 black = "*"
-pytest-watch = "*"
 testfixtures = "*"
 codecov = "*"
 pytest = "*"
 photon-pump = {editable = true,path = "."}
 pytest-cov = "*"
-neovim = "*"
 sphinx = "*"
 versioneer = "*"
 
