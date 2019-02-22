@@ -1,9 +1,0 @@
-aioresponses
-pytest
-pytest-asyncio
-pytest-cov
-colorama
-flake8
-pytest-watch
-testfixtures
-codecov
