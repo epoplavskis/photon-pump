@@ -13,7 +13,7 @@ async def test_read_all_request():
 
     output = Queue()
 
-    convo = ReadAllEvents(commit_position=10, prepare_position=11)
+    convo = ReadAllEvents(msg.Position(10, 11))
     await convo.start(output)
     request = await output.get()
 
@@ -29,12 +29,11 @@ async def test_read_all_request():
 
 
 @pytest.mark.asyncio
-async def test_read_stream_backward():
+async def test_read_all_backward():
 
     output = Queue()
     convo = ReadAllEvents(
-        commit_position=10,
-        prepare_position=11,
+        from_position=msg.Position(10, 11),
         direction=msg.StreamDirection.Backward,
         max_count=20,
     )
