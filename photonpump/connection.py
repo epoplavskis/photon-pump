@@ -733,6 +733,45 @@ class Client:
         require_master: bool = False,
         correlation_id: uuid.UUID = None,
     ):
+        """
+        Read a range of events from a stream.
+
+        Args:
+            stream: The name of the stream to read
+            direction (optional): Controls whether to read events forward or backward.
+              defaults to Forward.
+            from_event (optional): The first event to read.
+              defaults to the beginning of the stream when direction is forward
+              and the end of the stream if direction is backward.
+            max_count (optional): The maximum number of events to return.
+            resolve_links (optional): True if eventstore should
+                automatically resolve Link Events, otherwise False.
+            required_master (optional): True if this command must be
+                sent direct to the master node, otherwise False.
+            correlation_id (optional): A unique identifer for this command.
+
+        Examples:
+
+            Read 5 events from a stream
+
+            >>> async for event in conn.get("my-stream", max_count=5):
+            >>>     print(event)
+
+
+            Read events 21 to 30
+
+            >>> async for event in conn.get("my-stream", max_count=10, from_event=21):
+            >>>     print(event)
+
+            Read 10 most recent events in reverse order
+
+            >>> async for event in conn.get(
+                        "my-stream",
+                        max_count=10,
+                        direction=StreamDirection.Backward
+                    ):
+            >>>     print(event)
+        """
         correlation_id = correlation_id
         cmd = convo.ReadStreamEvents(
             stream,
@@ -746,20 +785,50 @@ class Client:
 
         return await result
 
-    async def getAll(
+    async def get_all(
         self,
-        commit_position: int = 0,
         direction: msg.StreamDirection = msg.StreamDirection.Forward,
-        prepare_position: int = 0,
+        from_position: Optional[Union[msg.Position, msg._PositionSentinel]] = None,
         max_count: int = 100,
         resolve_links: bool = True,
         require_master: bool = False,
         correlation_id: uuid.UUID = None,
     ):
+        """
+        Read a range of events from the whole database.
+
+        Args:
+            direction (optional): Controls whether to read events forward or backward.
+              defaults to Forward.
+            from_position (optional): The position to read from.
+              defaults to the beginning of the stream when direction is forward
+              and the end of the stream if direction is backward.
+            max_count (optional): The maximum number of events to return.
+            resolve_links (optional): True if eventstore should
+                automatically resolve Link Events, otherwise False.
+            required_master (optional): True if this command must be
+                sent direct to the master node, otherwise False.
+            correlation_id (optional): A unique identifer for this command.
+
+        Examples:
+
+            Read 5 events
+
+            >>> async for event in conn.get_all(max_count=5):
+            >>>     print(event)
+
+
+            Read 10 most recent events in reverse order
+
+            >>> async for event in conn.get_all(
+                        max_count=10,
+                        direction=StreamDirection.Backward
+                    ):
+            >>>     print(event)
+        """
         correlation_id = correlation_id
         cmd = convo.ReadAllEvents(
-            commit_position,
-            prepare_position,
+            msg.Position.for_direction(direction, from_position),
             max_count,
             resolve_links,
             require_master,
@@ -866,7 +935,7 @@ class Client:
             >>>     async for event in conn.iter_all()
             >>>         print(event)
 
-            Print every event from the stream "my-stream" in reverse order
+            Print every event from the database in reverse order
 
             >>> with async.connect() as conn:
             >>>     async for event in conn.iter_all(direction=StreamDirection.Backward):
@@ -881,18 +950,8 @@ class Client:
         """
         correlation_id = correlation_id
 
-        if from_position is None:
-            from_position = (
-                msg.Position(0, 0)
-                if direction == msg.StreamDirection.Forward
-                else msg.Position(-1, -1)
-            )
-        elif from_position is msg.Beginning:
-            from_position = msg.Position(0, 0)
-        elif from_position is msg.End:
-            from_position = msg.Position(-1, -1)
         cmd = convo.IterAllEvents(
-            from_position,
+            msg.Position.for_direction(direction, from_position),
             batch_size,
             resolve_links,
             require_master,
@@ -1014,7 +1073,7 @@ class Client:
         """
 
         if start_from == -1:
-            cmd = convo.SubscribeToStream(stream, resolve_link_tos)
+            cmd: convo.Conversation = convo.SubscribeToStream(stream, resolve_link_tos)
         else:
             cmd = convo.CatchupSubscription(stream, start_from, batch_size)
 
