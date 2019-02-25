@@ -4,7 +4,7 @@ import math
 import struct
 from collections import namedtuple
 from enum import IntEnum
-from typing import Any, Dict, Sequence
+from typing import Any, Dict, Sequence, NamedTuple
 from uuid import UUID, uuid4
 
 from . import messages_pb2
@@ -88,6 +88,27 @@ class OperationFlags(IntEnum):
     Empty = 0x00
     Authenticated = 0x01
 
+
+class Position(NamedTuple):
+
+    commit: int
+    prepare: int
+
+
+class _PositionSentinel:
+    """
+    Provides magic values for beginning/end
+    """
+
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return "Position: " + self.name
+
+
+Beginning = _PositionSentinel("Beginning")
+End = _PositionSentinel("End")
 
 OperationResult = make_enum(messages_pb2._OPERATIONRESULT)
 NotHandledReason = make_enum(messages_pb2._NOTHANDLED_NOTHANDLEDREASON)
@@ -329,18 +350,11 @@ class StreamSlice(list):
 
 class AllStreamSlice(list):
     def __init__(
-        self,
-        events: Sequence[Event],
-        next_commit_position: int,
-        next_prepare_position: int,
-        prepare_position: int = None,
-        commit_position: int = None,
+        self, events: Sequence[Event], position: Position, next_position: Position
     ) -> None:
         super().__init__(events)
-        self.next_commit_position = next_commit_position
-        self.next_prepare_position = next_prepare_position
-        self.prepare_position = prepare_position
-        self.commit_position = commit_position
+        self.next_position = next_position
+        self.start_position = position
         self.events = events
 
 
