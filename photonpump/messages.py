@@ -94,6 +94,22 @@ class Position(NamedTuple):
     commit: int
     prepare: int
 
+    @classmethod
+    def for_direction(cls, direction, pos):
+        if pos is None:
+            return (
+                Position(0, 0)
+                if direction == StreamDirection.Forward
+                else Position(-1, -1)
+            )
+        elif pos is Beginning:
+            return Position(0, 0)
+        elif pos is End:
+            return Position(-1, -1)
+
+        return pos
+
+
 
 class _PositionSentinel:
     """
