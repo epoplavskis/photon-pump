@@ -110,7 +110,6 @@ class Position(NamedTuple):
         return pos
 
 
-
 class _PositionSentinel:
     """
     Provides magic values for beginning/end
