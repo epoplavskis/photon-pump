@@ -35,6 +35,7 @@ class StreamingIterator:
         self.items = Queue(size)
         self.finished = False
         self.fut = None
+        self.last_item = None
 
     def __aiter__(self):
         return self
@@ -42,10 +43,11 @@ class StreamingIterator:
     async def enqueue_items(self, items):
 
         for item in items:
-            await self.items.put(item)
+            await self.enqueue(item)
 
     async def enqueue(self, item):
         await self.items.put(item)
+        self.last_item = item
 
     async def anext(self):
         return await self.__anext__()
@@ -69,6 +71,13 @@ class StreamingIterator:
 
     async def asend(self, item):
         await self.items.put(item)
+
+    @property
+    def last_event_number(self):
+        if self.last_item is None:
+            return None
+
+        return self.last_item.event_number
 
 
 class Conversation:
@@ -160,6 +169,7 @@ class TimerConversation(Conversation):
 
     async def start(self, output: Queue) -> None:
         self.started_at = time.perf_counter()
+        logging.debug("TimerConversation started (%s)", self.conversation_id)
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         logging.info("Replying from conversation %s", self)
@@ -196,6 +206,7 @@ class Heartbeat(TimerConversation):
                 self.conversation_id, cmd, b"", self.credential, one_way=one_way
             )
         )
+        logging.debug("Heartbeat started (%s)", self.conversation_id)
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(message, TcpCommand.HeartbeatResponse)
@@ -215,6 +226,7 @@ class Ping(TimerConversation):
                     self.conversation_id, TcpCommand.Ping, b"", self.credential
                 )
             )
+        logging.debug("Ping started (%s)", self.conversation_id)
 
         return self.result
 
@@ -291,6 +303,7 @@ class WriteEvents(Conversation):
                 self.conversation_id, TcpCommand.WriteEvents, data, self.credential
             )
         )
+        logging.debug("WriteEvents started on %s (%s)", self.stream, self.conversation_id)
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(message, TcpCommand.WriteEventsCompleted)
@@ -429,6 +442,7 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
                 self.conversation_id, TcpCommand.Read, data, self.credential
             )
         )
+        logging.debug("ReadEvent started on %s (%s)", self.stream, self.conversation_id)
 
     async def success(self, response, output: Queue):
         self.is_complete = True
@@ -455,6 +469,7 @@ class PageAllEventsBehaviour(Conversation):
 
     async def start(self, output):
         await output.put(self._fetch_page_message(self.commit_position))
+        logging.debug("PageAllEventsBehaviour started (%s)", self.conversation_id)
 
 
 class PageStreamEventsBehaviour(Conversation):
@@ -477,6 +492,7 @@ class PageStreamEventsBehaviour(Conversation):
 
     async def start(self, output):
         await output.put(self._fetch_page_message(self.from_event))
+        logging.debug("PageStreamEventsBehaviour started (%s)", self.conversation_id)
 
 
 class ReadAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
@@ -676,6 +692,7 @@ class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
 
     async def start(self, output: Queue):
         await output.put(self._fetch_page_message(self.from_event))
+        logging.debug("IterAllEvents started (%s)", self.conversation_id)
 
     async def success(self, result: proto.ReadAllEventsCompleted, output: Queue):
         no_new_events = result.commit_position == result.next_commit_position
@@ -749,7 +766,8 @@ class IterStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             self.from_event = from_event or -1
 
     async def start(self, output: Queue):
-        await output.put(self._fetch_page_message(self.from_event))
+        await output.put(self._fetch_page_message(self.iterator.last_event_number or self.from_event))
+        logging.debug("IterStreamEvents started on %s (%s)", self.stream, self.conversation_id)
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
 
@@ -886,6 +904,8 @@ class CreatePersistentSubscription(Conversation):
             )
         )
 
+        logging.debug("CreatePersistentSubscription started on %s (%s)", self.stream, self.conversation_id)
+
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(message, TcpCommand.CreatePersistentSubscriptionCompleted)
 
@@ -946,6 +966,7 @@ class ConnectPersistentSubscription(Conversation):
                 self.credential,
             )
         )
+        logging.debug("ConnectPersistentSubscription started on %s (%s)", self.stream, self.conversation_id)
 
     def reply_from_init(self, response: InboundMessage, output: Queue):
         self.expect_only(response, TcpCommand.PersistentSubscriptionConfirmation)
@@ -1038,6 +1059,7 @@ class SubscribeToStream(Conversation):
                 self.credential,
             )
         )
+        logging.debug("SubscribeToStream started on %s (%s)", self.stream, self.conversation_id)
 
     async def drop_subscription(self, response: InboundMessage) -> None:
         body = proto.SubscriptionDropped()
@@ -1209,6 +1231,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             self.from_event, self.next_event_number, self.last_event_number
         )
         await PageStreamEventsBehaviour.start(self, output)
+        logging.debug("CatchupSubscription started on %s (%s)", self.stream, self.conversation_id)
 
     async def drop_subscription(self, response: InboundMessage) -> None:
         body = proto.SubscriptionDropped()
