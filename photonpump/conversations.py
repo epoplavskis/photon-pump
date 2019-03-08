@@ -303,7 +303,9 @@ class WriteEvents(Conversation):
                 self.conversation_id, TcpCommand.WriteEvents, data, self.credential
             )
         )
-        logging.debug("WriteEvents started on %s (%s)", self.stream, self.conversation_id)
+        logging.debug(
+            "WriteEvents started on %s (%s)", self.stream, self.conversation_id
+        )
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(message, TcpCommand.WriteEventsCompleted)
@@ -766,8 +768,12 @@ class IterStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             self.from_event = from_event or -1
 
     async def start(self, output: Queue):
-        await output.put(self._fetch_page_message(self.iterator.last_event_number or self.from_event))
-        logging.debug("IterStreamEvents started on %s (%s)", self.stream, self.conversation_id)
+        await output.put(
+            self._fetch_page_message(self.iterator.last_event_number or self.from_event)
+        )
+        logging.debug(
+            "IterStreamEvents started on %s (%s)", self.stream, self.conversation_id
+        )
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
 
@@ -904,7 +910,11 @@ class CreatePersistentSubscription(Conversation):
             )
         )
 
-        logging.debug("CreatePersistentSubscription started on %s (%s)", self.stream, self.conversation_id)
+        logging.debug(
+            "CreatePersistentSubscription started on %s (%s)",
+            self.stream,
+            self.conversation_id,
+        )
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(message, TcpCommand.CreatePersistentSubscriptionCompleted)
@@ -966,7 +976,11 @@ class ConnectPersistentSubscription(Conversation):
                 self.credential,
             )
         )
-        logging.debug("ConnectPersistentSubscription started on %s (%s)", self.stream, self.conversation_id)
+        logging.debug(
+            "ConnectPersistentSubscription started on %s (%s)",
+            self.stream,
+            self.conversation_id,
+        )
 
     def reply_from_init(self, response: InboundMessage, output: Queue):
         self.expect_only(response, TcpCommand.PersistentSubscriptionConfirmation)
@@ -1059,7 +1073,9 @@ class SubscribeToStream(Conversation):
                 self.credential,
             )
         )
-        logging.debug("SubscribeToStream started on %s (%s)", self.stream, self.conversation_id)
+        logging.debug(
+            "SubscribeToStream started on %s (%s)", self.stream, self.conversation_id
+        )
 
     async def drop_subscription(self, response: InboundMessage) -> None:
         body = proto.SubscriptionDropped()
@@ -1231,7 +1247,9 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             self.from_event, self.next_event_number, self.last_event_number
         )
         await PageStreamEventsBehaviour.start(self, output)
-        logging.debug("CatchupSubscription started on %s (%s)", self.stream, self.conversation_id)
+        logging.debug(
+            "CatchupSubscription started on %s (%s)", self.stream, self.conversation_id
+        )
 
     async def drop_subscription(self, response: InboundMessage) -> None:
         body = proto.SubscriptionDropped()
