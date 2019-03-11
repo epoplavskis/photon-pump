@@ -1125,11 +1125,12 @@ class SubscribeToStream(Conversation):
         self.expect_only(
             message, TcpCommand.StreamEventAppeared, TcpCommand.SubscriptionConfirmation
         )
-        result = proto.StreamEventAppeared()
-        result.ParseFromString(message.payload)
 
         if message.command is TcpCommand.SubscriptionConfirmation:
             return
+
+        result = proto.StreamEventAppeared()
+        result.ParseFromString(message.payload)
 
         await self.subscription.events.enqueue(_make_event(result.event))
 

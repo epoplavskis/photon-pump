@@ -432,9 +432,10 @@ class MessageReader:
                     self._logger.insane(
                         "Read %d bytes for header", self.MESSAGE_MIN_SIZE
                     )
-                    (self.length, self.cmd, self.flags) = self.HEAD_PACK.unpack(
+                    (self.length, cmd_val, self.flags) = self.HEAD_PACK.unpack(
                         self.header_bytes[0:6]
                     )
+                    self.cmd = msg.TcpCommand(cmd_val)
 
                     self.conversation_id = uuid.UUID(
                         bytes_le=(self.header_bytes[6:22].tobytes())
