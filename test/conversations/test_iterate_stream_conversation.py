@@ -209,3 +209,66 @@ async def test_error_mid_stream():
         assert exn.conversation_type == "IterStreamEvents"
 
     assert len(output.items) == 1
+
+
+@pytest.mark.asyncio
+async def test_reconnect_at_last_event_number():
+
+    output = TeeQueue()
+    event_1_id = uuid4()
+    event_2_id = uuid4()
+    convo = IterStreamEvents("my-stream", from_event=32)
+    await convo.start(output)
+
+    response = proto.ReadStreamEventsCompleted()
+    response.result = msg.ReadEventResult.Success
+    response.next_event_number = 32
+    response.last_event_number = 31
+    response.is_end_of_stream = False
+    response.last_commit_position = 31
+
+    event_1 = proto.ResolvedIndexedEvent()
+    event_1.event.event_stream_id = "stream-123"
+    event_1.event.event_number = 32
+    event_1.event.event_id = event_1_id.bytes_le
+    event_1.event.event_type = "event-type"
+    event_1.event.data_content_type = msg.ContentType.Json
+    event_1.event.metadata_content_type = msg.ContentType.Binary
+    event_1.event.data = """
+    {
+        'color': 'red',
+        'winner': true
+    }
+    """.encode(
+        "UTF-8"
+    )
+
+    event_2 = proto.ResolvedIndexedEvent()
+    event_2.CopyFrom(event_1)
+    event_2.event.event_type = "event-2-type"
+    event_2.event.event_id = event_2_id.bytes_le
+    event_2.event.event_number = 33
+
+    response.events.extend([event_1, event_2])
+
+    await convo.respond_to(
+        msg.InboundMessage(
+            uuid4(),
+            msg.TcpCommand.ReadStreamEventsForwardCompleted,
+            response.SerializeToString(),
+        ),
+        output,
+    )
+
+    await convo.start(output)
+    request = output.items[-1]
+
+    body = proto.ReadStreamEvents()
+    body.ParseFromString(request.payload)
+
+    assert request.command is msg.TcpCommand.ReadStreamEventsForward
+    assert body.event_stream_id == "my-stream"
+    assert body.from_event_number == 33
+    assert body.resolve_link_tos is True
+    assert body.require_master is False
+    assert body.max_count == 100
