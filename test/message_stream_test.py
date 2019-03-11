@@ -123,7 +123,7 @@ async def test_read_event():
 
         received = await messages.get()
 
-        assert received.command == TcpCommand.ReadEventCompleted
+        assert received.command is TcpCommand.ReadEventCompleted
         assert received.length == 156
 
         body = proto.ReadEventCompleted()
@@ -171,7 +171,7 @@ async def test_read_deleted_event_processing():
         stream.feed_data(deleted_event)
         received = await messages.get()
 
-        assert received.command == TcpCommand.PersistentSubscriptionStreamEventAppeared
+        assert received.command is TcpCommand.PersistentSubscriptionStreamEventAppeared
         assert received.length == 185
 
         convo = ConnectPersistentSubscription(
@@ -201,7 +201,7 @@ async def test_read_heartbeat_request_single_call():
         received = await pacemaker.get()
 
         assert received.payload == b""
-        assert received.command == TcpCommand.HeartbeatRequest
+        assert received.command is TcpCommand.HeartbeatRequest
         assert received.length == 18
         assert received.conversation_id == heartbeat_id
 
@@ -218,7 +218,7 @@ async def test_read_header_multiple_calls():
         received = await pacemaker.get()
 
         assert received.payload == b""
-        assert received.command == TcpCommand.HeartbeatRequest
+        assert received.command is TcpCommand.HeartbeatRequest
         assert received.length == 18
         assert received.conversation_id == heartbeat_id
 
@@ -233,7 +233,7 @@ async def test_a_message_with_a_payload():
         assert received.conversation_id == uuid.UUID(
             "f192d72f-7abd-4ae4-ae05-f206873c749d"
         )
-        assert received.command == TcpCommand.PersistentSubscriptionStreamEventAppeared
+        assert received.command is TcpCommand.PersistentSubscriptionStreamEventAppeared
 
 
 @pytest.mark.asyncio
