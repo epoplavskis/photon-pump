@@ -1,3 +1,8 @@
+## [0.7.2] - 2019-01-29
+Fixed: Iterators restart at the last processed event number when the connection drops.
+Refactor: MessageReader returns a TcpCommand in the header rather than an int.
+Chore: Removed unused dependencies.
+
 ## [0.7.1] - 2019-01-29
 Fixed: Volatile subscriptions fail to restart when the connection is recreated.
 
@@ -45,6 +50,7 @@ Added support for catch-up subscriptions.
 - `published_event` reversed order of type and stream
 
 
+[0.7.2]: https://github.com/madedotcom/photon-pump/compare/v0.7.1..v0.7.2
 [0.7.1]: https://github.com/madedotcom/photon-pump/compare/v0.7.0..v0.7.1
 [0.7.0]: https://github.com/madedotcom/photon-pump/compare/v0.6.0.1..v0.7.0
 [0.6.0.1]: https://github.com/madedotcom/photon-pump/compare/v0.6.0..v0.6.0.1
