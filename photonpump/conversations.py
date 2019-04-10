@@ -312,6 +312,7 @@ class WriteEvents(Conversation):
 
 
 class ReadAllEventsBehaviour:
+
     async def reply(self, message: InboundMessage, output: Queue):
         result = proto.ReadAllEventsCompleted()
         result.ParseFromString(message.payload)
@@ -604,7 +605,7 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         return OutboundMessage(self.conversation_id, command, data, self.credential)
 
 
-class IterAllEvents(Conversation, ReadAllEventsBehaviour):
+class IterAllEvents(ReadAllEventsBehaviour, Conversation):
     """
     Command class for iterating all events in the database.
 
@@ -625,7 +626,7 @@ class IterAllEvents(Conversation, ReadAllEventsBehaviour):
 
     def __init__(
         self,
-        from_position: Position,
+        from_position: Position = None,
         batch_size: int = 100,
         resolve_links: bool = True,
         require_master: bool = False,
@@ -639,7 +640,7 @@ class IterAllEvents(Conversation, ReadAllEventsBehaviour):
         self.has_first_page = False
         self.resolve_link_tos = resolve_links
         self.require_master = require_master
-        self.from_position = from_position
+        self.from_position = from_position or Position(0, 0)
         self.direction = direction
         self._logger = logging.get_named_logger(IterAllEvents)
         self.iterator = StreamingIterator(self.batch_size)
@@ -671,6 +672,13 @@ class IterAllEvents(Conversation, ReadAllEventsBehaviour):
         logging.debug("IterAllEvents started (%s)", self.conversation_id)
 
     async def success(self, result: proto.ReadAllEventsCompleted, output: Queue):
+        if not self.has_first_page:
+            self.result.set_result(self.iterator)
+            self.has_first_page = True
+
+        events = [_make_event(x) for x in result.events]
+        await self.iterator.enqueue_items(events)
+
         at_end = result.commit_position == result.next_commit_position
 
         if at_end:
@@ -685,12 +693,6 @@ class IterAllEvents(Conversation, ReadAllEventsBehaviour):
             )
         )
 
-        events = [_make_event(x) for x in result.events]
-        await self.iterator.enqueue_items(events)
-
-        if not self.has_first_page:
-            self.result.set_result(self.iterator)
-            self.has_first_page = True
 
     async def error(self, exn: Exception) -> None:
         self.is_complete = True
