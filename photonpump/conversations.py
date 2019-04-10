@@ -312,7 +312,6 @@ class WriteEvents(Conversation):
 
 
 class ReadAllEventsBehaviour:
-
     async def reply(self, message: InboundMessage, output: Queue):
         result = proto.ReadAllEventsCompleted()
         result.ParseFromString(message.payload)
@@ -692,7 +691,6 @@ class IterAllEvents(ReadAllEventsBehaviour, Conversation):
                 Position(result.next_commit_position, result.next_prepare_position)
             )
         )
-
 
     async def error(self, exn: Exception) -> None:
         self.is_complete = True
