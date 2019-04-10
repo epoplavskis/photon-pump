@@ -312,24 +312,17 @@ class WriteEvents(Conversation):
 
 
 class ReadAllEventsBehaviour:
-    def __init__(self, result_type, response_cls):
-        self.result_type = result_type
-        self.response_cls = response_cls
-
-    def success(self, result, output: Queue):
-        pass
-
     async def reply(self, message: InboundMessage, output: Queue):
-        result = self.response_cls()
+        result = proto.ReadAllEventsCompleted()
         result.ParseFromString(message.payload)
 
-        if result.result == self.result_type.Success:
+        if result.result == ReadAllResult.Success:
             await self.success(result, output)
-        elif result.result == self.result_type.Error:
+        elif result.result == ReadAllResult.Error:
             await self.error(
                 exceptions.ReadError(self.conversation_id, "$all", result.error)
             )
-        elif result.result == self.result_type.AccessDenied:
+        elif result.result == ReadAllResult.AccessDenied:
             await self.error(
                 exceptions.AccessDenied(
                     self.conversation_id, type(self).__name__, result.error
@@ -642,9 +635,6 @@ class IterAllEvents(Conversation, ReadAllEventsBehaviour):
     ):
 
         Conversation.__init__(self, conversation_id, credentials)
-        ReadAllEventsBehaviour.__init__(
-            self, ReadAllResult, proto.ReadAllEventsCompleted
-        )
         self.batch_size = batch_size
         self.has_first_page = False
         self.resolve_link_tos = resolve_links
