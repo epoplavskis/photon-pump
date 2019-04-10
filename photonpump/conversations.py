@@ -57,13 +57,8 @@ class StreamingIterator:
 
         if self.finished and self.items.empty():
             raise StopAsyncIteration()
-        try:
-            _next = await self.items.get()
-        except:
-            raise StopAsyncIteration()
 
-        if isinstance(_next, StopIteration):
-            raise StopAsyncIteration()
+        _next = await self.items.get()
 
         if isinstance(_next, Exception):
             raise _next
@@ -338,15 +333,6 @@ class ReadAllEventsBehaviour:
             await self.error(
                 exceptions.AccessDenied(
                     self.conversation_id, type(self).__name__, result.error
-                )
-            )
-        elif (
-            self.result_type == ReadEventResult
-            and result.result == self.result_type.NotFound
-        ):
-            await self.error(
-                exceptions.EventNotFound(
-                    self.conversation_id, "$all", self.event_number
                 )
             )
 
