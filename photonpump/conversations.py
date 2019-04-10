@@ -438,29 +438,6 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
         self.result.set_result(_make_event(response.event))
 
 
-class PageAllEventsBehaviour(Conversation):
-    def _fetch_page_message(self, from_position):
-        if self.direction == StreamDirection.Forward:
-            command = TcpCommand.ReadAllEventsForward
-        else:
-            command = TcpCommand.ReadAllEventsBackward
-
-        msg = proto.ReadAllEvents()
-        msg.commit_position = from_position.commit
-        msg.prepare_position = from_position.prepare
-        msg.max_count = self.batch_size
-        msg.resolve_link_tos = self.resolve_link_tos
-        msg.require_master = self.require_master
-
-        data = msg.SerializeToString()
-
-        return OutboundMessage(self.conversation_id, command, data, self.credential)
-
-    async def start(self, output):
-        await output.put(self._fetch_page_message(self.from_position))
-        logging.debug("PageAllEventsBehaviour started (%s)", self.conversation_id)
-
-
 class PageStreamEventsBehaviour(Conversation):
     def _fetch_page_message(self, from_event):
         if self.direction == StreamDirection.Forward:
@@ -484,7 +461,7 @@ class PageStreamEventsBehaviour(Conversation):
         logging.debug("PageStreamEventsBehaviour started (%s)", self.conversation_id)
 
 
-class ReadAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
+class ReadAllEvents(ReadAllEventsBehaviour, Conversation):
     """Command class for reading all events from a stream.
 
     Args:
@@ -552,6 +529,9 @@ class ReadAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
         data = msg.SerializeToString()
 
         return OutboundMessage(self.conversation_id, command, data, self.credential)
+
+    async def start(self, output):
+        await output.put(self._fetch_page_message(self.from_position))
 
 
 class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
@@ -631,7 +611,7 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         return OutboundMessage(self.conversation_id, command, data, self.credential)
 
 
-class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
+class IterAllEvents(Conversation, ReadAllEventsBehaviour):
     """
     Command class for iterating all events in the database.
 
@@ -679,7 +659,24 @@ class IterAllEvents(ReadAllEventsBehaviour, PageAllEventsBehaviour):
         else:
             self.command = TcpCommand.ReadAllEventsBackward
 
-    async def start(self, output: Queue):
+    def _fetch_page_message(self, from_position):
+        if self.direction == StreamDirection.Forward:
+            command = TcpCommand.ReadAllEventsForward
+        else:
+            command = TcpCommand.ReadAllEventsBackward
+
+        msg = proto.ReadAllEvents()
+        msg.commit_position = from_position.commit
+        msg.prepare_position = from_position.prepare
+        msg.max_count = self.batch_size
+        msg.resolve_link_tos = self.resolve_link_tos
+        msg.require_master = self.require_master
+
+        data = msg.SerializeToString()
+
+        return OutboundMessage(self.conversation_id, command, data, self.credential)
+
+    async def start(self, output):
         await output.put(self._fetch_page_message(self.from_position))
         logging.debug("IterAllEvents started (%s)", self.conversation_id)
 
