@@ -91,7 +91,9 @@ async def test_end_of_stream():
 
     await convo.respond_to(
         msg.InboundMessage(
-            uuid4(), msg.TcpCommand.ReadAllEventsForwardCompleted, response.SerializeToString()
+            uuid4(),
+            msg.TcpCommand.ReadAllEventsForwardCompleted,
+            response.SerializeToString(),
         ),
         output,
     )
