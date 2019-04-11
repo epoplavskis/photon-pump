@@ -2,7 +2,6 @@ import logging
 import uuid
 
 import pytest
-
 from photonpump import connect, exceptions, messages
 
 from .fixtures import (
@@ -177,3 +176,36 @@ async def test_iter_from_missing_stream(event_loop):
             assert False
         except Exception as e:
             assert isinstance(e, exceptions.StreamNotFound)
+
+
+@pytest.mark.asyncio
+async def test_iterall(event_loop):
+    async with connect(
+        loop=event_loop, name="iter_all", username="admin", password="changeit"
+    ) as c:
+        stream_name = str(uuid.uuid4())
+        await given_a_stream_with_three_events(c, stream_name)
+
+        events_read = 0
+
+        async for event in c.iter_all(batch_size=2):
+            events_read += 1
+
+        assert events_read >= 3
+
+
+@pytest.mark.asyncio
+async def test_readall(event_loop):
+    async with connect(
+        loop=event_loop, name="read_all", username="admin", password="changeit"
+    ) as c:
+        stream_name = str(uuid.uuid4())
+        await given_a_stream_with_three_events(c, stream_name)
+
+        events_read = 0
+
+        for event in await c.get_all(max_count=3):
+            print(event)
+            events_read += 1
+
+        assert events_read == 3

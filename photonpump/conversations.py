@@ -504,7 +504,7 @@ class ReadAllEvents(ReadAllEventsBehaviour, Conversation):
 
     def _fetch_page_message(self, from_position: Position):
         self._logger.debug(
-            "Requesting page of %d events from number %d", self.max_count, from_position
+            "Requesting page of %d events from %s", self.max_count, from_position
         )
 
         if self.direction == StreamDirection.Forward:
