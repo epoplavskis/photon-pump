@@ -1365,3 +1365,61 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
                 self.credential,
             )
         )
+
+
+class CatchupAllSubscription(CatchupSubscription):
+    def __init__(
+        self, start_from=None, batch_size=100, credential=None, conversation_id=None
+    ):
+        self.iterator = StreamingIterator()
+        self.conversation_id = conversation_id or uuid4()
+        self._logger = logging.get_named_logger(
+            CatchupAllSubscription, self.conversation_id
+        )
+        self.from_position = start_from or Position(0, 0)
+        self.direction = StreamDirection.Forward
+        self.batch_size = batch_size
+        self.has_first_page = False
+        self.require_master = False
+        self.resolve_link_tos = True
+        self.credential = credential
+        self.result = Future()
+        self.phase = CatchupSubscriptionPhase.READ_HISTORICAL
+        self.buffer = []
+        self.subscribe_from = Position.min
+        self.next_position = self.from_position
+        self.last_position = Position.min
+        Conversation.__init__(self, conversation_id, credential)
+        ReadAllEventsBehaviour.__init__(self)
+
+    async def start(self, output):
+        if self.phase > CatchupSubscriptionPhase.READ_HISTORICAL:
+            self._logger.info("Tear down previous subscription")
+            await self.reconnect(output)
+
+            return
+
+        self.from_position = max(
+            self.from_position, self.next_position, self.next_position
+        )
+
+        self._logger.info("Starting catchup subscription at %s", self.from_position)
+        if self.direction == StreamDirection.Forward:
+            command = TcpCommand.ReadAllEventsForward
+        else:
+            command = TcpCommand.ReadAllEventsBackward
+
+        msg = proto.ReadAllEvents()
+        msg.commit_position = self.from_position.commit
+        msg.prepare_position = self.from_position.prepare
+        msg.max_count = self.batch_size
+        msg.resolve_link_tos = self.resolve_link_tos
+        msg.require_master = self.require_master
+
+        data = msg.SerializeToString()
+
+        await output.put(
+            OutboundMessage(self.conversation_id, command, data, self.credential)
+        )
+
+        logging.debug("CatchupAllSubscription started (%s)", self.conversation_id)
