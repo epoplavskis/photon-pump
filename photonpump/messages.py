@@ -110,6 +110,9 @@ class Position(NamedTuple):
         return pos
 
 
+Position.min = Position(-1, -1)
+
+
 class _PositionSentinel:
     """
     Provides magic values for beginning/end
