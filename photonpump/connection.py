@@ -1073,9 +1073,13 @@ class Client:
         """
 
         if start_from == -1:
-            cmd: convo.Conversation = convo.SubscribeToStream(stream, resolve_link_tos)
+            cmd: convo.Conversation = convo.SubscribeToStream(
+                stream, resolve_link_tos, credentials=self.credential
+            )
         else:
-            cmd = convo.CatchupSubscription(stream, start_from, batch_size)
+            cmd = convo.CatchupSubscription(
+                stream, start_from, batch_size, credentials=self.credential
+            )
 
         future = await self.dispatcher.start_conversation(cmd)
 
