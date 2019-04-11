@@ -1078,7 +1078,7 @@ class Client:
             )
         else:
             cmd = convo.CatchupSubscription(
-                stream, start_from, batch_size, credentials=self.credential
+                stream, start_from, batch_size, credential=self.credential
             )
 
         future = await self.dispatcher.start_conversation(cmd)
