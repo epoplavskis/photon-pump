@@ -1364,7 +1364,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         )
 
 
-class CatchupAllSubscription(CatchupSubscription):
+class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
     def __init__(
         self, start_from=None, batch_size=100, credential=None, conversation_id=None
     ):
@@ -1420,3 +1420,141 @@ class CatchupAllSubscription(CatchupSubscription):
         )
 
         logging.debug("CatchupAllSubscription started (%s)", self.conversation_id)
+
+    @property
+    def is_live(self):
+        return self.phase == CatchupSubscriptionPhase.LIVE
+
+    async def error(self, exn) -> None:
+        if self.result.done():
+            await self.subscription.raise_error(exn)
+        else:
+            self.result.set_exception(exn)
+
+    async def reconnect(self, output: Queue) -> None:
+        self.phase = CatchupSubscriptionPhase.RECONNECT
+        self.buffer = []
+        await self.subscription.unsubscribe()
+
+    async def drop_subscription(self, response: InboundMessage) -> None:
+        body = proto.SubscriptionDropped()
+        body.ParseFromString(response.payload)
+
+        if body.reason == messages.SubscriptionDropReason.Unsubscribed:
+
+            await self.subscription.events.enqueue(StopAsyncIteration())
+
+            return
+
+        if self.result.done():
+            await self.error(
+                exceptions.SubscriptionFailed(self.conversation_id, body.reason)
+            )
+
+            return
+
+        await self.error(
+            exceptions.SubscriptionCreationFailed(self.conversation_id, body.reason)
+        )
+
+    async def _move_to_next_phase(self, output):
+        if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
+            self.phase = CatchupSubscriptionPhase.CATCH_UP
+            self._logger.info(
+                "Caught up with historical events, creating volatile subscription"
+            )
+            await self._subscribe(output)
+        elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
+            self.phase = CatchupSubscriptionPhase.LIVE
+            await self._yield_events(self.buffer)
+
+    async def reply_from_live(self, message, output):
+        if message.command == TcpCommand.SubscriptionDropped:
+            await self.drop_subscription(message)
+
+            return
+
+        self.expect_only(message, TcpCommand.StreamEventAppeared)
+        result = proto.StreamEventAppeared()
+        result.ParseFromString(message.payload)
+
+        await self._yield_events([_make_event(result.event)])
+
+    async def reply_from_catch_up(self, message, output):
+        if message.command == TcpCommand.SubscriptionDropped:
+            await self.drop_subscription(message)
+        elif message.command == TcpCommand.SubscriptionConfirmation:
+            confirmation = proto.SubscriptionConfirmation()
+            confirmation.ParseFromString(message.payload)
+            self.subscribe_from = confirmation.last_event_number
+            self._logger.info(
+                "Subscribed successfully, catching up with missed events from %s",
+                self.next_event_number,
+            )
+            await output.put(self._fetch_page_message(self.next_event_number))
+        elif message.command == TcpCommand.StreamEventAppeared:
+            result = proto.StreamEventAppeared()
+            result.ParseFromString(message.payload)
+            self.buffer.append(_make_event(result.event))
+        else:
+            await ReadAllEventsBehaviour.reply(self, message, output)
+
+    async def reply_from_reconnect(self, message: InboundMessage, output: Queue):
+        if message.command != TcpCommand.SubscriptionDropped:
+            return
+        self.phase = CatchupSubscriptionPhase.READ_HISTORICAL
+        await self.start(output)
+
+    async def reply(self, message: InboundMessage, output: Queue):
+
+        if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
+            self.expect_only(message, TcpCommand.ReadStreamEventsForwardCompleted)
+            await ReadAllEventsBehaviour.reply(self, message, output)
+        elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
+            await self.reply_from_catch_up(message, output)
+        elif self.phase == CatchupSubscriptionPhase.RECONNECT:
+            await self.reply_from_reconnect(message, output)
+        else:
+            await self.reply_from_live(message, output)
+
+    async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
+
+        finished = False
+        events = []
+
+        for e in result.events:
+            event = _make_event(e)
+            events.append(event)
+
+        # Todo: we should finish if the next event > subscription_start_pos
+
+        if not self.has_first_page:
+            self.subscription = VolatileSubscription(
+                self.conversation_id, "$all", output, 0, 0, self.iterator
+            )
+            self.result.set_result(self.subscription)
+            self.has_first_page = True
+
+        await self.iterator.enqueue_items(events)
+
+        if finished:
+            await self._move_to_next_phase(output)
+        else:
+            self.from_position = Position(
+                result.next_commit_position, result.next_prepare_position
+            )
+            await output.put(self._fetch_page_message(self.from_position))
+
+    async def _subscribe(self, output: Queue) -> None:
+        msg = proto.SubscribeToStream()
+        msg.event_stream_id = self.stream
+        msg.resolve_link_tos = self.resolve_link_tos
+
+        await output.put(
+            OutboundMessage(
+                self.conversation_id,
+                TcpCommand.SubscribeToStream,
+                msg.SerializeToString(),
+                self.credential,
+            )
+        )
