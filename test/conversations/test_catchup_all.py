@@ -104,11 +104,6 @@ class ReadAllEventsResponseBuilder:
         self.stream = stream or "some-stream"
         self.events = []
 
-    def at_end_of_stream(self):
-        self.is_end_of_stream = True
-
-        return self
-
     def with_next_position(self, commit=0, prepare=0):
         self.next_position = msg.Position(commit, prepare)
 
@@ -131,7 +126,7 @@ class ReadAllEventsResponseBuilder:
     ):
         event = proto.ResolvedEvent()
         event.commit_position = commit
-        event.prepapre_position = prepare
+        event.prepare_position = prepare
         event.event.event_stream_id = self.stream
         event.event.event_number = event_number
         event.event.event_id = (event_id or uuid.uuid4()).bytes_le
@@ -169,10 +164,7 @@ class ReadAllEventsResponseBuilder:
 
 
 EMPTY_STREAM_PAGE = (
-    ReadAllEventsResponseBuilder(stream="stream-123")
-    .with_next_position(0, 0)
-    .at_end_of_stream()
-    .build()
+    ReadAllEventsResponseBuilder(stream="stream-123").with_next_position(0, 0).build()
 )
 
 
@@ -206,45 +198,47 @@ async def test_start_read_phase():
     assert body.max_count == 100
 
 
-# @pytest.mark.asyncio
-# async def test_end_of_stream():
-#    """
-#    During the Read phase, we yield the events to the subscription so that the
-#    user is unaware of the chicanery in the background.
-#
-#    When we reach the end of the stream, we should send a subscribe message to
-#    start the volatile subscription.
-#    """
-#
-#    convo = CatchupSubscription("my-stream")
-#    output = TeeQueue()
-#    await convo.start(output)
-#
-#    event_1_id = uuid.uuid4()
-#    event_2_id = uuid.uuid4()
-#
-#    response = (
-#        ReadStreamEventsResponseBuilder(stream="stream-123")
-#        .at_end_of_stream()
-#        .with_event(event_id=event_1_id, event_number=32)
-#        .with_event(event_id=event_2_id, event_number=33)
-#    ).build()
-#
-#    await reply_to(convo, response, output)
-#
-#    subscription = await convo.result
-#
-#    event_1 = await anext(subscription.events)
-#    event_2 = await anext(subscription.events)
-#
-#    assert event_1.stream == "stream-123"
-#    assert event_1.id == event_1_id
-#    assert event_1.event_number == 32
-#
-#    assert event_2.stream == "stream-123"
-#    assert event_2.id == event_2_id
-#    assert event_2.event_number == 33
-#
+@pytest.mark.asyncio
+async def test_end_of_stream():
+    """
+    During the Read phase, we yield the events to the subscription so that the
+    user is unaware of the chicanery in the background.
+
+    When we reach the end of the stream, we should send a subscribe message to
+    start the volatile subscription.
+    """
+
+    convo = CatchupAllSubscription()
+    output = TeeQueue()
+    await convo.start(output)
+
+    event_1_id = uuid.uuid4()
+    event_2_id = uuid.uuid4()
+
+    response = (
+        ReadAllEventsResponseBuilder(stream="stream-123")
+        .with_event(event_id=event_1_id, event_number=32)
+        .with_event(event_id=event_2_id, event_number=33)
+        .with_position(1, 1)
+        .with_next_position(1, 1)
+    ).build()
+
+    await reply_to(convo, response, output)
+
+    subscription = await convo.result
+
+    event_1 = await anext(subscription.events)
+    event_2 = await anext(subscription.events)
+
+    assert event_1.stream == "stream-123"
+    assert event_1.id == event_1_id
+    assert event_1.event_number == 32
+
+    assert event_2.stream == "stream-123"
+    assert event_2.id == event_2_id
+    assert event_2.event_number == 33
+
+
 #
 # @pytest.mark.asyncio
 # async def test_paging():
