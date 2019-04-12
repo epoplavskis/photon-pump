@@ -323,43 +323,41 @@ async def test_subscribes_at_end_of_stream():
     assert payload.resolve_link_tos is True
 
 
-#
-#
-# @pytest.mark.asyncio
-# async def test_should_perform_a_catchup_when_subscription_is_confirmed():
-#
-#    """
-#    When we have read all the events in the stream, we should send a
-#    request to subscribe for new events.
-#
-#    We should start reading catchup events from the `next_event_number` returned
-#    by the historical event read.
-#    """
-#
-#    convo = CatchupSubscription("my-stream")
-#    output = TeeQueue()
-#    await convo.start(output)
-#
-#    await reply_to(
-#        convo,
-#        ReadStreamEventsResponseBuilder()
-#        .with_next_event_number(17)
-#        .at_end_of_stream()
-#        .build(),
-#        output,
-#    )
-#    await confirm_subscription(convo, output, event_number=42, commit_pos=40)
-#    [read_historial, subscribe, catch_up] = await output.next_event(3)
-#
-#    assert read_historial.command == msg.TcpCommand.ReadStreamEventsForward
-#    assert subscribe.command == msg.TcpCommand.SubscribeToStream
-#    assert catch_up.command == msg.TcpCommand.ReadStreamEventsForward
-#
-#    payload = proto.ReadStreamEvents()
-#    payload.ParseFromString(catch_up.payload)
-#
-#    assert payload.event_stream_id == "my-stream"
-#    assert payload.from_event_number == 17
+@pytest.mark.asyncio
+async def test_should_perform_a_catchup_when_subscription_is_confirmed():
+
+   """
+   When we have read all the events in the stream, we should send a
+   request to subscribe for new events.
+
+   We should start reading catchup events from the `next_commit_position`
+   returned by the historical event read.
+   """
+
+   convo = CatchupAllSubscription()
+   output = TeeQueue()
+   await convo.start(output)
+
+   await reply_to(
+       convo,
+       ReadAllEventsResponseBuilder()
+       .with_position(18, 19)
+       .with_next_position(18, 19)
+       .build(),
+       output,
+   )
+   await confirm_subscription(convo, output, event_number=42, commit_pos=40)
+   [read_historial, subscribe, catch_up] = await output.next_event(3)
+
+   assert read_historial.command == msg.TcpCommand.ReadAllEventsForward
+   assert subscribe.command == msg.TcpCommand.SubscribeToStream
+   assert catch_up.command == msg.TcpCommand.ReadAllEventsForward
+
+   payload = proto.ReadAllEvents()
+   payload.ParseFromString(catch_up.payload)
+
+   assert payload.commit_position == 18
+   assert payload.prepare_position == 19
 #
 #
 # @pytest.mark.asyncio
