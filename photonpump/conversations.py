@@ -1487,12 +1487,11 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
         elif message.command == TcpCommand.SubscriptionConfirmation:
             confirmation = proto.SubscriptionConfirmation()
             confirmation.ParseFromString(message.payload)
-            self.subscribe_from = confirmation.last_event_number
             self._logger.info(
                 "Subscribed successfully, catching up with missed events from %s",
-                self.next_event_number,
+                self.from_position,
             )
-            await output.put(self._fetch_page_message(self.next_event_number))
+            await output.put(self._fetch_page_message(self.from_position))
         elif message.command == TcpCommand.StreamEventAppeared:
             result = proto.StreamEventAppeared()
             result.ParseFromString(message.payload)
@@ -1538,12 +1537,12 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
 
         await self.iterator.enqueue_items(events)
 
+        self.from_position = Position(
+          result.next_commit_position, result.next_prepare_position
+        )
         if finished:
             await self._move_to_next_phase(output)
         else:
-            self.from_position = Position(
-                result.next_commit_position, result.next_prepare_position
-            )
             await output.put(self._fetch_page_message(self.from_position))
 
     async def _subscribe(self, output: Queue) -> None:
