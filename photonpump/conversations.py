@@ -278,6 +278,9 @@ class WriteEvents(Conversation):
             if isinstance(event.data, str):
                 e.data_content_type = ContentType.Json
                 e.data = event.data.encode("UTF-8")
+            elif isinstance(event.data, bytes):
+                e.data_content_type = ContentType.Binary
+                e.data = event.data
             elif event.data:
                 e.data_content_type = ContentType.Json
                 e.data = json.dumps(event.data).encode("UTF-8")

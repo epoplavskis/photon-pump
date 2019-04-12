@@ -49,20 +49,63 @@ async def test_write_one_event():
     assert not conversation.is_complete
     assert not conversation.result.done()
 
+    _validate_write_request(
+        request,
+        "my-stream",
+        event_type,
+        event_id,
+        msg.ContentType.Json,
+        json.dumps(data).encode("UTF-8"),
+    )
+
+
+@pytest.mark.asyncio
+async def test_write_one_event_binary():
+
+    output = Queue()
+
+    event_id = uuid4()
+    conversation_id = uuid4()
+
+    event_type = "pony_jumped_binary"
+    data = b"my binary encoded data"
+    event_data = msg.NewEventData(event_id, event_type, data, None)
+
+    conversation = WriteEvents(
+        "my-stream", [event_data], conversation_id=conversation_id
+    )
+
+    await conversation.start(output)
+    request = await output.get()
+    assert request.conversation_id == conversation_id
+    assert request.command == msg.TcpCommand.WriteEvents
+
+    assert not conversation.is_complete
+    assert not conversation.result.done()
+
+    _validate_write_request(
+        request, "my-stream", event_type, event_id, msg.ContentType.Binary, data
+    )
+
+
+def _validate_write_request(
+    request, stream_id, event_type, event_id, content_type, data
+):
+
     payload = proto.WriteEvents()
     payload.ParseFromString(request.payload)
 
-    assert payload.event_stream_id == "my-stream"
+    assert payload.event_stream_id == stream_id
     assert payload.expected_version == msg.ExpectedVersion.Any
     assert len(payload.events) == 1
     assert not payload.require_master
 
     [evt] = payload.events
     assert evt.event_id == event_id.bytes_le
-    assert evt.event_type == "pony_jumped"
+    assert evt.event_type == event_type
 
-    assert evt.data_content_type == msg.ContentType.Json
-    assert evt.data == json.dumps(data).encode("UTF-8")
+    assert evt.data_content_type == content_type
+    assert evt.data == data
 
     assert evt.metadata_content_type == msg.ContentType.Binary
     assert evt.metadata == b""
