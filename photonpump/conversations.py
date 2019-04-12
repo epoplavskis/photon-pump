@@ -433,6 +433,7 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
 
 class PageStreamEventsBehaviour(Conversation):
     def _fetch_page_message(self, from_event):
+
         if self.direction == StreamDirection.Forward:
             command = TcpCommand.ReadStreamEventsForward
         else:
@@ -1519,7 +1520,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
 
-        finished = False
+        finished = result.commit_position == result.next_commit_position
         events = []
 
         for e in result.events:
@@ -1547,7 +1548,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
 
     async def _subscribe(self, output: Queue) -> None:
         msg = proto.SubscribeToStream()
-        msg.event_stream_id = self.stream
+        msg.event_stream_id = ""
         msg.resolve_link_tos = self.resolve_link_tos
 
         await output.put(
@@ -1558,3 +1559,24 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
                 self.credential,
             )
         )
+
+    def _fetch_page_message(self, from_position: Position):
+        self._logger.debug(
+            "Requesting page of %d events from %s", self.batch_size, from_position
+        )
+
+        if self.direction == StreamDirection.Forward:
+            command = TcpCommand.ReadAllEventsForward
+        else:
+            command = TcpCommand.ReadAllEventsBackward
+
+        msg = proto.ReadAllEvents()
+        msg.commit_position = from_position.commit
+        msg.prepare_position = from_position.prepare
+        msg.max_count = self.batch_size
+        msg.require_master = self.require_master
+        msg.resolve_link_tos = self.resolve_link_tos
+
+        data = msg.SerializeToString()
+
+        return OutboundMessage(self.conversation_id, command, data, self.credential)
