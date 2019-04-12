@@ -239,82 +239,90 @@ async def test_end_of_stream():
     assert event_2.event_number == 33
 
 
-#
-# @pytest.mark.asyncio
-# async def test_paging():
-#    """
-#    During the read phase, we expect to page through multiple batches of
-#    events. In this scenario we have two batches, each of two events.
-#    """
-#
-#    convo = CatchupSubscription("my-stream")
-#    output = TeeQueue()
-#    await convo.start(output)
-#    await output.get()
-#
-#    event_1_id = uuid.uuid4()
-#    event_2_id = uuid.uuid4()
-#    event_3_id = uuid.uuid4()
-#    event_4_id = uuid.uuid4()
-#
-#    first_response = (
-#        ReadStreamEventsResponseBuilder()
-#        .with_event(event_id=event_1_id, event_number=32)
-#        .with_event(event_id=event_2_id, event_number=33)
-#        .with_next_event_number(34)
-#    ).build()
-#
-#    second_response = (
-#        ReadStreamEventsResponseBuilder()
-#        .with_event(event_id=event_3_id, event_number=34)
-#        .with_event(event_id=event_4_id, event_number=35)
-#    ).build()
-#
-#    await reply_to(convo, first_response, output)
-#    subscription = await convo.result
-#
-#    event_1 = await anext(subscription.events)
-#    event_2 = await anext(subscription.events)
-#    assert event_1.id == event_1_id
-#    assert event_2.id == event_2_id
-#
-#    reply = await output.get()
-#    body = proto.ReadStreamEvents()
-#    body.ParseFromString(reply.payload)
-#    assert body.from_event_number == 34
-#
-#    await reply_to(convo, second_response, output)
-#
-#    event_3 = await anext(subscription.events)
-#    event_4 = await anext(subscription.events)
-#    assert event_3.id == event_3_id
-#    assert event_4.id == event_4_id
-#
-#
-# @pytest.mark.asyncio
-# async def test_subscribes_at_end_of_stream():
-#
-#    """
-#    When we have read all the events in the stream, we should send a
-#    request to subscribe for new events.
-#    """
-#
-#    convo = CatchupSubscription("my-stream")
-#    output = TeeQueue()
-#    await convo.start(output)
-#    await output.get()
-#
-#    await reply_to(
-#        convo, ReadStreamEventsResponseBuilder().at_end_of_stream().build(), output
-#    )
-#
-#    reply = await output.get()
-#    payload = proto.SubscribeToStream()
-#    payload.ParseFromString(reply.payload)
-#
-#    assert reply.command == msg.TcpCommand.SubscribeToStream
-#    assert payload.event_stream_id == "my-stream"
-#    assert payload.resolve_link_tos is True
+@pytest.mark.asyncio
+async def test_paging():
+    """
+   During the read phase, we expect to page through multiple batches of
+   events. In this scenario we have two batches, each of two events.
+   """
+
+    convo = CatchupAllSubscription()
+    output = TeeQueue()
+    await convo.start(output)
+    await output.get()
+
+    event_1_id = uuid.uuid4()
+    event_2_id = uuid.uuid4()
+    event_3_id = uuid.uuid4()
+    event_4_id = uuid.uuid4()
+
+    first_response = (
+        ReadAllEventsResponseBuilder()
+        .with_event(event_id=event_1_id, event_number=32)
+        .with_event(event_id=event_2_id, event_number=33)
+        .with_position(1, 1)
+        .with_next_position(2, 2)
+    ).build()
+
+    second_response = (
+        ReadAllEventsResponseBuilder()
+        .with_event(event_id=event_3_id, event_number=34)
+        .with_event(event_id=event_4_id, event_number=35)
+    ).build()
+
+    await reply_to(convo, first_response, output)
+    subscription = await convo.result
+
+    event_1 = await anext(subscription.events)
+    event_2 = await anext(subscription.events)
+    assert event_1.id == event_1_id
+    assert event_2.id == event_2_id
+
+    reply = await output.get()
+    body = proto.ReadAllEvents()
+    body.ParseFromString(reply.payload)
+    assert body.commit_position == 2
+    assert body.prepare_position == 2
+
+    await reply_to(convo, second_response, output)
+
+    event_3 = await anext(subscription.events)
+    event_4 = await anext(subscription.events)
+    assert event_3.id == event_3_id
+    assert event_4.id == event_4_id
+
+
+@pytest.mark.asyncio
+async def test_subscribes_at_end_of_stream():
+
+    """
+   When we have read all the events in the stream, we should send a
+   request to subscribe for new events.
+   """
+
+    convo = CatchupAllSubscription()
+    output = TeeQueue()
+    await convo.start(output)
+    await output.get()
+
+    await reply_to(
+        convo,
+        (
+            ReadAllEventsResponseBuilder().with_position(1, 1).with_next_position(1, 1)
+        ).build(),
+        output,
+    )
+
+    reply = await output.get()
+    print(str(reply))
+    payload = proto.SubscribeToStream()
+    payload.ParseFromString(reply.payload)
+
+    assert reply.command == msg.TcpCommand.SubscribeToStream
+    assert payload.event_stream_id == ""
+    assert payload.resolve_link_tos is True
+
+
 #
 #
 # @pytest.mark.asyncio
