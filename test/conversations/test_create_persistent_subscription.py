@@ -65,7 +65,7 @@ async def test_persistent_subscription_already_exists():
         output,
     )
 
-    with pytest.raises(exceptions.SubscriptionCreationFailed):
+    with pytest.raises(exceptions.SubscriptionGroupAlreadyExists):
         await convo.result
 
 
