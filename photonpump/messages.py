@@ -400,7 +400,8 @@ def dump(*chunks: bytearray):
 
 
 def _make_event(record: messages_pb2.ResolvedEvent):
-    if record.HasField("commit_position"):
+
+    if type(record) == messages_pb2.ResolvedEvent:
         position = Position(record.commit_position, record.prepare_position)
     else:
         position = None
