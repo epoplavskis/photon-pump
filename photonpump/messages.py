@@ -4,7 +4,7 @@ import math
 import struct
 from collections import namedtuple
 from enum import IntEnum
-from typing import Any, Dict, Sequence, NamedTuple
+from typing import Any, Dict, Sequence, NamedTuple, Optional
 from uuid import UUID, uuid4
 
 from . import messages_pb2
@@ -325,7 +325,7 @@ EventRecord.json = _json
 
 
 class Event:
-    def __init__(self, event: EventRecord, link: EventRecord) -> None:
+    def __init__(self, event: EventRecord, link: EventRecord, position: Optional[Position]=None) -> None:
         self.event = event
         self.link = link
         self.stream = event.stream
@@ -335,6 +335,7 @@ class Event:
         self.data = event.data
         self.metadata = event.metadata
         self.created = event.created
+        self.position = position
 
     @property
     def received_event(self) -> EventRecord:
@@ -397,6 +398,11 @@ def dump(*chunks: bytearray):
 
 
 def _make_event(record: messages_pb2.ResolvedEvent):
+    if record.HasField("commit_position"):
+        position = Position(record.commit_position, record.prepare_position)
+    else:
+        position = None
+
     link = (
         EventRecord(
             record.link.event_stream_id,
@@ -405,7 +411,7 @@ def _make_event(record: messages_pb2.ResolvedEvent):
             record.link.event_type,
             record.link.data,
             record.link.metadata,
-            datetime.datetime.fromtimestamp(record.link.created_epoch / 1e3),
+            datetime.datetime.fromtimestamp(record.link.created_epoch / 1e3)
         )
         if record.HasField("link")
         else None
@@ -421,10 +427,10 @@ def _make_event(record: messages_pb2.ResolvedEvent):
         record.event.event_type,
         record.event.data,
         record.event.metadata,
-        datetime.datetime.fromtimestamp(record.event.created_epoch / 1e3),
+        datetime.datetime.fromtimestamp(record.event.created_epoch / 1e3)
     )
 
-    return Event(event, link)
+    return Event(event, link, position)
 
 
 def NewEvent(

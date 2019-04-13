@@ -1384,11 +1384,17 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
         self.result = Future()
         self.phase = CatchupSubscriptionPhase.READ_HISTORICAL
         self.buffer = []
-        self.subscribe_from = Position.min
         self.next_position = self.from_position
         self.last_position = Position.min
         Conversation.__init__(self, conversation_id, credential)
         ReadAllEventsBehaviour.__init__(self)
+
+    async def _yield_events(self, events):
+        for event in events:
+            print(event.position, self.last_position, event.position > self.last_position)
+            if event.position > self.last_position:
+                await self.iterator.enqueue(event)
+                self.last_position = event.position
 
     async def start(self, output):
         if self.phase > CatchupSubscriptionPhase.READ_HISTORICAL:
@@ -1467,7 +1473,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
             await self._subscribe(output)
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             self.phase = CatchupSubscriptionPhase.LIVE
-            await self.iterator.enqueue_items(self.buffer)
+            await self._yield_events(self.buffer)
 
     async def reply_from_live(self, message, output):
         if message.command == TcpCommand.SubscriptionDropped:
@@ -1479,7 +1485,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
         result = proto.StreamEventAppeared()
         result.ParseFromString(message.payload)
 
-        await self.iterator.enqueue(_make_event(result.event))
+        await self._yield_events([_make_event(result.event)])
 
     async def reply_from_catch_up(self, message, output):
         if message.command == TcpCommand.SubscriptionDropped:
@@ -1536,7 +1542,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
             self.result.set_result(self.subscription)
             self.has_first_page = True
 
-        await self.iterator.enqueue_items(events)
+        await self._yield_events(events)
 
         self.from_position = Position(
             result.next_commit_position, result.next_prepare_position
