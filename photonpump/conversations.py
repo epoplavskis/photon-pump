@@ -1407,7 +1407,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
             return
 
         self.from_position = max(
-            self.from_position, self.next_position, self.next_position
+            self.from_position, self.last_position
         )
 
         self._logger.info("Starting catchup subscription at %s", self.from_position)
