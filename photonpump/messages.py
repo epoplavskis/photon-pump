@@ -325,7 +325,9 @@ EventRecord.json = _json
 
 
 class Event:
-    def __init__(self, event: EventRecord, link: EventRecord, position: Optional[Position]=None) -> None:
+    def __init__(
+        self, event: EventRecord, link: EventRecord, position: Optional[Position] = None
+    ) -> None:
         self.event = event
         self.link = link
         self.stream = event.stream
@@ -411,7 +413,7 @@ def _make_event(record: messages_pb2.ResolvedEvent):
             record.link.event_type,
             record.link.data,
             record.link.metadata,
-            datetime.datetime.fromtimestamp(record.link.created_epoch / 1e3)
+            datetime.datetime.fromtimestamp(record.link.created_epoch / 1e3),
         )
         if record.HasField("link")
         else None
@@ -427,7 +429,7 @@ def _make_event(record: messages_pb2.ResolvedEvent):
         record.event.event_type,
         record.event.data,
         record.event.metadata,
-        datetime.datetime.fromtimestamp(record.event.created_epoch / 1e3)
+        datetime.datetime.fromtimestamp(record.event.created_epoch / 1e3),
     )
 
     return Event(event, link, position)
