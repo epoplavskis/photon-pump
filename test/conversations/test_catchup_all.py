@@ -680,77 +680,76 @@ async def test_historical_duplicates():
    assert event_3.event_number == 3
 
 
-# @pytest.mark.asyncio
-# async def test_subscription_duplicates():
-#    """
-#    If we receive subscription events while catching up, we buffer them internally.
-#    If we restart the conversation at that point we need to make sure we clear our buffer
-#    and do not raise duplicate events.
-#
-#    => Request historical
-#    <= Empty
-#    => Subscribe to stream
-#    <= Confirmed
-#    => Request catchup
-#    <= Subscribed event 2 appeared
-#    <= Event 1, not end of stream
-#
-#    RESTART
-#
-#    => Drop subscription
-#    <= Dropped
-#    => Request historical from_event = 1
-#    <= Receive event 2 at end of stream
-#    => Subscribe
-#    <= Confirmed
-#    => Catchup
-#    <= Subscribed event 3 appeared
-#    <= Empty
-#
-#    Should yield [event 1, event 2, event 3]
-#    """
-#    event_1_not_end_of_stream = (
-#        ReadStreamEventsResponseBuilder()
-#        .with_event(event_number=1)
-#        .with_next_event_number(2)
-#        .build()
-#    )
-#
-#    event_2_at_end_of_stream = (
-#        ReadStreamEventsResponseBuilder()
-#        .with_event(event_number=2)
-#        .with_next_event_number(2)
-#        .at_end_of_stream()
-#        .build()
-#    )
-#
-#    output = TeeQueue()
-#    convo = CatchupSubscription("my-stream")
-#    await convo.start(output)
-#    await reply_to(convo, EMPTY_STREAM_PAGE, output)
-#    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-#    await reply_to(convo, event_appeared(event_number=2), output)
-#    await reply_to(convo, event_1_not_end_of_stream, output)
-#
-#    # RESTART
-#    await convo.start(output)
-#    output.items.clear()
-#
-#    await drop_subscription(convo, output)
-#
-#    second_read_historical = read_as(proto.ReadStreamEvents, output.items[0])
-#
-#    await reply_to(convo, event_2_at_end_of_stream, output)
-#    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-#    await reply_to(convo, event_appeared(event_number=3), output)
-#    await reply_to(convo, EMPTY_STREAM_PAGE, output)
-#
-#    [event_1, event_2, event_3] = await anext(convo.subscription.events, 3)
-#    assert event_1.event_number == 1
-#    assert event_2.event_number == 2
-#    assert event_3.event_number == 3
-#
-#    assert second_read_historical.from_event_number == 2
+@pytest.mark.asyncio
+async def test_subscription_duplicates():
+   """
+   If we receive subscription events while catching up, we buffer them internally.
+   If we restart the conversation at that point we need to make sure we clear our buffer
+   and do not raise duplicate events.
+
+   => Request historical
+   <= Empty
+   => Subscribe to stream
+   <= Confirmed
+   => Request catchup
+   <= Subscribed event 2 appeared
+   <= Event 1, not end of stream
+
+   RESTART
+
+   => Drop subscription
+   <= Dropped
+   => Request historical from_event = 1
+   <= Receive event 2 at end of stream
+   => Subscribe
+   <= Confirmed
+   => Catchup
+   <= Subscribed event 3 appeared
+   <= Empty
+
+   Should yield [event 1, event 2, event 3]
+   """
+   event_1_not_end_of_stream = (
+       ReadAllEventsResponseBuilder()
+       .with_event(event_number=1)
+       .with_next_position(2, 2)
+       .build()
+   )
+
+   event_2_at_end_of_stream = (
+       ReadAllEventsResponseBuilder()
+       .with_event(event_number=2)
+       .at_end_of_stream(2, 2)
+       .build()
+   )
+
+   output = TeeQueue()
+   convo = CatchupAllSubscription()
+   await convo.start(output)
+   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+   await reply_to(convo, event_appeared(event_number=2), output)
+   await reply_to(convo, event_1_not_end_of_stream, output)
+
+   # RESTART
+   await convo.start(output)
+   output.items.clear()
+
+   await drop_subscription(convo, output)
+
+   second_read_historical = read_as(proto.ReadStreamEvents, output.items[0])
+
+   await reply_to(convo, event_2_at_end_of_stream, output)
+   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+   await reply_to(convo, event_appeared(event_number=3), output)
+   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+
+   [event_1, event_2, event_3] = await anext(convo.subscription.events, 3)
+   assert event_1.event_number == 1
+   assert event_2.event_number == 2
+   assert event_3.event_number == 3
+
+   assert second_read_historical.from_event_number == 2
 #
 #
 # @pytest.mark.asyncio
