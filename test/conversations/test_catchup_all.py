@@ -750,96 +750,46 @@ async def test_subscription_duplicates():
    assert event_3.event_number == 3
 
    assert second_read_historical.from_event_number == 2
-#
-#
-# @pytest.mark.asyncio
-# async def test_live_restart():
-#    """
-#    If we reset the conversation while we are live, we should first unsubscribe
-#    then start a historical read from the last read event.
-#
-#    => Read historial
-#    <= empty
-#    => subscribe
-#    <= confirmed
-#    => catchup
-#    <= empty
-#    <= event 1 appeared
-#    <= event 2 appeared
-#
-#    RESTART
-#
-#    => unsubscribe
-#    <= dropped
-#    => Read historical from 2
-#    """
-#
-#    output = TeeQueue()
-#    convo = CatchupSubscription("my-stream")
-#    await convo.start(output)
-#    await reply_to(convo, EMPTY_STREAM_PAGE, output)
-#    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-#    await reply_to(convo, EMPTY_STREAM_PAGE, output)
-#
-#    await reply_to(convo, event_appeared(event_number=1), output)
-#    await reply_to(convo, event_appeared(event_number=2), output)
-#
-#    output.items.clear()
-#
-#    await convo.start(output)
-#    await drop_subscription(convo, output)
-#
-#    [unsubscribe, read_historical] = output.items
-#    read_historical = read_as(proto.ReadStreamEvents, read_historical)
-#
-#    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
-#    assert read_historical.from_event_number == 2
-#
-#
-# @pytest.mark.asyncio
-# async def test_paging_projection():
-#    """
-#    """
-#
-#    convo = CatchupSubscription("my-stream")
-#    output = TeeQueue()
-#    await convo.start(output)
-#    await output.get()
-#
-#    event_1_id = uuid.uuid4()
-#    event_2_id = uuid.uuid4()
-#    event_3_id = uuid.uuid4()
-#    event_4_id = uuid.uuid4()
-#
-#    first_response = (
-#        ReadStreamEventsResponseBuilder()
-#        .with_event(event_id=event_1_id, event_number=0, link_event_number=32)
-#        .with_event(event_id=event_2_id, event_number=0, link_event_number=33)
-#        .with_next_event_number(34)
-#    ).build()
-#
-#    second_response = (
-#        ReadStreamEventsResponseBuilder()
-#        .with_event(event_id=event_3_id, event_number=0, link_event_number=34)
-#        .with_event(event_id=event_4_id, event_number=0, link_event_number=35)
-#    ).build()
-#
-#    await reply_to(convo, first_response, output)
-#    subscription = await convo.result
-#
-#    event_1 = await anext(subscription.events)
-#    event_2 = await anext(subscription.events)
-#    assert event_1.id == event_1_id
-#    assert event_2.id == event_2_id
-#
-#    reply = await output.get()
-#    body = proto.ReadStreamEvents()
-#    body.ParseFromString(reply.payload)
-#    assert body.from_event_number == 34
-#
-#    await reply_to(convo, second_response, output)
-#
-#    event_3 = await anext(subscription.events)
-#    event_4 = await anext(subscription.events)
-#    assert event_3.id == event_3_id
-#    assert event_4.id == event_4_id
+
+@pytest.mark.asyncio
+async def test_live_restart():
+   """
+   If we reset the conversation while we are live, we should first unsubscribe
+   then start a historical read from the last read event.
+
+   => Read historial
+   <= empty
+   => subscribe
+   <= confirmed
+   => catchup
+   <= empty
+   <= event 1 appeared
+   <= event 2 appeared
+
+   RESTART
+
+   => unsubscribe
+   <= dropped
+   => Read historical from 2
+   """
+
+   output = TeeQueue()
+   convo = CatchupAllSubscription()
+   await convo.start(output)
+   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+
+   await reply_to(convo, event_appeared(event_number=11), output)
+   await reply_to(convo, event_appeared(event_number=12), output)
+
+   output.items.clear()
+
+   await convo.start(output)
+   await drop_subscription(convo, output)
+
+   [unsubscribe, read_historical] = output.items
+   read_historical = read_as(proto.ReadAllEvents, read_historical)
+
+   assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
+   assert read_historical.commit_position == 12
