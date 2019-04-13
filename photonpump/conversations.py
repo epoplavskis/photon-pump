@@ -110,7 +110,7 @@ class Conversation:
 
     def expect_only(self, response: InboundMessage, *commands: TcpCommand):
         if response.command not in commands:
-            raise exceptions.UnexpectedCommand(command, response.command)
+            raise exceptions.UnexpectedCommand(commands, response.command)
 
     async def respond_to(self, response: InboundMessage, output: Queue) -> None:
         try:
@@ -1470,7 +1470,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
             await self._subscribe(output)
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             self.phase = CatchupSubscriptionPhase.LIVE
-            await self._yield_events(self.buffer)
+            await self.iterator.enqueue_items(self.buffer)
 
     async def reply_from_live(self, message, output):
         if message.command == TcpCommand.SubscriptionDropped:
@@ -1482,7 +1482,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
         result = proto.StreamEventAppeared()
         result.ParseFromString(message.payload)
 
-        await self._yield_events([_make_event(result.event)])
+        await self.iterator.enqueue(_make_event(result.event))
 
     async def reply_from_catch_up(self, message, output):
         if message.command == TcpCommand.SubscriptionDropped:
@@ -1511,7 +1511,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
     async def reply(self, message: InboundMessage, output: Queue):
 
         if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
-            self.expect_only(message, TcpCommand.ReadStreamEventsForwardCompleted)
+            self.expect_only(message, TcpCommand.ReadAllEventsForwardCompleted)
             await ReadAllEventsBehaviour.reply(self, message, output)
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             await self.reply_from_catch_up(message, output)
@@ -1519,6 +1519,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
             await self.reply_from_reconnect(message, output)
         else:
             await self.reply_from_live(message, output)
+
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
 
@@ -1541,7 +1542,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
         await self.iterator.enqueue_items(events)
 
         self.from_position = Position(
-          result.next_commit_position, result.next_prepare_position
+            result.next_commit_position, result.next_prepare_position
         )
         if finished:
             await self._move_to_next_phase(output)
