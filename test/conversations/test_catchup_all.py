@@ -70,8 +70,8 @@ async def confirm_subscription(convo, output_queue=None, event_number=1, commit_
 
 
 def event_appeared(
-    commit_position=1,
-    prepare_position=1,
+    commit_position=None,
+    prepare_position=None,
     event_number=10,
     event_id=None,
     type="some-event",
@@ -86,8 +86,8 @@ def event_appeared(
     response.event.event.event_type = type
     response.event.event.data_content_type = msg.ContentType.Json
     response.event.event.metadata_content_type = msg.ContentType.Binary
-    response.event.commit_position = commit_position
-    response.event.prepare_position = prepare_position
+    response.event.commit_position = commit_position or event_number
+    response.event.prepare_position = prepare_position or event_number
     response.event.event.data = json.dumps(data).encode("UTF-8") if data else bytes()
 
     return (msg.TcpCommand.StreamEventAppeared, response.SerializeToString())
@@ -119,8 +119,8 @@ class ReadAllEventsResponseBuilder:
 
     def with_event(
         self,
-        commit=10,
-        prepare=10,
+        commit=None,
+        prepare=None,
         event_number=10,
         event_id=None,
         type="some-event",
@@ -128,8 +128,8 @@ class ReadAllEventsResponseBuilder:
         link_event_number=None,
     ):
         event = proto.ResolvedEvent()
-        event.commit_position = commit
-        event.prepare_position = prepare
+        event.commit_position = commit or event_number
+        event.prepare_position = prepare or event_number
         event.event.event_stream_id = "some-stream-name"
         event.event.event_number = event_number
         event.event.event_id = (event_id or uuid.uuid4()).bytes_le
@@ -628,57 +628,58 @@ async def test_restart_from_catchup():
    assert second_catchup.from_event_number == 1
 
 
-# @pytest.mark.asyncio
-# async def test_historical_duplicates():
-#    """
-#    It's possible that we receive the reply to a ReadStreamEvents request after we've
-#    resent the request. This will result in our receiving a duplicate page.
-#
-#    In this instance, we should not raise duplicate events.
-#
-#    => Request historical
-#    RESTART
-#    => Request historical
-#    <= 2 events
-#    <= 3 events
-#
-#    Should only see the 3 unique events
-#    """
-#
-#    two_events = (
-#        ReadStreamEventsResponseBuilder()
-#        .with_event(event_number=1)
-#        .with_event(event_number=2)
-#        .with_next_event_number(2)
-#        .at_end_of_stream()
-#        .build()
-#    )
-#
-#    three_events = (
-#        ReadStreamEventsResponseBuilder()
-#        .with_event(event_number=1)
-#        .with_event(event_number=2)
-#        .with_event(event_number=3)
-#        .with_next_event_number(3)
-#        .at_end_of_stream()
-#        .build()
-#    )
-#
-#    output = TeeQueue()
-#    convo = CatchupSubscription("my-stream")
-#    await convo.start(output)
-#    await convo.start(output)
-#
-#    await reply_to(convo, two_events, output)
-#    await reply_to(convo, three_events, output)
-#
-#    [event_1, event_2, event_3] = await anext(convo.subscription.events, 3)
-#
-#    assert event_1.event_number == 1
-#    assert event_2.event_number == 2
-#    assert event_3.event_number == 3
-#
-#
+@pytest.mark.asyncio
+async def test_historical_duplicates():
+   """
+   It's possible that we receive the reply to a ReadStreamEvents request after we've
+   resent the request. This will result in our receiving a duplicate page.
+
+   In this instance, we should not raise duplicate events.
+
+   => Request historical
+   RESTART
+   => Request historical
+   <= 2 events
+   <= 3 events
+
+   Should only see the 3 unique events
+   """
+
+   two_events = (
+       ReadAllEventsResponseBuilder()
+       .with_event(event_number=1)
+       .with_event(event_number=2)
+       .with_next_position(2, 2)
+       .at_end_of_stream()
+       .build()
+   )
+
+   three_events = (
+       ReadAllEventsResponseBuilder()
+       .with_event(event_number=1)
+       .with_event(event_number=2)
+       .with_event(event_number=3)
+       .at_end_of_stream(3, 3)
+       .build()
+   )
+
+   output = TeeQueue()
+   convo = CatchupAllSubscription()
+   await convo.start(output)
+   await convo.start(output)
+
+   await reply_to(convo, two_events, output)
+   await reply_to(convo, three_events, output)
+
+   [event_1, event_2, event_3] = await anext(convo.subscription.events, 3)
+
+   print(event_1, event_2, event_3)
+
+   assert event_1.event_number == 1
+   assert event_2.event_number == 2
+   assert event_3.event_number == 3
+
+
 # @pytest.mark.asyncio
 # async def test_subscription_duplicates():
 #    """
