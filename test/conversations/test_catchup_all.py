@@ -478,25 +478,24 @@ async def test_subscription_failure_mid_stream():
         await anext(subscription.events)
 
 
-#
-# @pytest.mark.asyncio
-# async def test_unsubscription():
-#    correlation_id = uuid.uuid4()
-#    output = TeeQueue()
-#    convo = CatchupSubscription("my-stream", conversation_id=correlation_id)
-#    await convo.start(output)
-#
-#    await reply_to(convo, EMPTY_STREAM_PAGE, output)
-#    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-#    await reply_to(convo, EMPTY_STREAM_PAGE, output)
-#
-#    sub = convo.result.result()
-#    await sub.unsubscribe()
-#
-#    [read_historical, subscribe, catch_up, unsubscribe] = output.items
-#
-#    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
-#    assert unsubscribe.conversation_id == correlation_id
+@pytest.mark.asyncio
+async def test_unsubscription():
+   correlation_id = uuid.uuid4()
+   output = TeeQueue()
+   convo = CatchupAllSubscription(conversation_id=correlation_id)
+   await convo.start(output)
+
+   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+
+   sub = convo.result.result()
+   await sub.unsubscribe()
+
+   [read_historical, subscribe, catch_up, unsubscribe] = output.items
+
+   assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
+   assert unsubscribe.conversation_id == correlation_id
 #
 #
 # @pytest.mark.asyncio
