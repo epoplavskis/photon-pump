@@ -496,138 +496,138 @@ async def test_unsubscription():
 
    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
    assert unsubscribe.conversation_id == correlation_id
-#
-#
-# @pytest.mark.asyncio
-# async def test_subscribe_with_context_manager():
-#    conversation_id = uuid.uuid4()
-#    output = TeeQueue()
-#    convo = CatchupSubscription("my-stream", conversation_id=conversation_id)
-#    await convo.start(output)
-#
-#    # Create a subscription with three events in it
-#    await reply_to(convo, EMPTY_STREAM_PAGE, output)
-#    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-#    await reply_to(convo, EMPTY_STREAM_PAGE, output)
-#
-#    for i in range(0, 3):
-#        await reply_to(
-#            convo, event_appeared(event_id=uuid.uuid4(), event_number=i), output
-#        )
-#
-#    async with (await convo.result) as subscription:
-#        events_seen = 0
-#        async for _ in subscription.events:
-#            events_seen += 1
-#
-#            if events_seen == 3:
-#                break
-#
-#    # Having exited the context manager it should send
-#    # an unsubscribe message
-#    [read_historical, subscribe, catch_up, unsubscribe] = output.items
-#
-#    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
-#    assert unsubscribe.conversation_id == conversation_id
-#
-#
-# @pytest.mark.asyncio
-# async def test_restart_from_historical():
-#    """
-#    If we ask the conversation to start again while we're reading historical events
-#    we should re-send the most recent page request.
-#
-#    In this scenario, we start reading the stream at event 10, we receive a
-#    page with 2 events, we request the next page starting at 12.
-#
-#    When we restart the conversation, we should again request the page starting at 12.
-#    """
-#
-#    conversation_id = uuid.uuid4()
-#    output = TeeQueue()
-#    convo = CatchupSubscription(
-#        "my-stream", start_from=10, conversation_id=conversation_id
-#    )
-#
-#    await convo.start(output)
-#
-#    await reply_to(
-#        convo,
-#        (
-#            ReadStreamEventsResponseBuilder(stream="stream-123")
-#            .with_event(event_number=10)
-#            .with_event(event_number=11)
-#            .with_next_event_number(12)
-#            .build()
-#        ),
-#        output,
-#    )
-#
-#    await convo.start(output)
-#
-#    [first_page, second_page, second_page_again] = [
-#        read_as(proto.ReadStreamEvents, m) for m in output.items
-#    ]
-#
-#    assert second_page.from_event_number == second_page_again.from_event_number
-#
-#
-# @pytest.mark.asyncio
-# async def test_restart_from_catchup():
-#    """
-#    If the connection drops during the catchup phase, we need to unsubscribe
-#    from the stream and then go back to reading historical events starting from
-#    the last page.
-#
-#    => Request historical events
-#    <= Receive 1 event, next_event = 1
-#    => Subscribe
-#    <= Confirmed
-#    => Catch up from 1
-#
-#    ** Restart **
-#
-#    => Unsubscribe
-#    <= Confirmed
-#    => Read historical from 1
-#    <= Empty page
-#    => Subscribe
-#    """
-#    conversation_id = uuid.uuid4()
-#    output = TeeQueue()
-#    convo = CatchupSubscription("my-stream", conversation_id=conversation_id)
-#    await convo.start(output)
-#    await output.get()
-#
-#    page_one = (
-#        ReadStreamEventsResponseBuilder()
-#        .with_event(event_number=1)
-#        .with_next_event_number(1)
-#        .at_end_of_stream()
-#        .build()
-#    )
-#
-#    await reply_to(convo, page_one, output)
-#
-#    await output.get()
-#    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-#
-#    first_catch_up = read_as(proto.ReadStreamEvents, await output.get())
-#    await reply_to(convo, page_one, output)
-#
-#    # Restart
-#    await convo.start(output)
-#    unsubscribe = await output.get()
-#
-#    assert first_catch_up.from_event_number == 1
-#    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
-#
-#    await drop_subscription(convo, output)
-#    second_catchup = read_as(proto.ReadStreamEvents, await output.get())
-#
-#    assert second_catchup.from_event_number == 1
-#
-#
+
+
+@pytest.mark.asyncio
+async def test_subscribe_with_context_manager():
+   conversation_id = uuid.uuid4()
+   output = TeeQueue()
+   convo = CatchupAllSubscription(conversation_id=conversation_id)
+   await convo.start(output)
+
+   # Create a subscription with three events in it
+   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+
+   for i in range(0, 3):
+       await reply_to(
+           convo, event_appeared(event_id=uuid.uuid4(), event_number=i), output
+       )
+
+   async with (await convo.result) as subscription:
+       events_seen = 0
+       async for _ in subscription.events:
+           events_seen += 1
+
+           if events_seen == 3:
+               break
+
+   # Having exited the context manager it should send
+   # an unsubscribe message
+   [read_historical, subscribe, catch_up, unsubscribe] = output.items
+
+   assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
+   assert unsubscribe.conversation_id == conversation_id
+
+
+@pytest.mark.asyncio
+async def test_restart_from_historical():
+   """
+   If we ask the conversation to start again while we're reading historical events
+   we should re-send the most recent page request.
+
+   In this scenario, we start reading the stream at event 10, we receive a
+   page with 2 events, we request the next page starting at 12.
+
+   When we restart the conversation, we should again request the page starting at 12.
+   """
+
+   conversation_id = uuid.uuid4()
+   output = TeeQueue()
+   convo = CatchupAllSubscription(
+       start_from=msg.Position(10, 10), conversation_id=conversation_id
+   )
+
+   await convo.start(output)
+
+   await reply_to(
+       convo,
+       (
+           ReadAllEventsResponseBuilder()
+           .with_event(event_number=10)
+           .with_event(event_number=11)
+           .with_next_position(12, 12)
+           .build()
+       ),
+       output,
+   )
+
+   await convo.start(output)
+
+   [first_page, second_page, second_page_again] = [
+       read_as(proto.ReadStreamEvents, m) for m in output.items
+   ]
+
+   assert second_page.from_event_number == second_page_again.from_event_number
+
+
+@pytest.mark.asyncio
+async def test_restart_from_catchup():
+   """
+   If the connection drops during the catchup phase, we need to unsubscribe
+   from the stream and then go back to reading historical events starting from
+   the last page.
+
+   => Request historical events
+   <= Receive 1 event, next_event = 1
+   => Subscribe
+   <= Confirmed
+   => Catch up from 1
+
+   ** Restart **
+
+   => Unsubscribe
+   <= Confirmed
+   => Read historical from 1
+   <= Empty page
+   => Subscribe
+   """
+   conversation_id = uuid.uuid4()
+   output = TeeQueue()
+   convo = CatchupAllSubscription(conversation_id=conversation_id)
+   await convo.start(output)
+   await output.get()
+
+   page_one = (
+       ReadAllEventsResponseBuilder()
+       .with_event(event_number=1)
+       .with_position(1, 1)
+       .with_next_position(1, 1)
+       .build()
+   )
+
+   await reply_to(convo, page_one, output)
+
+   await output.get()
+   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+
+   first_catch_up = read_as(proto.ReadStreamEvents, await output.get())
+   await reply_to(convo, page_one, output)
+
+   # Restart
+   await convo.start(output)
+   unsubscribe = await output.get()
+
+   assert first_catch_up.from_event_number == 1
+   assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
+
+   await drop_subscription(convo, output)
+   second_catchup = read_as(proto.ReadStreamEvents, await output.get())
+
+   assert second_catchup.from_event_number == 1
+
+
 # @pytest.mark.asyncio
 # async def test_historical_duplicates():
 #    """
