@@ -166,9 +166,7 @@ class ReadAllEventsResponseBuilder:
         )
 
 
-EMPTY_STREAM_PAGE = (
-    ReadAllEventsResponseBuilder().at_end_of_stream().build()
-)
+EMPTY_STREAM_PAGE = ReadAllEventsResponseBuilder().at_end_of_stream().build()
 
 
 @pytest.mark.asyncio
@@ -480,60 +478,60 @@ async def test_subscription_failure_mid_stream():
 
 @pytest.mark.asyncio
 async def test_unsubscription():
-   correlation_id = uuid.uuid4()
-   output = TeeQueue()
-   convo = CatchupAllSubscription(conversation_id=correlation_id)
-   await convo.start(output)
+    correlation_id = uuid.uuid4()
+    output = TeeQueue()
+    convo = CatchupAllSubscription(conversation_id=correlation_id)
+    await convo.start(output)
 
-   await reply_to(convo, EMPTY_STREAM_PAGE, output)
-   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
 
-   sub = convo.result.result()
-   await sub.unsubscribe()
+    sub = convo.result.result()
+    await sub.unsubscribe()
 
-   [read_historical, subscribe, catch_up, unsubscribe] = output.items
+    [read_historical, subscribe, catch_up, unsubscribe] = output.items
 
-   assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
-   assert unsubscribe.conversation_id == correlation_id
+    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
+    assert unsubscribe.conversation_id == correlation_id
 
 
 @pytest.mark.asyncio
 async def test_subscribe_with_context_manager():
-   conversation_id = uuid.uuid4()
-   output = TeeQueue()
-   convo = CatchupAllSubscription(conversation_id=conversation_id)
-   await convo.start(output)
+    conversation_id = uuid.uuid4()
+    output = TeeQueue()
+    convo = CatchupAllSubscription(conversation_id=conversation_id)
+    await convo.start(output)
 
-   # Create a subscription with three events in it
-   await reply_to(convo, EMPTY_STREAM_PAGE, output)
-   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    # Create a subscription with three events in it
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
 
-   for i in range(0, 3):
-       await reply_to(
-           convo, event_appeared(event_id=uuid.uuid4(), event_number=i), output
-       )
+    for i in range(0, 3):
+        await reply_to(
+            convo, event_appeared(event_id=uuid.uuid4(), event_number=i), output
+        )
 
-   async with (await convo.result) as subscription:
-       events_seen = 0
-       async for _ in subscription.events:
-           events_seen += 1
+    async with (await convo.result) as subscription:
+        events_seen = 0
+        async for _ in subscription.events:
+            events_seen += 1
 
-           if events_seen == 3:
-               break
+            if events_seen == 3:
+                break
 
-   # Having exited the context manager it should send
-   # an unsubscribe message
-   [read_historical, subscribe, catch_up, unsubscribe] = output.items
+    # Having exited the context manager it should send
+    # an unsubscribe message
+    [read_historical, subscribe, catch_up, unsubscribe] = output.items
 
-   assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
-   assert unsubscribe.conversation_id == conversation_id
+    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
+    assert unsubscribe.conversation_id == conversation_id
 
 
 @pytest.mark.asyncio
 async def test_restart_from_historical():
-   """
+    """
    If we ask the conversation to start again while we're reading historical events
    we should re-send the most recent page request.
 
@@ -543,38 +541,38 @@ async def test_restart_from_historical():
    When we restart the conversation, we should again request the page starting at 12.
    """
 
-   conversation_id = uuid.uuid4()
-   output = TeeQueue()
-   convo = CatchupAllSubscription(
-       start_from=msg.Position(10, 10), conversation_id=conversation_id
-   )
+    conversation_id = uuid.uuid4()
+    output = TeeQueue()
+    convo = CatchupAllSubscription(
+        start_from=msg.Position(10, 10), conversation_id=conversation_id
+    )
 
-   await convo.start(output)
+    await convo.start(output)
 
-   await reply_to(
-       convo,
-       (
-           ReadAllEventsResponseBuilder()
-           .with_event(event_number=10)
-           .with_event(event_number=11)
-           .with_next_position(12, 12)
-           .build()
-       ),
-       output,
-   )
+    await reply_to(
+        convo,
+        (
+            ReadAllEventsResponseBuilder()
+            .with_event(event_number=10)
+            .with_event(event_number=11)
+            .with_next_position(12, 12)
+            .build()
+        ),
+        output,
+    )
 
-   await convo.start(output)
+    await convo.start(output)
 
-   [first_page, second_page, second_page_again] = [
-       read_as(proto.ReadStreamEvents, m) for m in output.items
-   ]
+    [first_page, second_page, second_page_again] = [
+        read_as(proto.ReadStreamEvents, m) for m in output.items
+    ]
 
-   assert second_page.from_event_number == second_page_again.from_event_number
+    assert second_page.from_event_number == second_page_again.from_event_number
 
 
 @pytest.mark.asyncio
 async def test_restart_from_catchup():
-   """
+    """
    If the connection drops during the catchup phase, we need to unsubscribe
    from the stream and then go back to reading historical events starting from
    the last page.
@@ -593,44 +591,44 @@ async def test_restart_from_catchup():
    <= Empty page
    => Subscribe
    """
-   conversation_id = uuid.uuid4()
-   output = TeeQueue()
-   convo = CatchupAllSubscription(conversation_id=conversation_id)
-   await convo.start(output)
-   await output.get()
+    conversation_id = uuid.uuid4()
+    output = TeeQueue()
+    convo = CatchupAllSubscription(conversation_id=conversation_id)
+    await convo.start(output)
+    await output.get()
 
-   page_one = (
-       ReadAllEventsResponseBuilder()
-       .with_event(event_number=1)
-       .with_position(1, 1)
-       .with_next_position(1, 1)
-       .build()
-   )
+    page_one = (
+        ReadAllEventsResponseBuilder()
+        .with_event(event_number=1)
+        .with_position(1, 1)
+        .with_next_position(1, 1)
+        .build()
+    )
 
-   await reply_to(convo, page_one, output)
+    await reply_to(convo, page_one, output)
 
-   await output.get()
-   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await output.get()
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
 
-   first_catch_up = read_as(proto.ReadStreamEvents, await output.get())
-   await reply_to(convo, page_one, output)
+    first_catch_up = read_as(proto.ReadStreamEvents, await output.get())
+    await reply_to(convo, page_one, output)
 
-   # Restart
-   await convo.start(output)
-   unsubscribe = await output.get()
+    # Restart
+    await convo.start(output)
+    unsubscribe = await output.get()
 
-   assert first_catch_up.from_event_number == 1
-   assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
+    assert first_catch_up.from_event_number == 1
+    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
 
-   await drop_subscription(convo, output)
-   second_catchup = read_as(proto.ReadStreamEvents, await output.get())
+    await drop_subscription(convo, output)
+    second_catchup = read_as(proto.ReadStreamEvents, await output.get())
 
-   assert second_catchup.from_event_number == 1
+    assert second_catchup.from_event_number == 1
 
 
 @pytest.mark.asyncio
 async def test_historical_duplicates():
-   """
+    """
    It's possible that we receive the reply to a ReadStreamEvents request after we've
    resent the request. This will result in our receiving a duplicate page.
 
@@ -645,44 +643,44 @@ async def test_historical_duplicates():
    Should only see the 3 unique events
    """
 
-   two_events = (
-       ReadAllEventsResponseBuilder()
-       .with_event(event_number=1)
-       .with_event(event_number=2)
-       .with_next_position(2, 2)
-       .at_end_of_stream()
-       .build()
-   )
+    two_events = (
+        ReadAllEventsResponseBuilder()
+        .with_event(event_number=1)
+        .with_event(event_number=2)
+        .with_next_position(2, 2)
+        .at_end_of_stream()
+        .build()
+    )
 
-   three_events = (
-       ReadAllEventsResponseBuilder()
-       .with_event(event_number=1)
-       .with_event(event_number=2)
-       .with_event(event_number=3)
-       .at_end_of_stream(3, 3)
-       .build()
-   )
+    three_events = (
+        ReadAllEventsResponseBuilder()
+        .with_event(event_number=1)
+        .with_event(event_number=2)
+        .with_event(event_number=3)
+        .at_end_of_stream(3, 3)
+        .build()
+    )
 
-   output = TeeQueue()
-   convo = CatchupAllSubscription()
-   await convo.start(output)
-   await convo.start(output)
+    output = TeeQueue()
+    convo = CatchupAllSubscription()
+    await convo.start(output)
+    await convo.start(output)
 
-   await reply_to(convo, two_events, output)
-   await reply_to(convo, three_events, output)
+    await reply_to(convo, two_events, output)
+    await reply_to(convo, three_events, output)
 
-   [event_1, event_2, event_3] = await anext(convo.subscription.events, 3)
+    [event_1, event_2, event_3] = await anext(convo.subscription.events, 3)
 
-   print(event_1, event_2, event_3)
+    print(event_1, event_2, event_3)
 
-   assert event_1.event_number == 1
-   assert event_2.event_number == 2
-   assert event_3.event_number == 3
+    assert event_1.event_number == 1
+    assert event_2.event_number == 2
+    assert event_3.event_number == 3
 
 
 @pytest.mark.asyncio
 async def test_subscription_duplicates():
-   """
+    """
    If we receive subscription events while catching up, we buffer them internally.
    If we restart the conversation at that point we need to make sure we clear our buffer
    and do not raise duplicate events.
@@ -709,51 +707,52 @@ async def test_subscription_duplicates():
 
    Should yield [event 1, event 2, event 3]
    """
-   event_1_not_end_of_stream = (
-       ReadAllEventsResponseBuilder()
-       .with_event(event_number=1)
-       .with_next_position(2, 2)
-       .build()
-   )
+    event_1_not_end_of_stream = (
+        ReadAllEventsResponseBuilder()
+        .with_event(event_number=1)
+        .with_next_position(2, 2)
+        .build()
+    )
 
-   event_2_at_end_of_stream = (
-       ReadAllEventsResponseBuilder()
-       .with_event(event_number=2)
-       .at_end_of_stream(2, 2)
-       .build()
-   )
+    event_2_at_end_of_stream = (
+        ReadAllEventsResponseBuilder()
+        .with_event(event_number=2)
+        .at_end_of_stream(2, 2)
+        .build()
+    )
 
-   output = TeeQueue()
-   convo = CatchupAllSubscription()
-   await convo.start(output)
-   await reply_to(convo, EMPTY_STREAM_PAGE, output)
-   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-   await reply_to(convo, event_appeared(event_number=2), output)
-   await reply_to(convo, event_1_not_end_of_stream, output)
+    output = TeeQueue()
+    convo = CatchupAllSubscription()
+    await convo.start(output)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, event_appeared(event_number=2), output)
+    await reply_to(convo, event_1_not_end_of_stream, output)
 
-   # RESTART
-   await convo.start(output)
-   output.items.clear()
+    # RESTART
+    await convo.start(output)
+    output.items.clear()
 
-   await drop_subscription(convo, output)
+    await drop_subscription(convo, output)
 
-   second_read_historical = read_as(proto.ReadStreamEvents, output.items[0])
+    second_read_historical = read_as(proto.ReadStreamEvents, output.items[0])
 
-   await reply_to(convo, event_2_at_end_of_stream, output)
-   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-   await reply_to(convo, event_appeared(event_number=3), output)
-   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    await reply_to(convo, event_2_at_end_of_stream, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, event_appeared(event_number=3), output)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
 
-   [event_1, event_2, event_3] = await anext(convo.subscription.events, 3)
-   assert event_1.event_number == 1
-   assert event_2.event_number == 2
-   assert event_3.event_number == 3
+    [event_1, event_2, event_3] = await anext(convo.subscription.events, 3)
+    assert event_1.event_number == 1
+    assert event_2.event_number == 2
+    assert event_3.event_number == 3
 
-   assert second_read_historical.from_event_number == 2
+    assert second_read_historical.from_event_number == 2
+
 
 @pytest.mark.asyncio
 async def test_live_restart():
-   """
+    """
    If we reset the conversation while we are live, we should first unsubscribe
    then start a historical read from the last read event.
 
@@ -773,23 +772,23 @@ async def test_live_restart():
    => Read historical from 2
    """
 
-   output = TeeQueue()
-   convo = CatchupAllSubscription()
-   await convo.start(output)
-   await reply_to(convo, EMPTY_STREAM_PAGE, output)
-   await confirm_subscription(convo, output, event_number=10, commit_pos=10)
-   await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    output = TeeQueue()
+    convo = CatchupAllSubscription()
+    await convo.start(output)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
+    await confirm_subscription(convo, output, event_number=10, commit_pos=10)
+    await reply_to(convo, EMPTY_STREAM_PAGE, output)
 
-   await reply_to(convo, event_appeared(event_number=11), output)
-   await reply_to(convo, event_appeared(event_number=12), output)
+    await reply_to(convo, event_appeared(event_number=11), output)
+    await reply_to(convo, event_appeared(event_number=12), output)
 
-   output.items.clear()
+    output.items.clear()
 
-   await convo.start(output)
-   await drop_subscription(convo, output)
+    await convo.start(output)
+    await drop_subscription(convo, output)
 
-   [unsubscribe, read_historical] = output.items
-   read_historical = read_as(proto.ReadAllEvents, read_historical)
+    [unsubscribe, read_historical] = output.items
+    read_historical = read_as(proto.ReadAllEvents, read_historical)
 
-   assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
-   assert read_historical.commit_position == 12
+    assert unsubscribe.command == msg.TcpCommand.UnsubscribeFromStream
+    assert read_historical.commit_position == 12

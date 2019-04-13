@@ -1394,7 +1394,9 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
 
     async def _yield_events(self, events):
         for event in events:
-            print(event.position, self.last_position, event.position > self.last_position)
+            print(
+                event.position, self.last_position, event.position > self.last_position
+            )
             if event.position > self.last_position:
                 await self.iterator.enqueue(event)
                 self.last_position = event.position
@@ -1406,9 +1408,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
 
             return
 
-        self.from_position = max(
-            self.from_position, self.last_position
-        )
+        self.from_position = max(self.from_position, self.last_position)
 
         self._logger.info("Starting catchup subscription at %s", self.from_position)
         if self.direction == StreamDirection.Forward:
@@ -1525,7 +1525,6 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
             await self.reply_from_reconnect(message, output)
         else:
             await self.reply_from_live(message, output)
-
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
 
