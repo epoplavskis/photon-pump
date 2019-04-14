@@ -333,6 +333,27 @@ class ReadAllEventsBehaviour:
             )
 
 
+class ReadAllEventsCompleted:
+    def __init__(self, message: InboundMessage):
+        self._data = proto.ReadAllEventsCompleted()
+        self._data.ParseFromString(message)
+        self._conversationId = message.conversation_id
+
+    async def dispatch(self, conversation, output):
+        if self._data.result == ReadAllResult.Success:
+            await conversation.success(self._data, output)
+        elif self._data.result == ReadAllResult.Error:
+            await conversation.error(
+                exceptions.ReadError(self.conversation_id, "$all", result.error)
+            )
+        elif self._data.result == ReadAllResult.AccessDenied:
+            await self.error(
+                exceptions.AccessDenied(
+                    self.conversation_id, type(self).__name__, result.error
+                )
+            )
+
+
 class ReadStreamEventsBehaviour:
     def __init__(self, result_type, response_cls):
         self.result_type = result_type
