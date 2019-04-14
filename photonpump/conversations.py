@@ -99,10 +99,10 @@ class Conversation:
         return self.conversation_id == other.conversation_id
 
     async def start(self, output: Queue) -> Future:
-        pass
+        raise NotImplemented()
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
-        pass
+        raise NotImplementedError()
 
     async def error(self, exn: Exception) -> None:
         self.is_complete = True
@@ -314,79 +314,101 @@ class WriteEvents(Conversation):
         self.result.set_result(result)
 
 
-class ReadAllEventsBehaviour:
-    async def reply(self, message: InboundMessage, output: Queue):
-        result = proto.ReadAllEventsCompleted()
-        result.ParseFromString(message.payload)
-
-        if result.result == ReadAllResult.Success:
-            await self.success(result, output)
-        elif result.result == ReadAllResult.Error:
-            await self.error(
-                exceptions.ReadError(self.conversation_id, "$all", result.error)
-            )
-        elif result.result == ReadAllResult.AccessDenied:
-            await self.error(
-                exceptions.AccessDenied(
-                    self.conversation_id, type(self).__name__, result.error
-                )
-            )
-
-
 class ReadAllEventsCompleted:
     def __init__(self, message: InboundMessage):
         self._data = proto.ReadAllEventsCompleted()
-        self._data.ParseFromString(message)
-        self._conversationId = message.conversation_id
+        self._data.ParseFromString(message.payload)
+        self._conversation_id = message.conversation_id
 
     async def dispatch(self, conversation, output):
         if self._data.result == ReadAllResult.Success:
             await conversation.success(self._data, output)
         elif self._data.result == ReadAllResult.Error:
             await conversation.error(
-                exceptions.ReadError(self.conversation_id, "$all", result.error)
+                exceptions.ReadError(self._conversation_id, "$all", self._data.error)
             )
         elif self._data.result == ReadAllResult.AccessDenied:
-            await self.error(
+            await conversation.error(
                 exceptions.AccessDenied(
-                    self.conversation_id, type(self).__name__, result.error
+                    self._conversation_id, type(self).__name__, self._data.error
                 )
             )
 
 
-class ReadStreamEventsBehaviour:
-    def __init__(self, result_type, response_cls):
-        self.result_type = result_type
-        self.response_cls = response_cls
+class ReadEventCompleted:
 
-    def success(self, result, output: Queue):
-        pass
+    def __init__(self, message):
+        self._data = proto.ReadEventCompleted()
+        self._data.ParseFromString(message.payload)
+        self._conversation_id = message.conversation_id
 
-    async def reply(self, message: InboundMessage, output: Queue):
-        result = self.response_cls()
-        result.ParseFromString(message.payload)
+    async def dispatch(self, conversation, output):
 
-        if result.result == self.result_type.Success:
-            await self.success(result, output)
-        elif result.result == self.result_type.NoStream:
-            await self.error(
-                exceptions.StreamNotFound(self.conversation_id, self.stream)
+        result = self._data.result
+
+        if result == ReadEventResult.Success:
+            await conversation.success(self._data, output)
+        elif result == ReadEventResult.NoStream:
+            await conversation.error(
+                exceptions.StreamNotFound(self._conversation_id, conversation.stream)
             )
-        elif result.result == self.result_type.StreamDeleted:
-            await self.error(
-                exceptions.StreamDeleted(self.conversation_id, self.stream)
+        elif result == ReadEventResult.StreamDeleted:
+            await conversation.error(
+                exceptions.StreamDeleted(self._conversation_id, conversation.stream)
             )
-        elif result.result == self.result_type.Error:
-            await self.error(
-                exceptions.ReadError(self.conversation_id, self.stream, result.error)
+        elif result == ReadEventResult.Error:
+            await conversation.error(
+                exceptions.ReadError(self._conversation_id, conversation.stream, result)
             )
-        elif result.result == self.result_type.AccessDenied:
-            await self.error(
+        elif result == ReadEventResult.AccessDenied:
+            await conversation.error(
                 exceptions.AccessDenied(
-                    self.conversation_id,
-                    type(self).__name__,
-                    result.error,
-                    stream=self.stream,
+                    self._conversation_id,
+                    type(conversation).__name__,
+                    self._data.error,
+                    stream=conversation.stream,
+                )
+            )
+        elif result == ReadEventResult.NotFound:
+            await conversation.error(
+                exceptions.EventNotFound(
+                    self._conversation_id, conversation.name, conversation.event_number
+                )
+            )
+
+
+class ReadStreamEventsCompleted:
+
+    def __init__(self, message):
+        self._data = proto.ReadStreamEventsCompleted()
+        self._data.ParseFromString(message.payload)
+        self._conversation_id = message.conversation_id
+
+    async def dispatch(self, conversation, output):
+
+        result = self._data.result
+
+        if result == ReadStreamResult.Success:
+            await conversation.success(self._data, output)
+        elif result == ReadStreamResult.NoStream:
+            await conversation.error(
+                exceptions.StreamNotFound(self._conversation_id, conversation.stream)
+            )
+        elif result == ReadStreamResult.StreamDeleted:
+            await conversation.error(
+                exceptions.StreamDeleted(self._conversation_id, conversation.stream)
+            )
+        elif result == ReadStreamResult.Error:
+            await conversation.error(
+                exceptions.ReadError(self._conversation_id, conversation.stream, result)
+            )
+        elif result == ReadStreamResult.AccessDenied:
+            await conversation.error(
+                exceptions.AccessDenied(
+                    self._conversation_id,
+                    type(conversation).__name__,
+                    self._data.error,
+                    stream=conversation.stream,
                 )
             )
         elif (
@@ -400,7 +422,7 @@ class ReadStreamEventsBehaviour:
             )
 
 
-class ReadEvent(ReadStreamEventsBehaviour, Conversation):
+class ReadEvent(Conversation):
     """Command class for reading a single event.
 
     Args:
@@ -426,13 +448,11 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
     ) -> None:
 
         Conversation.__init__(self, conversation_id, credential=credentials)
-        ReadStreamEventsBehaviour.__init__(
-            self, ReadEventResult, proto.ReadEventCompleted
-        )
         self.stream = stream
         self.event_number = event_number
         self.require_master = require_master
         self.resolve_link_tos = resolve_links
+        self.name = stream
 
     async def start(self, output: Queue) -> None:
         msg = proto.ReadEvent()
@@ -449,6 +469,10 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
             )
         )
         logging.debug("ReadEvent started on %s (%s)", self.stream, self.conversation_id)
+
+    async def reply(self, message: InboundMessage, output: Queue):
+        result = ReadEventCompleted(message)
+        await result.dispatch(self, output)
 
     async def success(self, response, output: Queue):
         self.is_complete = True
@@ -479,7 +503,7 @@ class PageStreamEventsBehaviour(Conversation):
         logging.debug("PageStreamEventsBehaviour started (%s)", self.conversation_id)
 
 
-class ReadAllEvents(ReadAllEventsBehaviour, Conversation):
+class ReadAllEvents(Conversation):
     """Command class for reading all events from a stream.
 
     Args:
@@ -505,15 +529,16 @@ class ReadAllEvents(ReadAllEventsBehaviour, Conversation):
     ) -> None:
 
         Conversation.__init__(self, conversation_id, credential=credentials)
-        ReadStreamEventsBehaviour.__init__(
-            self, ReadAllResult, proto.ReadAllEventsCompleted
-        )
         self.has_first_page = False
         self.direction = direction
         self.from_position = from_position
         self.max_count = max_count
         self.require_master = require_master
         self.resolve_link_tos = resolve_links
+
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        result = ReadAllEventsCompleted(message)
+        await result.dispatch(self, output)
 
     async def success(self, result: proto.ReadAllEventsCompleted, output: Queue):
         events = [_make_event(x) for x in result.events]
@@ -552,7 +577,7 @@ class ReadAllEvents(ReadAllEventsBehaviour, Conversation):
         await output.put(self._fetch_page_message(self.from_position))
 
 
-class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
+class ReadStreamEvents(PageStreamEventsBehaviour):
     """Command class for reading events from a stream.
 
     Args:
@@ -579,9 +604,6 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
     ) -> None:
 
         Conversation.__init__(self, conversation_id, credential=credentials)
-        ReadStreamEventsBehaviour.__init__(
-            self, ReadStreamResult, proto.ReadStreamEventsCompleted
-        )
         self.has_first_page = False
         self.stream = stream
         self.direction = direction
@@ -589,6 +611,10 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         self.batch_size = max_count
         self.require_master = require_master
         self.resolve_link_tos = resolve_links
+
+    async def reply(self, message: InboundMessage, output: Queue):
+        result = ReadStreamEventsCompleted(message)
+        await result.dispatch(self, output)
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
         events = [_make_event(x) for x in result.events]
@@ -629,7 +655,7 @@ class ReadStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         return OutboundMessage(self.conversation_id, command, data, self.credential)
 
 
-class IterAllEvents(ReadAllEventsBehaviour, Conversation):
+class IterAllEvents(Conversation):
     """
     Command class for iterating all events in the database.
 
@@ -695,6 +721,10 @@ class IterAllEvents(ReadAllEventsBehaviour, Conversation):
         await output.put(self._fetch_page_message(self.from_position))
         logging.debug("IterAllEvents started (%s)", self.conversation_id)
 
+    async def reply(self, message, output):
+        result = ReadAllEventsCompleted(message)
+        await result.dispatch(self, output)
+
     async def success(self, result: proto.ReadAllEventsCompleted, output: Queue):
         if not self.has_first_page:
             self.result.set_result(self.iterator)
@@ -726,7 +756,7 @@ class IterAllEvents(ReadAllEventsBehaviour, Conversation):
             self.result.set_exception(exn)
 
 
-class IterStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
+class IterStreamEvents(PageStreamEventsBehaviour):
     """Command class for iterating events from a stream.
 
     Args:
@@ -753,9 +783,6 @@ class IterStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
     ):
 
         Conversation.__init__(self, conversation_id, credentials)
-        ReadStreamEventsBehaviour.__init__(
-            self, ReadStreamResult, proto.ReadStreamEventsCompleted
-        )
         self.batch_size = batch_size
         self.has_first_page = False
         self.stream = stream
@@ -779,6 +806,10 @@ class IterStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         logging.debug(
             "IterStreamEvents started on %s (%s)", self.stream, self.conversation_id
         )
+
+    async def reply(self, message: InboundMessage, output: Queue) -> None:
+        result = ReadStreamEventsCompleted(message)
+        await result.dispatch(self, output)
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
 
@@ -1193,7 +1224,7 @@ class VolatileSubscription:
             await self.unsubscribe()
 
 
-class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
+class CatchupSubscription(PageStreamEventsBehaviour):
     def __init__(
         self,
         stream,
@@ -1222,9 +1253,6 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         self.next_event_number = self.from_event
         self.last_event_number = -1
         Conversation.__init__(self, conversation_id, credential)
-        ReadStreamEventsBehaviour.__init__(
-            self, ReadStreamResult, proto.ReadStreamEventsCompleted
-        )
 
     @property
     def is_live(self):
@@ -1325,7 +1353,9 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             result.ParseFromString(message.payload)
             self.buffer.append(_make_event(result.event))
         else:
-            await ReadStreamEventsBehaviour.reply(self, message, output)
+            self.expect_only(message, TcpCommand.ReadStreamEventsForwardCompleted)
+            result = ReadStreamEventsCompleted(message)
+            await result.dispatch(self, output)
 
     async def reply_from_reconnect(self, message: InboundMessage, output: Queue):
         if message.command != TcpCommand.SubscriptionDropped:
@@ -1337,7 +1367,8 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
 
         if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
             self.expect_only(message, TcpCommand.ReadStreamEventsForwardCompleted)
-            await ReadStreamEventsBehaviour.reply(self, message, output)
+            result = ReadStreamEventsCompleted(message)
+            await result.dispatch(self, output)
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             await self.reply_from_catch_up(message, output)
         elif self.phase == CatchupSubscriptionPhase.RECONNECT:
@@ -1389,7 +1420,10 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         )
 
 
-class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
+class CatchupAllSubscription(Conversation):
+
+    name = "$all"
+
     def __init__(
         self, start_from=None, batch_size=100, credential=None, conversation_id=None
     ):
@@ -1411,7 +1445,6 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
         self.next_position = self.from_position
         self.last_position = Position.min
         Conversation.__init__(self, conversation_id, credential)
-        ReadAllEventsBehaviour.__init__(self)
 
     async def _yield_events(self, events):
         for event in events:
@@ -1527,7 +1560,8 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
             result.ParseFromString(message.payload)
             self.buffer.append(_make_event(result.event))
         else:
-            await ReadAllEventsBehaviour.reply(self, message, output)
+            result = ReadAllEventsCompleted(message)
+            await result.dispatch(self, output)
 
     async def reply_from_reconnect(self, message: InboundMessage, output: Queue):
         if message.command != TcpCommand.SubscriptionDropped:
@@ -1539,7 +1573,8 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
 
         if self.phase == CatchupSubscriptionPhase.READ_HISTORICAL:
             self.expect_only(message, TcpCommand.ReadAllEventsForwardCompleted)
-            await ReadAllEventsBehaviour.reply(self, message, output)
+            result = ReadAllEventsCompleted(message)
+            await result.dispatch(self, output)
         elif self.phase == CatchupSubscriptionPhase.CATCH_UP:
             await self.reply_from_catch_up(message, output)
         elif self.phase == CatchupSubscriptionPhase.RECONNECT:
@@ -1560,7 +1595,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
 
         if not self.has_first_page:
             self.subscription = VolatileSubscription(
-                self.conversation_id, "$all", output, 0, 0, self.iterator
+                self.conversation_id, self.name, output, 0, 0, self.iterator
             )
             self.result.set_result(self.subscription)
             self.has_first_page = True
