@@ -498,6 +498,24 @@ def page_stream_message(conversation, from_event):
     return OutboundMessage(conversation.conversation_id, command, data, conversation.credential)
 
 
+def page_all_message(conversation, from_position: Position):
+    if conversation.direction == StreamDirection.Forward:
+        command = TcpCommand.ReadAllEventsForward
+    else:
+        command = TcpCommand.ReadAllEventsBackward
+
+    msg = proto.ReadAllEvents()
+    msg.commit_position = from_position.commit
+    msg.prepare_position = from_position.prepare
+    msg.max_count = conversation.batch_size
+    msg.require_master = conversation.require_master
+    msg.resolve_link_tos = conversation.resolve_link_tos
+
+    data = msg.SerializeToString()
+
+    return OutboundMessage(conversation.conversation_id, command, data, conversation.credential)
+
+
 class ReadAllEvents(Conversation):
     """Command class for reading all events from a stream.
 
@@ -527,7 +545,7 @@ class ReadAllEvents(Conversation):
         self.has_first_page = False
         self.direction = direction
         self.from_position = from_position
-        self.max_count = max_count
+        self.batch_size = max_count
         self.require_master = require_master
         self.resolve_link_tos = resolve_links
 
@@ -547,29 +565,9 @@ class ReadAllEvents(Conversation):
             )
         )
 
-    def _fetch_page_message(self, from_position: Position):
-        self._logger.debug(
-            "Requesting page of %d events from %s", self.max_count, from_position
-        )
-
-        if self.direction == StreamDirection.Forward:
-            command = TcpCommand.ReadAllEventsForward
-        else:
-            command = TcpCommand.ReadAllEventsBackward
-
-        msg = proto.ReadAllEvents()
-        msg.commit_position = from_position.commit
-        msg.prepare_position = from_position.prepare
-        msg.max_count = self.max_count
-        msg.require_master = self.require_master
-        msg.resolve_link_tos = self.resolve_link_tos
-
-        data = msg.SerializeToString()
-
-        return OutboundMessage(self.conversation_id, command, data, self.credential)
 
     async def start(self, output):
-        await output.put(self._fetch_page_message(self.from_position))
+        await output.put(page_all_message(self, self.from_position))
 
 
 class ReadStreamEvents(Conversation):
@@ -677,25 +675,8 @@ class IterAllEvents(Conversation):
         else:
             self.command = TcpCommand.ReadAllEventsBackward
 
-    def _fetch_page_message(self, from_position):
-        if self.direction == StreamDirection.Forward:
-            command = TcpCommand.ReadAllEventsForward
-        else:
-            command = TcpCommand.ReadAllEventsBackward
-
-        msg = proto.ReadAllEvents()
-        msg.commit_position = from_position.commit
-        msg.prepare_position = from_position.prepare
-        msg.max_count = self.batch_size
-        msg.resolve_link_tos = self.resolve_link_tos
-        msg.require_master = self.require_master
-
-        data = msg.SerializeToString()
-
-        return OutboundMessage(self.conversation_id, command, data, self.credential)
-
     async def start(self, output):
-        await output.put(self._fetch_page_message(self.from_position))
+        await output.put(page_all_message(self, self.from_position))
         logging.debug("IterAllEvents started (%s)", self.conversation_id)
 
     async def reply(self, message, output):
@@ -719,7 +700,7 @@ class IterAllEvents(Conversation):
             return
 
         await output.put(
-            self._fetch_page_message(
+            page_all_message(self,
                 Position(result.next_commit_position, result.next_prepare_position)
             )
         )
@@ -1531,7 +1512,7 @@ class CatchupAllSubscription(Conversation):
                 "Subscribed successfully, catching up with missed events from %s",
                 self.from_position,
             )
-            await output.put(self._fetch_page_message(self.from_position))
+            await output.put(page_all_message(self, self.from_position))
         elif message.command == TcpCommand.StreamEventAppeared:
             result = proto.StreamEventAppeared()
             result.ParseFromString(message.payload)
@@ -1585,7 +1566,7 @@ class CatchupAllSubscription(Conversation):
         if finished:
             await self._move_to_next_phase(output)
         else:
-            await output.put(self._fetch_page_message(self.from_position))
+            await output.put(page_all_message(self, self.from_position))
 
     async def _subscribe(self, output: Queue) -> None:
         msg = proto.SubscribeToStream()
@@ -1601,23 +1582,4 @@ class CatchupAllSubscription(Conversation):
             )
         )
 
-    def _fetch_page_message(self, from_position: Position):
-        self._logger.debug(
-            "Requesting page of %d events from %s", self.batch_size, from_position
-        )
 
-        if self.direction == StreamDirection.Forward:
-            command = TcpCommand.ReadAllEventsForward
-        else:
-            command = TcpCommand.ReadAllEventsBackward
-
-        msg = proto.ReadAllEvents()
-        msg.commit_position = from_position.commit
-        msg.prepare_position = from_position.prepare
-        msg.max_count = self.batch_size
-        msg.require_master = self.require_master
-        msg.resolve_link_tos = self.resolve_link_tos
-
-        data = msg.SerializeToString()
-
-        return OutboundMessage(self.conversation_id, command, data, self.credential)
