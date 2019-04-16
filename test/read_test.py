@@ -209,22 +209,3 @@ async def test_readall(event_loop):
             events_read += 1
 
         assert events_read == 3
-
-
-@pytest.mark.asyncio
-async def test_iterate_subscription(event_loop):
-    async with connect(
-        loop=event_loop, name="iter_all", username="admin", password="changeit"
-    ) as c:
-        stream_name = str(uuid.uuid4())
-        await given_a_stream_with_three_events(c, stream_name)
-
-        print(c.iter(stream_name))
-        print(c.subscribe_to(stream_name))
-
-        events_read = 0
-
-        async for event in c.subscribe_to(stream_name):
-            events_read += 1
-
-        assert events_read >= 3
