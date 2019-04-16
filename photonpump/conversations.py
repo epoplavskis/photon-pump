@@ -336,7 +336,6 @@ class ReadAllEventsCompleted:
 
 
 class ReadEventCompleted:
-
     def __init__(self, message):
         self._data = proto.ReadEventCompleted()
         self._data.ParseFromString(message.payload)
@@ -378,7 +377,6 @@ class ReadEventCompleted:
 
 
 class ReadStreamEventsCompleted:
-
     def __init__(self, message):
         self._data = proto.ReadStreamEventsCompleted()
         self._data.ParseFromString(message.payload)
@@ -495,7 +493,9 @@ def page_stream_message(conversation, from_event):
 
     data = msg.SerializeToString()
 
-    return OutboundMessage(conversation.conversation_id, command, data, conversation.credential)
+    return OutboundMessage(
+        conversation.conversation_id, command, data, conversation.credential
+    )
 
 
 def page_all_message(conversation, from_position: Position):
@@ -513,7 +513,9 @@ def page_all_message(conversation, from_position: Position):
 
     data = msg.SerializeToString()
 
-    return OutboundMessage(conversation.conversation_id, command, data, conversation.credential)
+    return OutboundMessage(
+        conversation.conversation_id, command, data, conversation.credential
+    )
 
 
 class ReadAllEvents(Conversation):
@@ -565,7 +567,6 @@ class ReadAllEvents(Conversation):
             )
         )
 
-
     async def start(self, output):
         await output.put(page_all_message(self, self.from_position))
 
@@ -612,7 +613,12 @@ class ReadStreamEvents(Conversation):
     async def start(self, output: Queue) -> None:
         message = page_stream_message(self, self.from_event)
         await output.put(message)
-        self._logger.debug("Starting ReadStreamEvents (%d events starting at %d from %s)", self.batch_size, self.from_event, self.stream)
+        self._logger.debug(
+            "Starting ReadStreamEvents (%d events starting at %d from %s)",
+            self.batch_size,
+            self.from_event,
+            self.stream,
+        )
 
     async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
         events = [_make_event(x) for x in result.events]
@@ -700,8 +706,9 @@ class IterAllEvents(Conversation):
             return
 
         await output.put(
-            page_all_message(self,
-                Position(result.next_commit_position, result.next_prepare_position)
+            page_all_message(
+                self,
+                Position(result.next_commit_position, result.next_prepare_position),
             )
         )
 
@@ -759,7 +766,9 @@ class IterStreamEvents(Conversation):
 
     async def start(self, output: Queue):
         await output.put(
-            page_stream_message(self, self.iterator.last_event_number or self.from_event)
+            page_stream_message(
+                self, self.iterator.last_event_number or self.from_event
+            )
         )
         logging.debug(
             "IterStreamEvents started on %s (%s)", self.stream, self.conversation_id
@@ -1181,6 +1190,9 @@ class VolatileSubscription:
         if not self.is_complete:
             await self.unsubscribe()
 
+    async def __aiter__(self):
+        return self.events.__aiter__()
+
 
 class CatchupSubscription(Conversation):
     def __init__(
@@ -1581,5 +1593,3 @@ class CatchupAllSubscription(Conversation):
                 self.credential,
             )
         )
-
-
