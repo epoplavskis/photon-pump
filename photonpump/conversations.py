@@ -3,6 +3,7 @@ import logging
 import sys
 import time
 from asyncio import Future, Queue
+from asyncio.base_futures import InvalidStateError
 from enum import IntEnum
 from typing import NamedTuple, Optional, Sequence, Union
 from uuid import UUID, uuid4
@@ -127,7 +128,7 @@ class Conversation:
 
             return await self.reply(response, output)
         except Exception as exn:
-            self._logger.error("Failed to read server response", exc_info=True)
+            self._logger.exception("Failed to read server response", exc_info=True)
             exc_info = sys.exc_info()
 
             return await self.error(
@@ -310,8 +311,11 @@ class WriteEvents(Conversation):
         self.expect_only(message, TcpCommand.WriteEventsCompleted)
         result = proto.WriteEventsCompleted()
         result.ParseFromString(message.payload)
-
-        self.result.set_result(result)
+        try:
+            self.result.set_result(result)
+        except InvalidStateError as exn:
+            logging.error(self.result, message, self)
+            raise exn
 
 
 class ReadAllEventsBehaviour:
