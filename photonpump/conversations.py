@@ -315,9 +315,6 @@ class WriteEvents(Conversation):
             self.result.set_result(result)
             self.is_complete = True
         except InvalidStateError as exn:
-            print("message", message)
-            print("result", result)
-            print("self.result", self.result)
             logging.error(self.result, message, self, exc_info=True)
             raise exn
 
