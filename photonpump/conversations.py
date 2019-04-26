@@ -313,10 +313,11 @@ class WriteEvents(Conversation):
         result.ParseFromString(message.payload)
         try:
             self.result.set_result(result)
+            self.is_complete = True
         except InvalidStateError as exn:
-            print('message', message)
-            print('result', result)
-            print('self.result', self.result)
+            print("message", message)
+            print("result", result)
+            print("self.result", self.result)
             logging.error(self.result, message, self, exc_info=True)
             raise exn
 

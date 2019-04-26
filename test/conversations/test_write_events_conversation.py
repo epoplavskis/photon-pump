@@ -139,6 +139,7 @@ async def test_one_event_response():
     assert result.first_event_number == 73
     assert result.last_event_number == 73
     assert result.result == msg.OperationResult.Success
+    assert conversation.is_complete
 
 
 @pytest.mark.skip(reason="upcoming feature")
