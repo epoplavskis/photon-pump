@@ -1,8 +1,9 @@
-from asyncio import Queue
 import json
-from uuid import uuid4
-
 import pytest
+import asyncio
+
+from uuid import uuid4
+from asyncio import Queue
 
 import photonpump.messages as msg
 import photonpump.messages_pb2 as proto
@@ -139,6 +140,42 @@ async def test_one_event_response():
     assert result.first_event_number == 73
     assert result.last_event_number == 73
     assert result.result == msg.OperationResult.Success
+    assert conversation.is_complete
+
+
+@pytest.mark.asyncio
+async def test_completing_write_events_twice():
+
+    output = Queue()
+    conversation = given_a_write_events_message()
+
+    await conversation.start(output)
+
+    await output.get()
+    payload = proto.WriteEventsCompleted()
+    payload.result = msg.OperationResult.Success
+    payload.first_event_number = 73
+    payload.last_event_number = 73
+
+    await conversation.respond_to(
+        msg.InboundMessage(
+            conversation.conversation_id,
+            msg.TcpCommand.WriteEventsCompleted,
+            payload.SerializeToString(),
+        ),
+        output,
+    )
+
+    with pytest.raises(asyncio.base_futures.InvalidStateError) as exn:
+
+        await conversation.respond_to(
+            msg.InboundMessage(
+                conversation.conversation_id,
+                msg.TcpCommand.WriteEventsCompleted,
+                payload.SerializeToString(),
+            ),
+            output,
+        )
 
 
 @pytest.mark.skip(reason="upcoming feature")
