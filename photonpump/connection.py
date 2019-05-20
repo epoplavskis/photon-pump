@@ -1088,7 +1088,6 @@ class Client:
     async def subscribe_to_all(
         self, batch_size: int = 100, start_from=0, conversation_id=None
     ):
-        
 
         cmd: convo.Conversation = convo.CatchupAllSubscription(
             start_from, batch_size, credential=self.credential

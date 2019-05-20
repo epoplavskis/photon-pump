@@ -462,6 +462,7 @@ class PageStreamEventsBehaviour(Conversation):
         await output.put(self._fetch_page_message(self.from_event))
         logging.debug("PageStreamEventsBehaviour started (%s)", self.conversation_id)
 
+
 class PageAllStreamEventsBehaviour(Conversation):
     def _fetch_page_message(self, from_event):
 
@@ -1426,7 +1427,9 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, PageAllStreamEventsBehaviou
             #     event.position, self.last_position, event.position > self.last_position
             # )
             if event.position is None:
-                print("Problem with {} and {}".format(event.position, self.last_position))
+                print(
+                    "Problem with {} and {}".format(event.position, self.last_position)
+                )
             elif event.position > self.last_position:
                 await self.iterator.enqueue(event)
                 self.last_position = event.position
