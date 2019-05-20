@@ -462,6 +462,29 @@ class PageStreamEventsBehaviour(Conversation):
         await output.put(self._fetch_page_message(self.from_event))
         logging.debug("PageStreamEventsBehaviour started (%s)", self.conversation_id)
 
+class PageAllStreamEventsBehaviour(Conversation):
+    def _fetch_page_message(self, from_event):
+
+        if self.direction == StreamDirection.Forward:
+            command = TcpCommand.ReadAllEventsForward
+        else:
+            command = TcpCommand.ReadAllEventsBackward
+
+        msg = proto.ReadAllEvents()
+        msg.commit_position = from_position.commit
+        msg.prepare_position = from_position.prepare
+        msg.max_count = self.max_count
+        msg.resolve_link_tos = self.resolve_link_tos
+        msg.require_master = self.require_master
+
+        data = msg.SerializeToString()
+
+        return OutboundMessage(self.conversation_id, command, data, self.credential)
+
+    async def start(self, output):
+        await output.put(self._fetch_page_message(self.from_event))
+        logging.debug("PageAllStreamEventsBehaviour started (%s)", self.conversation_id)
+
 
 class ReadAllEvents(ReadAllEventsBehaviour, Conversation):
     """Command class for reading all events from a stream.
@@ -1373,7 +1396,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         )
 
 
-class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
+class CatchupAllSubscription(ReadAllEventsBehaviour, PageAllStreamEventsBehaviour):
     def __init__(
         self, start_from=None, batch_size=100, credential=None, conversation_id=None
     ):
@@ -1399,10 +1422,12 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
 
     async def _yield_events(self, events):
         for event in events:
-            print(
-                event.position, self.last_position, event.position > self.last_position
-            )
-            if event.position > self.last_position:
+            # print(
+            #     event.position, self.last_position, event.position > self.last_position
+            # )
+            if event.position is None:
+                print("Problem with {} and {}".format(event.position, self.last_position))
+            elif event.position > self.last_position:
                 await self.iterator.enqueue(event)
                 self.last_position = event.position
 
@@ -1531,7 +1556,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
         else:
             await self.reply_from_live(message, output)
 
-    async def success(self, result: proto.ReadStreamEventsCompleted, output: Queue):
+    async def success(self, result: proto.ReadAllEventsCompleted, output: Queue):
 
         finished = result.commit_position == result.next_commit_position
         events = []
