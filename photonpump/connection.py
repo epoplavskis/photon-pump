@@ -74,7 +74,7 @@ class Connector:
         self.heartbeat_failures = 0
         self.connect_timeout = connect_timeout
         self.active_protocol = None
-        self.retry_policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=0)
+        self.retry_policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=5)
 
     def _put_msg(self, msg):
         asyncio.ensure_future(self.ctrl_queue.put(msg))
