@@ -94,7 +94,11 @@ def select(
     ]
 
     selector = selector or prefer_master
-    LOG.debug("Selecting node using '%s' from gossip members: %r", selector, eligible_nodes)
+    LOG.debug(
+        "Selecting node using '%s' from gossip members: %r",
+        selector,
+        eligible_nodes
+    )
 
     if not eligible_nodes:
         return None
