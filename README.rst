@@ -231,7 +231,8 @@ In a Volatile Subscription, state is stored by the client. When your application
 Volatile subsciptions do not support event acknowledgement.
 
     >>> async def subscribe_to_stream(stream, conn):
-    >>>     async for event in conn.subscribe_to(stream):
+    >>>     subscription = await conn.subscribe_to(stream)
+    >>>     async for event in subscription.events
     >>>         print(event)
 
 
