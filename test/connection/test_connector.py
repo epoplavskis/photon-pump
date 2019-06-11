@@ -257,6 +257,7 @@ async def test_when_restarting_a_running_connector(event_loop):
 
     async with EchoServer(addr, event_loop):
         await connector.start()
+
         [connect, connected] = await queue.next_event(count=2)
 
         assert connected.command == ConnectorCommand.HandleConnectionOpened
@@ -264,10 +265,10 @@ async def test_when_restarting_a_running_connector(event_loop):
 
         await connector.reconnect()
 
-        [closed, reconnect] = await queue.next_event(count=2)
+        [connect, closed, reconnect] = await queue.next_event(count=3)
 
         assert closed.command == ConnectorCommand.HandleConnectionClosed
-        assert reconnect.command == ConnectorCommand.Connect
+        assert reconnect.command == ConnectorCommand.HandleConnectionOpened
 
 
 @pytest.mark.asyncio

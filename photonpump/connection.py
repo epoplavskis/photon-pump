@@ -131,11 +131,11 @@ class Connector:
         self._run_loop.cancel()
         self.stopped(exn)
 
-    async def reconnect(self):
-        if self.active_protocol:
-            await self.active_protocol.stop()
-        else:
-            await self.start()
+    # async def reconnect(self):
+    #     if self.active_protocol:
+    #         await self.active_protocol.stop()
+    #     else:
+    #         await self.start()
 
     async def _attempt_connect(self, node):
         if not node:
@@ -180,7 +180,10 @@ class Connector:
         await self.dispatcher.write_to(protocol.output_queue)
         self.connected(address)
 
-    async def _reconnect(self, node):
+    async def reconnect(self, node=None):
+        if self.active_protocol:
+            await self.active_protocol.stop()
+
         if not node:
             await self.start()
 
@@ -192,17 +195,18 @@ class Connector:
         else:
             self.log.error("Reached maximum number of retry attempts on node %s", node)
             self.discovery.mark_failed(node)
+
             await self.start()
 
     async def _on_transport_closed(self):
         self.log.info("Connection closed gracefully, restarting")
         self.disconnected()
-        await self._reconnect(self.target_node)
+        await self.reconnect(self.target_node)
 
     async def _on_transport_error(self, exn):
         self.log.info("Connection closed with error, restarting %s", exn)
         self.disconnected()
-        await self._reconnect(self.target_node)
+        await self.reconnect(self.target_node)
 
     async def _on_connect_failed(self, exn):
         self.log.info(
@@ -211,7 +215,7 @@ class Connector:
             exn,
         )
         self.retry_policy.record_failure(self.target_node)
-        await self._reconnect(self.target_node)
+        await self.reconnect(self.target_node)
 
     async def _on_failed_heartbeat(self, exn):
         self.log.warning("Failed to handle a heartbeat")
