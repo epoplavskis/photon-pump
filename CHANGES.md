@@ -8,7 +8,7 @@ Fixed: Volatile subscriptions fail to restart when the connection is recreated.
 
 ## [0.7.0] - 2019-01-29
 Fixed: Volatile subscriptions fail to yield all events for a projection.
-  This was caused by a confusion between the linked event and original event.
+This was caused by a confusion between the linked event and original event.
 
 ### Breaking Changes
  - `Event.original_event` is now `Event.received_event` because the original name was unclear.
@@ -34,10 +34,10 @@ Added support for catch-up subscriptions.
 
 ## [0.5] - 2018-04-27
 ### Breaking changes
- - Dropped the ConnectionContextManager class.
- - "Connection" class is now "Client" and acts as a context manager in its own right
- - Rewrote the connection module completely.
- - PersistentSubscriptions no longer use a maxsize parameter when creating a streaming iterator. This is a workaround for https://github.com/madedotcom/photon-pump/issues/49
+- Dropped the ConnectionContextManager class.
+- "Connection" class is now "Client" and acts as a context manager in its own right
+- Rewrote the connection module completely.
+- PersistentSubscriptions no longer use a maxsize parameter when creating a streaming iterator. This is a workaround for https://github.com/madedotcom/photon-pump/issues/49
 
 ## [0.4] - 2018-04-27
 ### Fixes
