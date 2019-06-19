@@ -131,12 +131,6 @@ class Connector:
         self._run_loop.cancel()
         self.stopped(exn)
 
-    # async def reconnect(self):
-    #     if self.active_protocol:
-    #         await self.active_protocol.stop()
-    #     else:
-    #         await self.start()
-
     async def _attempt_connect(self, node):
         if not node:
             try:
@@ -196,7 +190,7 @@ class Connector:
             await self.retry_policy.wait(node)
             await self.start(target=node)
         else:
-            self.log.error("Reached maximum number of retry attempts on node %s", node)
+            self.log.error('connector.reconnect: Reached maximum number of retry attempts on node %s', node)
             self.discovery.mark_failed(node)
 
             await self.start()
