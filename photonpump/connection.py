@@ -176,21 +176,27 @@ class Connector:
 
     async def reconnect(self, node=None):
         if self.active_protocol:
-            self.log.info('connector.reconnect: Stopping active protocol')
+            self.log.info("connector.reconnect: Stopping active protocol")
             await self.active_protocol.stop()
 
         if not node:
-            self.log.info('connector.reconnect: No node was given, starting connection without node selected')
+            self.log.info(
+                "connector.reconnect: No node was given, starting connection without node selected"
+            )
             await self.start()
 
             return
 
         if self.retry_policy.should_retry(node):
-            self.log.info('connector.reconnect: Running retry policy')
+            self.log.info("connector.reconnect: Running retry policy")
             await self.retry_policy.wait(node)
             await self.start(target=node)
         else:
-            self.log.error('connector.reconnect: Reached maximum number of retry attempts on node %s', node)
+            self.log.error(
+                "connector.reconnect:",
+                "Reached maximum number of retry attempts on node %s",
+                node,
+            )
             self.discovery.mark_failed(node)
 
             await self.start()
