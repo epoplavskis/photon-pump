@@ -177,7 +177,7 @@ class Connector:
     async def reconnect(self, node=None):
         if self.active_protocol:
             self.log.info("connector.reconnect: Stopping active protocol")
-            await self.active_protocol.stop()
+            await self.stop()
 
         if not node:
             self.log.info(
