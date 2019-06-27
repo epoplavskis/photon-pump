@@ -166,10 +166,10 @@ class TimerConversation(Conversation):
 
     async def start(self, output: Queue) -> None:
         self.started_at = time.perf_counter()
-        logging.debug("TimerConversation started (%s)", self.conversation_id)
+        self._logger.debug("TimerConversation started (%s)", self.conversation_id)
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
-        logging.info("Replying from conversation %s", self)
+        self._logger.info("Replying from conversation %s", self)
         responded_at = time.perf_counter()
         self.result.set_result(responded_at - self.started_at)
         self.is_complete = True
@@ -203,7 +203,7 @@ class Heartbeat(TimerConversation):
                 self.conversation_id, cmd, b"", self.credential, one_way=one_way
             )
         )
-        logging.debug("Heartbeat started (%s)", self.conversation_id)
+        self._logger.debug("Heartbeat started (%s)", self.conversation_id)
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
         self.expect_only(message, TcpCommand.HeartbeatResponse)
@@ -223,7 +223,7 @@ class Ping(TimerConversation):
                     self.conversation_id, TcpCommand.Ping, b"", self.credential
                 )
             )
-        logging.debug("Ping started (%s)", self.conversation_id)
+        self._logger.debug("Ping started (%s)", self.conversation_id)
 
         return self.result
 
@@ -303,7 +303,7 @@ class WriteEvents(Conversation):
                 self.conversation_id, TcpCommand.WriteEvents, data, self.credential
             )
         )
-        logging.debug(
+        self._logger.debug(
             "WriteEvents started on %s (%s)", self.stream, self.conversation_id
         )
 
@@ -315,7 +315,7 @@ class WriteEvents(Conversation):
             self.result.set_result(result)
             self.is_complete = True
         except InvalidStateError as exn:
-            logging.error(self.result, message, self, exc_info=True)
+            self._logger.error(self.result, message, self, exc_info=True)
             raise exn
 
 
@@ -432,7 +432,7 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
                 self.conversation_id, TcpCommand.Read, data, self.credential
             )
         )
-        logging.debug("ReadEvent started on %s (%s)", self.stream, self.conversation_id)
+        self._logger.debug("ReadEvent started on %s (%s)", self.stream, self.conversation_id)
 
     async def success(self, response, output: Queue):
         self.is_complete = True
@@ -460,7 +460,7 @@ class PageStreamEventsBehaviour(Conversation):
 
     async def start(self, output):
         await output.put(self._fetch_page_message(self.from_event))
-        logging.debug("PageStreamEventsBehaviour started (%s)", self.conversation_id)
+        self._logger.debug("PageStreamEventsBehaviour started (%s)", self.conversation_id)
 
 
 class ReadAllEvents(ReadAllEventsBehaviour, Conversation):
@@ -677,7 +677,7 @@ class IterAllEvents(ReadAllEventsBehaviour, Conversation):
 
     async def start(self, output):
         await output.put(self._fetch_page_message(self.from_position))
-        logging.debug("IterAllEvents started (%s)", self.conversation_id)
+        self._logger.debug("IterAllEvents started (%s)", self.conversation_id)
 
     async def success(self, result: proto.ReadAllEventsCompleted, output: Queue):
         if not self.has_first_page:
@@ -760,7 +760,7 @@ class IterStreamEvents(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
         await output.put(
             self._fetch_page_message(self.iterator.last_event_number or self.from_event)
         )
-        logging.debug(
+        self._logger.debug(
             "IterStreamEvents started on %s (%s)", self.stream, self.conversation_id
         )
 
@@ -899,7 +899,7 @@ class CreatePersistentSubscription(Conversation):
             )
         )
 
-        logging.debug(
+        self._logger.debug(
             "CreatePersistentSubscription started on %s (%s)",
             self.stream,
             self.conversation_id,
@@ -965,7 +965,7 @@ class ConnectPersistentSubscription(Conversation):
                 self.credential,
             )
         )
-        logging.debug(
+        self._logger.debug(
             "ConnectPersistentSubscription started on %s (%s)",
             self.stream,
             self.conversation_id,
@@ -1062,7 +1062,7 @@ class SubscribeToStream(Conversation):
                 self.credential,
             )
         )
-        logging.debug(
+        self._logger.debug(
             "SubscribeToStream started on %s (%s)", self.stream, self.conversation_id
         )
 
@@ -1237,7 +1237,7 @@ class CatchupSubscription(ReadStreamEventsBehaviour, PageStreamEventsBehaviour):
             self.from_event, self.next_event_number, self.last_event_number
         )
         await PageStreamEventsBehaviour.start(self, output)
-        logging.debug(
+        self._logger.debug(
             "CatchupSubscription started on %s (%s)", self.stream, self.conversation_id
         )
 
@@ -1434,7 +1434,7 @@ class CatchupAllSubscription(ReadAllEventsBehaviour, Conversation):
             OutboundMessage(self.conversation_id, command, data, self.credential)
         )
 
-        logging.debug("CatchupAllSubscription started (%s)", self.conversation_id)
+        self._logger.debug("CatchupAllSubscription started (%s)", self.conversation_id)
 
     @property
     def is_live(self):

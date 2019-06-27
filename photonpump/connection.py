@@ -285,6 +285,7 @@ class PaceMaker:
         self._connector = connector
         self.response_timeout = response_timeout
         self.heartbeat_period = heartbeat_period
+        self.log = logging.get_named_logger(PaceMaker)
         self._fut = None
 
     async def handle_request(self, message: msg.InboundMessage):
@@ -300,7 +301,7 @@ class PaceMaker:
 
     async def send_heartbeat(self) -> asyncio.Future:
         fut = asyncio.Future()
-        logging.debug("Sending heartbeat %s to server", self.heartbeat_id)
+        self.log.debug("Sending heartbeat %s to server", self.heartbeat_id)
         hb = convo.Heartbeat(self.heartbeat_id, direction=convo.Heartbeat.OUTBOUND)
         await hb.start(self._output)
         self._fut = fut
@@ -310,16 +311,16 @@ class PaceMaker:
     async def await_heartbeat_response(self):
         try:
             await asyncio.wait_for(self._fut, self.response_timeout)
-            logging.debug("Received heartbeat response from server")
+            self.log.debug("Received heartbeat response from server")
             self._connector.heartbeat_received(self.heartbeat_id)
         except asyncio.TimeoutError as e:
-            logging.warning("Heartbeat %s timed out", self.heartbeat_id)
+            self.log.warning("Heartbeat %s timed out", self.heartbeat_id)
             self._connector.heartbeat_failed(e)
         except asyncio.CancelledError:
-            logging.debug("Heartbeat waiter cancelled.")
+            self.log.debug("Heartbeat waiter cancelled.")
             raise
         except Exception as exn:
-            logging.exception("Heartbeat %s failed", self.heartbeat_id)
+            self.log.exception("Heartbeat %s failed", self.heartbeat_id)
             self._connector.heartbeat_failed(exn)
 
     async def send_heartbeats(self):
@@ -329,7 +330,7 @@ class PaceMaker:
                 await self.await_heartbeat_response()
                 await asyncio.sleep(self.heartbeat_period)
             except asyncio.CancelledError:
-                logging.debug("Heartbeat loop cancelled")
+                self.log.debug("Heartbeat loop cancelled")
 
                 break
 
@@ -416,7 +417,7 @@ class MessageReader:
             except asyncio.CancelledError:
                 return
             except:
-                logging.exception("Unhandled error in Message Reader")
+                self._logger.exception("Unhandled error in Message Reader")
                 raise
 
     async def process(self, chunk: bytes):
@@ -1159,7 +1160,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
             except asyncio.CancelledError:
                 break
             except:
-                logging.exception("Dispatch loop failed")
+                self._log.exception("Dispatch loop failed")
 
                 break
 
