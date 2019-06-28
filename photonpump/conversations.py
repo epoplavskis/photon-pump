@@ -432,7 +432,9 @@ class ReadEvent(ReadStreamEventsBehaviour, Conversation):
                 self.conversation_id, TcpCommand.Read, data, self.credential
             )
         )
-        self._logger.debug("ReadEvent started on %s (%s)", self.stream, self.conversation_id)
+        self._logger.debug(
+            "ReadEvent started on %s (%s)", self.stream, self.conversation_id
+        )
 
     async def success(self, response, output: Queue):
         self.is_complete = True
@@ -460,7 +462,9 @@ class PageStreamEventsBehaviour(Conversation):
 
     async def start(self, output):
         await output.put(self._fetch_page_message(self.from_event))
-        self._logger.debug("PageStreamEventsBehaviour started (%s)", self.conversation_id)
+        self._logger.debug(
+            "PageStreamEventsBehaviour started (%s)", self.conversation_id
+        )
 
 
 class ReadAllEvents(ReadAllEventsBehaviour, Conversation):
