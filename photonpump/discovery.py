@@ -355,8 +355,10 @@ class DiscoveryRetryPolicy:
 
     def should_retry(self, node):
         stats = self.stats[node]
-
-        return stats.consecutive_failures < self.retries_per_node
+        return (
+            self.retries_per_node == 0
+            or stats.consecutive_failures < self.retries_per_node
+        )
 
     async def wait(self, seed):
         stats = self.stats[seed]
