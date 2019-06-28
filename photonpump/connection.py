@@ -1,4 +1,5 @@
 import array
+import concurrent.futures
 import asyncio
 import enum
 import logging
@@ -364,8 +365,10 @@ class MessageWriter:
             try:
                 await self.writer.drain()
                 self._logger.debug("Finished drain for %s", msg)
+            except concurrent.futures.CancelledError as e:
+                return
             except Exception as e:
-                self._logger.error(e)
+                self._logger.exception(e)
 
 
 class MessageReader:
