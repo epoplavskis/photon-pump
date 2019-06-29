@@ -75,7 +75,7 @@ class Connector:
         self.heartbeat_failures = 0
         self.connect_timeout = connect_timeout
         self.active_protocol = None
-        self.retry_policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=0)
+        self.retry_policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=20)
 
     def _put_msg(self, msg):
         asyncio.ensure_future(self.ctrl_queue.put(msg))
@@ -1088,6 +1088,18 @@ class Client:
             cmd = convo.CatchupSubscription(
                 stream, start_from, batch_size, credential=self.credential
             )
+
+        future = await self.dispatcher.start_conversation(cmd)
+
+        return await future
+
+    async def subscribe_to_all(
+        self, batch_size: int = 100, start_from=0, conversation_id=None
+    ):
+
+        cmd: convo.Conversation = convo.CatchupAllSubscription(
+            start_from, batch_size, credential=self.credential
+        )
 
         future = await self.dispatcher.start_conversation(cmd)
 
