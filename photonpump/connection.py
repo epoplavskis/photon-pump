@@ -182,7 +182,6 @@ class Connector:
         if self.active_protocol:
             self.log.info("connector.reconnect: Stopping active protocol")
             await self._stop_active_protocol()
-            await asyncio.sleep(10)
 
         if not node:
             self.log.info(

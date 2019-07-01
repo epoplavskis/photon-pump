@@ -243,8 +243,8 @@ class SingleNodeDiscovery:
             self.failed = True
 
     async def discover(self):
-        # if self.failed:
-        #     raise DiscoveryFailed()
+        if self.failed:
+            raise DiscoveryFailed()
         LOG.debug("SingleNodeDiscovery returning node %s", self.node)
 
         return self.node
