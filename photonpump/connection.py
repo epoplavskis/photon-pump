@@ -120,14 +120,17 @@ class Connector:
             ConnectorInstruction(ConnectorCommand.Connect, None, target)
         )
 
-    async def stop(self, exn=None):
-        self.log.info("Stopping connector")
-        self.state = ConnectorState.Stopping
-        self.log.info("In ur stop stopping ur procool")
-
+    async def _stop_active_protocol(self):
+        self.log.info("Stopping active protocol")
         if self.active_protocol:
             await self.active_protocol.stop()
         self.active_protocol = None
+
+    async def stop(self, exn=None):
+        self.log.info("Stopping connector")
+        self.state = ConnectorState.Stopping
+        self._stop_active_protocol()
+
         self._run_loop.cancel()
         self.stopped(exn)
 
@@ -177,7 +180,8 @@ class Connector:
     async def reconnect(self, node=None):
         if self.active_protocol:
             self.log.info("connector.reconnect: Stopping active protocol")
-            await self.stop()
+            await self._stop_active_protocol()
+            await asyncio.sleep(10)
 
         if not node:
             self.log.info(
@@ -193,8 +197,7 @@ class Connector:
             await self.start(target=node)
         else:
             self.log.error(
-                "connector.reconnect:",
-                "Reached maximum number of retry attempts on node %s",
+                "connector.reconnect: Reached maximum number of retry attempts on node %s",
                 node,
             )
             self.discovery.mark_failed(node)
