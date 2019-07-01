@@ -266,7 +266,7 @@ async def test_when_restarting_a_running_connector(event_loop):
 
         await connector.reconnect(connector.target_node)
 
-        [connect, closed, b,c,d,   connected] = await queue.next_event(count=6)
+        [connect, closed, b, c, d, connected] = await queue.next_event(count=6)
 
         assert closed.command == ConnectorCommand.HandleConnectionClosed
         assert connect.command == ConnectorCommand.Connect
