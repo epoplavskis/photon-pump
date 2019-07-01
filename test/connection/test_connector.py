@@ -247,6 +247,7 @@ async def test_when_the_connection_fails_with_an_error(event_loop):
 
         await connector.stop()
 
+
 @pytest.mark.asyncio
 async def test_when_restarting_a_running_connector(event_loop):
     queue = TeeQueue()
