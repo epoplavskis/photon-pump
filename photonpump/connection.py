@@ -121,22 +121,19 @@ class Connector:
             ConnectorInstruction(ConnectorCommand.Connect, None, target)
         )
 
-    async def stop(self, exn=None):
-        self.log.info("Stopping connector")
-        self.state = ConnectorState.Stopping
-        self.log.info("In ur stop stopping ur procool")
-
+    async def _stop_active_protocol(self):
+        self.log.info("Stopping active protocol")
         if self.active_protocol:
             await self.active_protocol.stop()
         self.active_protocol = None
+
+    async def stop(self, exn=None):
+        self.log.info("Stopping connector")
+        self.state = ConnectorState.Stopping
+        self._stop_active_protocol()
+
         self._run_loop.cancel()
         self.stopped(exn)
-
-    # async def reconnect(self):
-    #     if self.active_protocol:
-    #         await self.active_protocol.stop()
-    #     else:
-    #         await self.start()
 
     async def _attempt_connect(self, node):
         if not node:
@@ -183,18 +180,26 @@ class Connector:
 
     async def reconnect(self, node=None):
         if self.active_protocol:
-            await self.active_protocol.stop()
+            self.log.info("connector.reconnect: Stopping active protocol")
+            await self._stop_active_protocol()
 
         if not node:
+            self.log.info(
+                "connector.reconnect: No node was given, starting connection without node selected"
+            )
             await self.start()
 
             return
 
         if self.retry_policy.should_retry(node):
+            self.log.info("connector.reconnect: Running retry policy")
             await self.retry_policy.wait(node)
             await self.start(target=node)
         else:
-            self.log.error("Reached maximum number of retry attempts on node %s", node)
+            self.log.error(
+                "connector.reconnect: Reached maximum number of retry attempts on node %s",
+                node,
+            )
             self.discovery.mark_failed(node)
 
             await self.start()
