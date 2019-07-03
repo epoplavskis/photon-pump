@@ -245,6 +245,8 @@ async def test_when_the_connection_fails_with_an_error(event_loop):
         assert connection_failed.command == ConnectorCommand.HandleConnectionFailed
         assert connection_failed.data is exn
 
+        await connector.stop()
+
 
 @pytest.mark.asyncio
 async def test_when_restarting_a_running_connector(event_loop):
@@ -257,17 +259,21 @@ async def test_when_restarting_a_running_connector(event_loop):
 
     async with EchoServer(addr, event_loop):
         await connector.start()
+
         [connect, connected] = await queue.next_event(count=2)
 
         assert connected.command == ConnectorCommand.HandleConnectionOpened
         await connector_event(connector.connected)
 
-        await connector.reconnect()
+        await connector.reconnect(connector.target_node)
 
-        [closed, reconnect] = await queue.next_event(count=2)
+        [connect, closed, b, c, d, connected] = await queue.next_event(count=6)
 
         assert closed.command == ConnectorCommand.HandleConnectionClosed
-        assert reconnect.command == ConnectorCommand.Connect
+        assert connect.command == ConnectorCommand.Connect
+        assert connected.command == ConnectorCommand.HandleConnectionOpened
+
+        await connector.stop()
 
 
 @pytest.mark.asyncio

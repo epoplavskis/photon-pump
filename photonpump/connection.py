@@ -1,4 +1,5 @@
 import array
+import concurrent.futures
 import asyncio
 import enum
 import logging
@@ -120,22 +121,19 @@ class Connector:
             ConnectorInstruction(ConnectorCommand.Connect, None, target)
         )
 
-    async def stop(self, exn=None):
-        self.log.info("Stopping connector")
-        self.state = ConnectorState.Stopping
-        self.log.info("In ur stop stopping ur procool")
-
+    async def _stop_active_protocol(self):
+        self.log.info("Stopping active protocol")
         if self.active_protocol:
             await self.active_protocol.stop()
         self.active_protocol = None
+
+    async def stop(self, exn=None):
+        self.log.info("Stopping connector")
+        self.state = ConnectorState.Stopping
+        self._stop_active_protocol()
+
         self._run_loop.cancel()
         self.stopped(exn)
-
-    async def reconnect(self):
-        if self.active_protocol:
-            await self.active_protocol.stop()
-        else:
-            await self.start()
 
     async def _attempt_connect(self, node):
         if not node:
@@ -180,29 +178,41 @@ class Connector:
         await self.dispatcher.write_to(protocol.output_queue)
         self.connected(address)
 
-    async def _reconnect(self, node):
+    async def reconnect(self, node=None):
+        if self.active_protocol:
+            self.log.info("connector.reconnect: Stopping active protocol")
+            await self._stop_active_protocol()
+
         if not node:
+            self.log.info(
+                "connector.reconnect: No node was given, starting connection without node selected"
+            )
             await self.start()
 
             return
 
         if self.retry_policy.should_retry(node):
+            self.log.info("connector.reconnect: Running retry policy")
             await self.retry_policy.wait(node)
             await self.start(target=node)
         else:
-            self.log.error("Reached maximum number of retry attempts on node %s", node)
+            self.log.error(
+                "connector.reconnect: Reached maximum number of retry attempts on node %s",
+                node,
+            )
             self.discovery.mark_failed(node)
+
             await self.start()
 
     async def _on_transport_closed(self):
         self.log.info("Connection closed gracefully, restarting")
         self.disconnected()
-        await self._reconnect(self.target_node)
+        await self.reconnect(self.target_node)
 
     async def _on_transport_error(self, exn):
         self.log.info("Connection closed with error, restarting %s", exn)
         self.disconnected()
-        await self._reconnect(self.target_node)
+        await self.reconnect(self.target_node)
 
     async def _on_connect_failed(self, exn):
         self.log.info(
@@ -211,7 +221,7 @@ class Connector:
             exn,
         )
         self.retry_policy.record_failure(self.target_node)
-        await self._reconnect(self.target_node)
+        await self.reconnect(self.target_node)
 
     async def _on_failed_heartbeat(self, exn):
         self.log.warning("Failed to handle a heartbeat")
@@ -281,6 +291,7 @@ class PaceMaker:
         self._connector = connector
         self.response_timeout = response_timeout
         self.heartbeat_period = heartbeat_period
+        self.log = logging.get_named_logger(PaceMaker)
         self._fut = None
 
     async def handle_request(self, message: msg.InboundMessage):
@@ -296,7 +307,7 @@ class PaceMaker:
 
     async def send_heartbeat(self) -> asyncio.Future:
         fut = asyncio.Future()
-        logging.debug("Sending heartbeat %s to server", self.heartbeat_id)
+        self.log.debug("Sending heartbeat %s to server", self.heartbeat_id)
         hb = convo.Heartbeat(self.heartbeat_id, direction=convo.Heartbeat.OUTBOUND)
         await hb.start(self._output)
         self._fut = fut
@@ -306,16 +317,16 @@ class PaceMaker:
     async def await_heartbeat_response(self):
         try:
             await asyncio.wait_for(self._fut, self.response_timeout)
-            logging.debug("Received heartbeat response from server")
+            self.log.debug("Received heartbeat response from server")
             self._connector.heartbeat_received(self.heartbeat_id)
         except asyncio.TimeoutError as e:
-            logging.warning("Heartbeat %s timed out", self.heartbeat_id)
+            self.log.warning("Heartbeat %s timed out", self.heartbeat_id)
             self._connector.heartbeat_failed(e)
         except asyncio.CancelledError:
-            logging.debug("Heartbeat waiter cancelled.")
+            self.log.debug("Heartbeat waiter cancelled.")
             raise
         except Exception as exn:
-            logging.exception("Heartbeat %s failed", self.heartbeat_id)
+            self.log.exception("Heartbeat %s failed", self.heartbeat_id)
             self._connector.heartbeat_failed(exn)
 
     async def send_heartbeats(self):
@@ -325,7 +336,7 @@ class PaceMaker:
                 await self.await_heartbeat_response()
                 await asyncio.sleep(self.heartbeat_period)
             except asyncio.CancelledError:
-                logging.debug("Heartbeat loop cancelled")
+                self.log.debug("Heartbeat loop cancelled")
 
                 break
 
@@ -360,8 +371,10 @@ class MessageWriter:
             try:
                 await self.writer.drain()
                 self._logger.debug("Finished drain for %s", msg)
+            except concurrent.futures.CancelledError as e:
+                return
             except Exception as e:
-                self._logger.error(e)
+                self._logger.exception(e)
 
 
 class MessageReader:
@@ -412,7 +425,7 @@ class MessageReader:
             except asyncio.CancelledError:
                 return
             except:
-                logging.exception("Unhandled error in Message Reader")
+                self._logger.exception("Unhandled error in Message Reader")
                 raise
 
     async def process(self, chunk: bytes):
@@ -1155,7 +1168,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
             except asyncio.CancelledError:
                 break
             except:
-                logging.exception("Dispatch loop failed")
+                self._log.exception("Dispatch loop failed")
 
                 break
 

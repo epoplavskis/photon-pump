@@ -1,11 +1,4 @@
-.. image:: https://travis-ci.org/madedotcom/photon-pump.svg?branch=master
-    :target: https://travis-ci.org/madedotcom/photon-pump
 
-.. image:: https://codecov.io/gh/madedotcom/photon-pump/branch/master/graph/badge.svg
-    :target: https://codecov.io/gh/madedotcom/photon-pump
-
-.. image:: https://img.shields.io/readthedocs/photon-pump.png
-    :target: http://photon-pump.readthedocs.io/en/latest/
 
 Photon-pump is a fast, user-friendly client for Eventstore_.
 
@@ -20,7 +13,7 @@ Photon pump is available on the `cheese shop`_. ::
 
 You will need to install lib-protobuf 3.2.0 or above.
 
-Documentation is available on `Read the docs`_. 
+Documentation is available on `Read the docs`_.
 
 Basic Usage
 -----------
@@ -28,7 +21,7 @@ Basic Usage
 Working with connections
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Usually you will want to interact with photon pump via the :class:`~photonpump.Client` class. The :class:`~photonpump.Client` is a full-duplex client that can handle many requests and responses in parallel. It is recommended that you create a single connection per application.
+Usually you will want to interact with photon pump via the `~photonpump.Client` class. The `~photonpump.Client` is a full-duplex client that can handle many requests and responses in parallel. It is recommended that you create a single connection per application.
 
 First you will need to create a connection:
 
@@ -41,7 +34,7 @@ First you will need to create a connection:
     >>>     await c.ping()
 
 
-The :func:`photonpump.connect` function returns an async context manager so that the connection will be automatically closed when you are finished. Alternatively you can create a client and manage its lifetime yourself.
+The `photonpump.connect` function returns an async context manager so that the connection will be automatically closed when you are finished. Alternatively you can create a client and manage its lifetime yourself.
 
     >>> import asyncio
     >>> from photonpump import connect
@@ -56,7 +49,7 @@ The :func:`photonpump.connect` function returns an async context manager so that
 Reading and Writing single events
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A connection can be used for both reading and writing events. You can publish a single event with the :meth:`~photonpump.Client.publish_event` method:
+A connection can be used for both reading and writing events. You can publish a single event with the `~photonpump.Client.publish_event` method:
 
     >>> # When publishing events, you must provide the stream name.
     >>> stream = 'ponies'
@@ -68,12 +61,12 @@ A connection can be used for both reading and writing events. You can publish a 
     >>>     'Distance': 13
     >>>     })
 
-We can fetch a single event with the complementary :meth:`~photonpump.Client.get_event` method if we know its `event number` and the stream where it was published:
+We can fetch a single event with the complementary `~photonpump.Client.get_event` method if we know its `event number` and the stream where it was published:
 
     >>> event_number = result.last_event_number
     >>> event = await conn.get_event(stream, event_number)
 
-Assuming that your event was published as json, you can load the body with the :meth:`~photonpump.messages.Event.json` method:
+Assuming that your event was published as json, you can load the body with the `~photonpump.messages.Event.json` method:
 
 .. code-block:: python
 
@@ -135,7 +128,7 @@ Assuming that your event was published as json, you can load the body with the :
 Reading and Writing in Batches
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We can read and write several events in a request using the :meth:`~photonpump.Client.get` and :meth:`~photonpump.Client.publish` methods of our :class:`~photonpump.Client`. the :func:`photonpump.message.NewEvent` function is a helper for constructing events.
+We can read and write several events in a request using the `~photonpump.Client.get` and `~photonpump.Client.publish` methods of our `~photonpump.Client`. the `photonpump.message.NewEvent` function is a helper for constructing events.
 
     >>> stream = 'more_ponies'
     >>> events = [
@@ -180,7 +173,7 @@ We can get events from a stream in slices by setting the `from_event_number` and
 Reading with Asynchronous Generators
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We can page through a stream manually by using the `from_event_number` argument of :meth:`~photonpump.Client.get`, but it's simpler to use the :meth:`~photonpump.Client.iter` method, which returns an asynchronous generator. By default, `iter` will read from the beginning to the end of a stream, and then stop. As with `get`, you can set the :class:`~photon.messages.StreamDirection`, or use `from_event` to control the result:
+We can page through a stream manually by using the `from_event_number` argument of `~photonpump.Client.get`, but it's simpler to use the `~photonpump.Client.iter` method, which returns an asynchronous generator. By default, `iter` will read from the beginning to the end of a stream, and then stop. As with `get`, you can set the `~photon.messages.StreamDirection`, or use `from_event` to control the result:
 
     >>> async for event in conn.iter(stream):
     >>>     print (event)
@@ -203,16 +196,16 @@ This extends to asynchronous comprehensions:
 Persistent Subscriptions
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Sometimes we want to watch a stream continuously and be notified when a new event occurs. Eventstore supports volatile and persistent subscriptions for this use case. 
+Sometimes we want to watch a stream continuously and be notified when a new event occurs. Eventstore supports volatile and persistent subscriptions for this use case.
 
 A persistent subscription stores its state on the server. When your application restarts, you can connect to the subscription again and continue where you left off. Multiple clients can connect to the same persistent subscription to support competing consumer scenarios. To support these features, persistent subscriptions have to run against the master node of an Eventstore cluster.
 
-Firstly, we need to :meth:`create the subscription <photonpump.connection.Client.create_subscription>`.
+Firstly, we need to `create the subscription <photonpump.connection.Client.create_subscription>`.
 
     >>> async def create_subscription(subscription_name, stream_name, conn):
     >>>     await conn.create_subscription(subscription_name, stream_name)
 
-Once we have a subscription, we can :meth:`connect to it <photonpump.connection.Client.connect_subscription>` to begin receiving events. A persistent subscription exposes an `events` property, which acts like an asynchronous iterator.
+Once we have a subscription, we can `connect to it <photonpump.connection.Client.connect_subscription>` to begin receiving events. A persistent subscription exposes an `events` property, which acts like an asynchronous iterator.
 
     >>> async def read_events_from_subscription(subscription_name, stream_name, conn):
     >>>     subscription = await conn.connect_subscription(subscription_name, stream_name)
@@ -231,7 +224,8 @@ In a Volatile Subscription, state is stored by the client. When your application
 Volatile subsciptions do not support event acknowledgement.
 
     >>> async def subscribe_to_stream(stream, conn):
-    >>>     async for event in conn.subscribe_to(stream):
+    >>>     subscription = await conn.subscribe_to(stream)
+    >>>     async for event in subscription.events:
     >>>         print(event)
 
 
@@ -250,7 +244,7 @@ If you provide both a `host` and `discovery_host`, photonpump will prefer discov
 
 .. _Eventstore: http://geteventstore.com
 .. _cheese shop: https://pypi.python.org/pypi/photon-pump
-.. _Read the docs: http://photon-pump.readthedocs.io/en/latest/ 
+.. _Read the docs: http://photon-pump.readthedocs.io/en/latest/
 
 
 Debugging

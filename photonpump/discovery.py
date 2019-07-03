@@ -93,12 +93,13 @@ def select(
         node for node in gossip if node.is_alive and node.state in ELIGIBLE_STATE
     ]
 
-    LOG.debug("Selecting node from gossip members: %r", eligible_nodes)
+    selector = selector or prefer_master
+    LOG.debug(
+        "Selecting node using '%s' from gossip members: %r", selector, eligible_nodes
+    )
 
     if not eligible_nodes:
         return None
-
-    selector = selector or prefer_master
 
     return selector(eligible_nodes)
 
@@ -354,8 +355,10 @@ class DiscoveryRetryPolicy:
 
     def should_retry(self, node):
         stats = self.stats[node]
-
-        return stats.consecutive_failures < self.retries_per_node
+        return (
+            self.retries_per_node == 0
+            or stats.consecutive_failures < self.retries_per_node
+        )
 
     async def wait(self, seed):
         stats = self.stats[seed]
