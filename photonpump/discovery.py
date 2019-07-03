@@ -234,13 +234,26 @@ async def fetch_new_gossip(session, seed):
 
 
 class SingleNodeDiscovery:
-    def __init__(self, node):
+    def __init__(self, node, retry_policy=None):
         self.node = node
         self.failed = False
+        self.policy = retry_policy or DiscoveryRetryPolicy()
 
     def mark_failed(self, node):
         if node == self.node:
             self.failed = True
+
+    def should_retry(self, node):
+        return self.policy.should_retry(node)
+
+    def record_failure(self, node):
+        self.policy.record_failure(node)
+
+    def record_success(self, node):
+        self.policy.record_success(node)
+
+    async def wait(self, node):
+        await self.policy.wait(node)
 
     async def discover(self):
         if self.failed:
@@ -334,6 +347,18 @@ class ClusterDiscovery:
             if self.best_node:
                 return self.best_node.external_tcp
         raise DiscoveryFailed()
+
+    def should_retry(self, node):
+        return self.retry_policy.should_retry(node)
+
+    def record_failure(self, node):
+        self.retry_policy.record_failure(node)
+
+    def record_success(self, node):
+        self.retry_policy.record_success(node)
+
+    async def wait(self, seed):
+        await self.retry_policy.wait(node)
 
 
 class DiscoveryRetryPolicy:

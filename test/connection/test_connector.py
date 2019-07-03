@@ -205,11 +205,10 @@ async def test_when_discovery_fails_on_reconnection(event_loop):
     policy = never_retry()
     dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr),
+        SingleNodeDiscovery(addr, policy),
         dispatcher,
         loop=event_loop,
-        ctrl_queue=queue,
-        retry_policy=policy,
+        ctrl_queue=queue
     )
 
     connector.stopped.append(on_stopped)

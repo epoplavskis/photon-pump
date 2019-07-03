@@ -55,7 +55,6 @@ class Connector:
         self,
         discovery,
         dispatcher,
-        retry_policy=None,
         ctrl_queue=None,
         connect_timeout=5,
         name=None,
@@ -75,7 +74,6 @@ class Connector:
         self.heartbeat_failures = 0
         self.connect_timeout = connect_timeout
         self.active_protocol = None
-        self.retry_policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=0)
 
     def _put_msg(self, msg):
         asyncio.ensure_future(self.ctrl_queue.put(msg))
@@ -88,7 +86,7 @@ class Connector:
         )
 
     def heartbeat_received(self, conversation_id):
-        self.retry_policy.record_success(self.target_node)
+        self.discovery.record_success(self.target_node)
         self._put_msg(
             ConnectorInstruction(
                 ConnectorCommand.HandleHeartbeatSuccess, None, conversation_id
@@ -97,7 +95,7 @@ class Connector:
 
     def connection_lost(self, exn=None):
         self.log.info("connection_lost {}".format(exn))
-        self.retry_policy.record_failure(self.target_node)
+        self.discovery.record_failure(self.target_node)
 
         if exn:
             self._put_msg(
@@ -191,9 +189,9 @@ class Connector:
 
             return
 
-        if self.retry_policy.should_retry(node):
+        if self.discovery.should_retry(node):
             self.log.info("connector.reconnect: Running retry policy")
-            await self.retry_policy.wait(node)
+            await self.discovery.wait(node)
             await self.start(target=node)
         else:
             self.log.error(
@@ -220,7 +218,7 @@ class Connector:
             self.target_node,
             exn,
         )
-        self.retry_policy.record_failure(self.target_node)
+        self.discovery.record_failure(self.target_node)
         await self.reconnect(self.target_node)
 
     async def _on_failed_heartbeat(self, exn):
