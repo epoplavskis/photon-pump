@@ -1199,7 +1199,6 @@ class VolatileSubscription:
 
 
 class __catchup(Conversation):
-
     async def error(self, exn) -> None:
         if self.result.done():
             await self.subscription.raise_error(exn)
@@ -1294,6 +1293,7 @@ class __catchup(Conversation):
                 self.credential,
             )
         )
+
 
 class CatchupSubscription(__catchup):
     def __init__(
@@ -1477,7 +1477,6 @@ class CatchupAllSubscription(__catchup):
         )
 
         self._logger.debug("CatchupAllSubscription started (%s)", self.conversation_id)
-
 
     async def reply_from_catch_up(self, message, output):
         if message.command == TcpCommand.SubscriptionDropped:
