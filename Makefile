@@ -20,3 +20,6 @@ check_lint:
 
 continous_test:
 	PYASYNCIODEBUG=1 pipenv run ptw
+
+eventstore_docker:
+	docker run -d -p 2113:2113 -p 1113:1113 eventstore/eventstore
