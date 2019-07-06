@@ -256,16 +256,16 @@ If you want to step through code that uses photonpump, it's helpful to be aware 
 Development
 -----------
 
-We use `make` to manage the common development tasks. Check Makefile_ for all available command.
+We use :code:`make` to manage the common development tasks. Check Makefile_ for all available command.
 The most important commands are:
 
-`init`
+:code:`init`
   Installs pipenv_ and all of the development dependencies
 
-`eventstore_docker`
+:code:`eventstore_docker`
     Starts eventstore in docker
 
-`all_tests`
+:code:`all_tests`
     runs all of the tests (requires running eventstore instance, localhost:1113)
 
 .. _pipenv: http://docs.pipenv.org/en/latest/
