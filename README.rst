@@ -256,28 +256,18 @@ If you want to step through code that uses photonpump, it's helpful to be aware 
 Development
 -----------
 
-We use `make` to manage the common development tasks:
+We use `make` to manage the common development tasks. Check Makefile_ for all available command.
+The most important commands are:
 
 `init`
-  Install pipenv and development dependencies
-
-`all_tests`
-    runs all of the tests (requires running eventstore instance, localhost:1113)
-
-`lint`
-    it runs black_
-
-`check_lint`
-    it runs black_ but doesn't modify the files
-
-`fast_tests`
-    Runs lint and tests which doesn't require communication with eventstore
-
-`continous_test`
-    Runs the tests and runs them again and again once you change any code
+  Installs pipenv_ and all of the development dependencies
 
 `eventstore_docker`
     Starts eventstore in docker
 
+`all_tests`
+    runs all of the tests (requires running eventstore instance, localhost:1113)
+
 .. _pipenv: http://docs.pipenv.org/en/latest/
 .. _black: https://github.com/python/black
+.. _Makefile: Makefile
