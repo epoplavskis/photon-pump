@@ -251,3 +251,33 @@ Debugging
 ~~~~~~~~~
 
 If you want to step through code that uses photonpump, it's helpful to be aware that Event Store's TCP API (which photonpump uses) makes use of a 'heartbeat' to ensure that connections are not left open. This means that if you're sitting at a debugger (e.g. pdb) prompt -- and therefore not running the event loop for tens of seconds at a time -- you'll find that you get disconnected. To prevent that, you can run it with Event Store's heartbeat timeouts set to high values -- e.g. with a `Dockerfile` `like this <http://github.com/jlee1-made/resting-eventstore>`_.
+
+
+Development
+-----------
+
+We use `make` to manage the common development tasks:
+
+`init`
+  Install pipenv and development dependencies
+
+`all_tests`
+    runs all of the tests (requires running eventstore instance, localhost:1113)
+
+`lint`
+    it runs black_
+
+`check_lint`
+    it runs black_ but doesn't modify the files
+
+`fast_tests`
+    Runs lint and tests which doesn't require communication with eventstore
+
+`continous_test`
+    Runs the tests and runs them again and again once you change any code
+
+`eventstore_docker`
+    Starts eventstore in docker
+
+.. _pipenv: http://docs.pipenv.org/en/latest/
+.. _black: https://github.com/python/black
