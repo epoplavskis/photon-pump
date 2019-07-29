@@ -137,7 +137,7 @@ class Connector:
         if not node:
             try:
                 self.log.debug("Performing node discovery")
-                node = self.target_node = await self.discovery.discover()
+                node = self.target_node = await self.discovery.next_node()
             except Exception as e:
                 await self.ctrl_queue.put(
                     ConnectorInstruction(
@@ -189,7 +189,7 @@ class Connector:
             return
 
         try:
-            node = await self.discovery.next_node(node)
+            node = await self.discovery.next_node()
             await self.start(node)
         except Exception as e:
             await self.ctrl_queue.put(

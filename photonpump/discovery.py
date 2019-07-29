@@ -249,9 +249,6 @@ class SingleNodeDiscovery:
     def record_success(self, node):
         self.policy.record_success(node)
 
-    async def wait(self, node):
-        await self.policy.wait(node)
-
     async def discover(self):
         if self.failed:
             raise DiscoveryFailed()
@@ -259,10 +256,10 @@ class SingleNodeDiscovery:
 
         return self.node
 
-    async def next_node(self, node):
-        if self.policy.should_retry(node):
-            await self.policy.wait(node)
-            return node
+    async def next_node(self):
+        if self.policy.should_retry(self.node):
+            await self.policy.wait(self.node)
+            return self.node
         raise DiscoveryFailed()
 
 
@@ -356,9 +353,6 @@ class ClusterDiscovery:
 
     def record_success(self, node):
         self.retry_policy.record_success(node)
-
-    async def wait(self, seed):
-        await self.retry_policy.wait(node)
 
 
 class DiscoveryRetryPolicy:

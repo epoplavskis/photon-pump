@@ -189,11 +189,17 @@ async def test_when_discovery_fails_on_reconnection(event_loop):
     """
 
     class never_retry:
+        def __init__(self):
+            self.recorded = None
+
         def should_retry(self, _):
-            return False
+            return self.recorded is None
 
         def record_failure(self, node):
             self.recorded = node
+
+        async def wait(self, node):
+            ...
 
     wait_for_stopped = asyncio.Future()
 
