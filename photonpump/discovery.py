@@ -243,9 +243,6 @@ class SingleNodeDiscovery:
         if node == self.node:
             self.failed = True
 
-    def should_retry(self, node):
-        return self.policy.should_retry(node)
-
     def record_failure(self, node):
         self.policy.record_failure(node)
 
@@ -353,9 +350,6 @@ class ClusterDiscovery:
             if self.best_node:
                 return self.best_node.external_tcp
         raise DiscoveryFailed()
-
-    def should_retry(self, node):
-        return self.retry_policy.should_retry(node)
 
     def record_failure(self, node):
         self.retry_policy.record_failure(node)
