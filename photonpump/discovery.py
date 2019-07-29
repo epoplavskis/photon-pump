@@ -262,6 +262,12 @@ class SingleNodeDiscovery:
 
         return self.node
 
+    async def next_node(self, node):
+        if self.policy.should_retry(node):
+            await self.policy.wait(node)
+            return node
+        raise DiscoveryFailed()
+
 
 class DiscoveryStats(NamedTuple):
 

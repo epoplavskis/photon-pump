@@ -216,7 +216,7 @@ async def test_when_discovery_fails_on_reconnection(event_loop):
     await connector.start()
     [connect, connection_failed] = await queue.next_event(count=2)
 
-    [reconnect, failed] = await asyncio.wait_for(queue.next_event(count=2), 2)
+    [failed] = await asyncio.wait_for(queue.next_event(count=1), 2)
     assert failed.command == ConnectorCommand.HandleConnectorFailed
     assert policy.recorded == addr
     assert isinstance(await wait_for_stopped, DiscoveryFailed)

@@ -128,7 +128,7 @@ class Connector:
     async def stop(self, exn=None):
         self.log.info("Stopping connector")
         self.state = ConnectorState.Stopping
-        self._stop_active_protocol()
+        await self._stop_active_protocol()
 
         self._run_loop.cancel()
         self.stopped(exn)
@@ -186,22 +186,17 @@ class Connector:
                 "connector.reconnect: No node was given, starting connection without node selected"
             )
             await self.start()
-
             return
 
-        if self.discovery.should_retry(node):
-            self.log.info("connector.reconnect: Running retry policy")
-            await self.discovery.wait(node)
-            await self.start(target=node)
-        else:
-            self.log.error(
-                "connector.reconnect: Reached maximum number of retry attempts on node %s",
-                node,
-            )
-            self.discovery.mark_failed(node)
-
-            await self.start()
-
+        try:
+            node = await self.discovery.next_node(node)
+            await self.start(node)
+        except Exception as e:
+            await self.ctrl_queue.put(
+                    ConnectorInstruction(
+                        ConnectorCommand.HandleConnectorFailed, None, e
+                    )
+                )
     async def _on_transport_closed(self):
         self.log.info("Connection closed gracefully, restarting")
         self.disconnected()
