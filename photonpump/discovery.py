@@ -239,22 +239,11 @@ class SingleNodeDiscovery:
         self.failed = False
         self.policy = retry_policy or DiscoveryRetryPolicy()
 
-    def mark_failed(self, node):
-        if node == self.node:
-            self.failed = True
-
     def record_failure(self, node):
         self.policy.record_failure(node)
 
     def record_success(self, node):
         self.policy.record_success(node)
-
-    async def discover(self):
-        if self.failed:
-            raise DiscoveryFailed()
-        LOG.debug("SingleNodeDiscovery returning node %s", self.node)
-
-        return self.node
 
     async def next_node(self):
         if self.policy.should_retry(self.node):
@@ -340,7 +329,7 @@ class ClusterDiscovery:
                 if not self.retry_policy.should_retry(seed):
                     self.seeds.mark_failed(seed)
 
-    async def discover(self):
+    async def next_node(self):
         gossip = await self.get_gossip()
 
         if gossip:
