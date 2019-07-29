@@ -193,10 +193,9 @@ class Connector:
             await self.start(node)
         except Exception as e:
             await self.ctrl_queue.put(
-                    ConnectorInstruction(
-                        ConnectorCommand.HandleConnectorFailed, None, e
-                    )
-                )
+                ConnectorInstruction(ConnectorCommand.HandleConnectorFailed, None, e)
+            )
+
     async def _on_transport_closed(self):
         self.log.info("Connection closed gracefully, restarting")
         self.disconnected()
