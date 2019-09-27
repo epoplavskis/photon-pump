@@ -5,7 +5,7 @@ import enum
 import logging
 import struct
 import uuid
-from typing import Any, NamedTuple, Optional, Sequence, Union
+from typing import Any, NamedTuple, Optional, Sequence, Union, Callable
 
 from . import conversations as convo
 from . import messages as msg
@@ -1106,6 +1106,41 @@ class Client:
     async def __aexit__(self, exc_type, exc, tb):
         await self.close()
 
+    async def find_backwards(
+            self,
+            stream: str,
+            predicate: Callable[[Event], bool],
+
+    ):
+        """
+        Return first event matching predicate or None in none exists.
+
+        Args:
+            stream: The name of the stream.
+            predicate: Callable which get's an event as parameter and return
+            boolean as matching result
+
+        Examples:
+
+            Find event with event.type 'my-event-desired' in stream
+            'my-stream-name'.
+
+            >>> with async.connect() as conn:
+            >>>     event = await conn.find_backwards(
+            >>>         'my-stream-name',
+            >>>         predicate=lambda event: 'my-event-desired' in event.type
+            >>>     )
+        """
+
+        async for event in self.iter(
+            stream,
+            batch_size=10,
+            direction=msg.StreamDirection.Backward
+        ):
+            if predicate(event):
+                return event
+
+        return None
 
 class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
     def __init__(
