@@ -48,20 +48,14 @@ async def test_subscribe_to(event_loop):
 async def test_find_backwards(event_loop):
 
     async with connect(username="admin", password="changeit", loop=event_loop) as conn:
-        stream_name = 'my-stream-name'
+        stream_name = "my-stream-name"
         desired_event_id = uuid.uuid4()
 
-        await conn.publish_event(
-            stream_name, "my-event-desired", id=desired_event_id
-        )
-        await conn.publish_event(
-            stream_name,
-            "my-any-other-event",
-            id=uuid.uuid4()
-        )
+        await conn.publish_event(stream_name, "my-event-desired", id=desired_event_id)
+        await conn.publish_event(stream_name, "my-any-other-event", id=uuid.uuid4())
 
         event = await conn.find_backwards(
-            stream_name, predicate=lambda event: 'desired' in event.type
+            stream_name, predicate=lambda event: "desired" in event.type
         )
 
         assert event.received_event.id == desired_event_id

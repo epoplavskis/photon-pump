@@ -1106,12 +1106,7 @@ class Client:
     async def __aexit__(self, exc_type, exc, tb):
         await self.close()
 
-    async def find_backwards(
-            self,
-            stream: str,
-            predicate: Callable[[Event], bool],
-
-    ):
+    async def find_backwards(self, stream: str, predicate: Callable[[Event], bool]):
         """
         Return first event matching predicate or None in none exists.
 
@@ -1133,14 +1128,13 @@ class Client:
         """
 
         async for event in self.iter(
-            stream,
-            batch_size=10,
-            direction=msg.StreamDirection.Backward
+            stream, batch_size=10, direction=msg.StreamDirection.Backward
         ):
             if predicate(event):
                 return event
 
         return None
+
 
 class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
     def __init__(
