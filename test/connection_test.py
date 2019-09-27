@@ -59,3 +59,15 @@ async def test_find_backwards(event_loop):
         )
 
         assert event.received_event.id == desired_event_id
+
+
+@pytest.mark.asyncio
+async def test_find_backwards_event_not_found(event_loop):
+
+    async with connect(username="admin", password="changeit", loop=event_loop) as conn:
+        stream_name = "my-stream-name"
+        event = await conn.find_backwards(
+            stream_name, predicate=lambda event: "no-such-event" in event.type
+        )
+
+        assert event == None
