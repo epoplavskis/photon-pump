@@ -14,13 +14,20 @@ black = "*"
 testfixtures = "*"
 codecov = "*"
 pytest = "*"
-photon-pump = {editable = true,path = "."}
 pytest-cov = "*"
 sphinx = "*"
 versioneer = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.8"
 
 [pipenv]
 allow_prereleases = true
+
+[packages.e1839a8]
+path = "."
+editable = true
+
+[dev-packages.photon-pump]
+editable = true
+path = "."
