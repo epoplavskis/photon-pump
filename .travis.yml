@@ -13,7 +13,7 @@ services:
 before_install:
 - docker run -d -p 127.0.0.1:1113:1113 eventstore/eventstore
 install:
-- make init
+- pip install tox
 script:
 - make travis
 after_success:
