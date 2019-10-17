@@ -260,7 +260,7 @@ We use :code:`make` to manage the common development tasks. Check Makefile_ for 
 The most important commands are:
 
 :code:`make init`
-  Installs pipenv_ and all of the development dependencies
+  Installs requirement.txt
 
 :code:`make eventstore_docker`
     Starts eventstore in docker
@@ -268,6 +268,5 @@ The most important commands are:
 :code:`make all_tests`
     runs all of the tests (requires running eventstore instance, localhost:1113)
 
-.. _pipenv: http://docs.pipenv.org/en/latest/
 .. _black: https://github.com/python/black
 .. _Makefile: Makefile

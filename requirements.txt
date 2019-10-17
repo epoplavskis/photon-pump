@@ -1,0 +1,11 @@
+idna-ssl
+aioresponses
+pytest-asyncio
+colorama
+black
+testfixtures
+codecov
+pytest
+pytest-cov
+sphinx
+versioneer
