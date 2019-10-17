@@ -1,6 +1,6 @@
 BLACK_EXCLUSION=photonpump/__init__.py|photonpump/_version.py|versioneer.py|.tox|.venv
 default: fast_tests
-travis: check_lint all_tests
+travis: check_lint tox
 
 init:
 	pip install -r requirements.txt
@@ -10,6 +10,9 @@ fast_tests: lint
 	pytest test/conversations/
 
 all_tests:
+	pytest test/
+
+tox:
 	tox
 
 lint:
