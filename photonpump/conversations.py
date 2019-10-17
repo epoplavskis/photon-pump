@@ -3,7 +3,10 @@ import logging
 import sys
 import time
 from asyncio import Future, Queue
-from asyncio.base_futures import InvalidStateError
+try:
+    from asyncio.exceptions import InvalidStateError
+except ImportError:
+    from asyncio.futures import InvalidStateError
 from enum import IntEnum
 from typing import NamedTuple, Optional, Sequence, Union
 from uuid import UUID, uuid4
