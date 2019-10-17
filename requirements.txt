@@ -1,11 +1,12 @@
-idna-ssl
 aioresponses
-pytest-asyncio
-colorama
 black
-testfixtures
 codecov
+colorama
+idna-ssl
 pytest
+pytest-asyncio
 pytest-cov
 sphinx
+testfixtures
+tox
 versioneer
