@@ -3,6 +3,7 @@ import logging
 import sys
 import time
 from asyncio import Future, Queue
+
 try:
     from asyncio.exceptions import InvalidStateError
 except ImportError:
