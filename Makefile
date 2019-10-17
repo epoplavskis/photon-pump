@@ -10,7 +10,7 @@ fast_tests: lint
 	pytest test/conversations/
 
 all_tests:
-	pytest
+	tox
 
 lint:
 	black . --exclude "${BLACK_EXCLUSION}"
