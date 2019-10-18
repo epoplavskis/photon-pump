@@ -5,7 +5,7 @@ colorama
 idna-ssl
 pytest
 pytest-asyncio
-pytest-cov
+pytest-cov==2.8.1
 sphinx
 testfixtures
 tox
