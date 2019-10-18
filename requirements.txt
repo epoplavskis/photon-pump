@@ -1,6 +1,6 @@
 aioresponses
 black
-codecov
+codecov==2.0.15
 colorama
 idna-ssl
 pytest
