@@ -1,13 +1,19 @@
 sudo: required
 language: python
-python:
-- 3.6
+matrix:
+  include:
+    - python: 3.6
+      env: TOXENV=py36
+    - python: 3.7
+      env: TOXENV=py37
+    - python: 3.8
+      env: TOXENV=py38
 services:
 - docker
 before_install:
 - docker run -d -p 127.0.0.1:1113:1113 eventstore/eventstore
 install:
-- make init
+- pip install tox black
 script:
 - make travis
 after_success:

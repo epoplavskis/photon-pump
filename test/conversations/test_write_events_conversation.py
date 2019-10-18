@@ -7,7 +7,7 @@ from asyncio import Queue
 
 import photonpump.messages as msg
 import photonpump.messages_pb2 as proto
-from photonpump.conversations import WriteEvents
+from photonpump.conversations import WriteEvents, InvalidStateError
 
 
 def given_a_write_events_message():
@@ -166,7 +166,7 @@ async def test_completing_write_events_twice():
         output,
     )
 
-    with pytest.raises(asyncio.base_futures.InvalidStateError) as exn:
+    with pytest.raises(InvalidStateError) as exn:
 
         await conversation.respond_to(
             msg.InboundMessage(
