@@ -9,4 +9,4 @@ pytest-cov
 sphinx
 testfixtures
 tox
-versioneer
+versioneer==0.18
