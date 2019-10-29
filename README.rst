@@ -118,7 +118,7 @@ Assuming that your event was published as json, you can load the body with the `
 
 
     async def read_an_infinite_number_of_events(conn):
-        async for event in conn.stream('ticker_stream'):
+        async for event in conn.iter('ticker_stream'):
             print(event)
 
 
@@ -251,3 +251,25 @@ Debugging
 ~~~~~~~~~
 
 If you want to step through code that uses photonpump, it's helpful to be aware that Event Store's TCP API (which photonpump uses) makes use of a 'heartbeat' to ensure that connections are not left open. This means that if you're sitting at a debugger (e.g. pdb) prompt -- and therefore not running the event loop for tens of seconds at a time -- you'll find that you get disconnected. To prevent that, you can run it with Event Store's heartbeat timeouts set to high values -- e.g. with a `Dockerfile` `like this <http://github.com/jlee1-made/resting-eventstore>`_.
+
+
+Development
+-----------
+
+We use :code:`make` to manage the common development tasks. Check Makefile_ for all available options.
+The most important commands are:
+
+:code:`make init`
+  Installs requirement.txt (you'll need a virtualenv)
+
+:code:`make eventstore_docker`
+    Starts eventstore in docker
+
+:code:`make all_tests`
+    runs all of the tests in your virtualenv (requires running eventstore instance, localhost:1113)
+
+:code:`make tox`
+    runs tests against all supported python versions
+
+.. _black: https://github.com/python/black
+.. _Makefile: Makefile
