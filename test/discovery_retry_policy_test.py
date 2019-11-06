@@ -6,7 +6,6 @@ from photonpump.discovery import DiscoveryRetryPolicy
 
 @pytest.mark.asyncio
 async def test_setting_retry_policy(event_loop):
-
     class silly_retry_policy(DiscoveryRetryPolicy):
         def __init__(self):
             super().__init__()
@@ -21,4 +20,3 @@ async def test_setting_retry_policy(event_loop):
 
     async with connect(loop=event_loop, retry_policy=expected_policy) as client:
         assert client.connector.discovery.retry_policy == expected_policy
-
