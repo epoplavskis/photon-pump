@@ -238,7 +238,9 @@ class SingleNodeDiscovery:
     def __init__(self, node, retry_policy=None):
         self.node = node
         self.failed = False
-        self.policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=KEEP_RETRYING)
+        self.policy = retry_policy or DiscoveryRetryPolicy(
+            retries_per_node=KEEP_RETRYING
+        )
 
     def record_failure(self, node):
         self.policy.record_failure(node)
@@ -404,7 +406,9 @@ def get_discoverer(
     if discovery_host is None:
         LOG.info("Using single-node discoverer")
 
-        return SingleNodeDiscovery(NodeService(host or "localhost", port, None), retry_policy)
+        return SingleNodeDiscovery(
+            NodeService(host or "localhost", port, None), retry_policy
+        )
 
     session = aiohttp.ClientSession()
     try:
