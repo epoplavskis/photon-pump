@@ -235,22 +235,20 @@ async def fetch_new_gossip(session, seed):
 
 
 class SingleNodeDiscovery:
-    def __init__(self, node, retry_policy=None):
+    def __init__(self, node, retry_policy):
         self.node = node
         self.failed = False
-        self.policy = retry_policy or DiscoveryRetryPolicy(
-            retries_per_node=KEEP_RETRYING
-        )
+        self.retry_policy = retry_policy
 
     def record_failure(self, node):
-        self.policy.record_failure(node)
+        self.retry_policy.record_failure(node)
 
     def record_success(self, node):
-        self.policy.record_success(node)
+        self.retry_policy.record_success(node)
 
     async def next_node(self):
-        if self.policy.should_retry(self.node):
-            await self.policy.wait(self.node)
+        if self.retry_policy.should_retry(self.node):
+            await self.retry_policy.wait(self.node)
             return self.node
         raise DiscoveryFailed()
 
@@ -406,6 +404,9 @@ def get_discoverer(
     if discovery_host is None:
         LOG.info("Using single-node discoverer")
 
+        retry_policy = retry_policy or DiscoveryRetryPolicy(
+            retries_per_node=KEEP_RETRYING
+        )
         return SingleNodeDiscovery(
             NodeService(host or "localhost", port, None), retry_policy
         )

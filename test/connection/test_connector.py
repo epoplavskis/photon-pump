@@ -15,7 +15,7 @@ import pytest
 
 from photonpump.connection import Connector, ConnectorCommand
 from photonpump.conversations import Ping
-from photonpump.discovery import DiscoveryFailed, NodeService, SingleNodeDiscovery
+from photonpump.discovery import DiscoveryFailed, NodeService, SingleNodeDiscovery, DiscoveryRetryPolicy
 
 from ..fakes import EchoServer, TeeQueue, SpyDispatcher
 
@@ -47,7 +47,9 @@ async def test_when_connecting_to_a_server(event_loop):
     async with EchoServer(addr, event_loop):
 
         dispatcher = SpyDispatcher()
-        connector = Connector(SingleNodeDiscovery(addr), dispatcher, loop=event_loop)
+        connector = Connector(
+            SingleNodeDiscovery(addr, DiscoveryRetryPolicy()), dispatcher, loop=event_loop
+        )
 
         ping = Ping()
 
@@ -76,7 +78,7 @@ async def test_when_a_server_disconnects(event_loop):
 
     dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr, DiscoveryRetryPolicy()), dispatcher, loop=event_loop, ctrl_queue=queue
     )
     raised_disconnected_event = asyncio.Future(loop=event_loop)
 
@@ -118,7 +120,7 @@ async def test_when_three_heartbeats_fail_in_a_row(event_loop):
     addr = NodeService("localhost", 8338, None)
     dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr, DiscoveryRetryPolicy()), dispatcher, loop=event_loop, ctrl_queue=queue
     )
 
     async with EchoServer(addr, event_loop):
@@ -151,7 +153,7 @@ async def test_when_a_heartbeat_succeeds(event_loop):
     addr = NodeService("localhost", 8338, None)
     dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr, DiscoveryRetryPolicy()), dispatcher, loop=event_loop, ctrl_queue=queue
     )
 
     async with EchoServer(addr, event_loop):
@@ -231,7 +233,7 @@ async def test_when_the_connection_fails_with_an_error(event_loop):
     addr = NodeService("localhost", 8338, None)
     dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr, DiscoveryRetryPolicy()), dispatcher, loop=event_loop, ctrl_queue=queue
     )
 
     async with EchoServer(addr, event_loop):
@@ -256,7 +258,7 @@ async def test_when_restarting_a_running_connector(event_loop):
     addr = NodeService("localhost", 8338, None)
     dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr, DiscoveryRetryPolicy()), dispatcher, loop=event_loop, ctrl_queue=queue
     )
 
     async with EchoServer(addr, event_loop):
@@ -284,7 +286,7 @@ async def test_when_restarting_a_stopped_connector(event_loop):
     addr = NodeService("localhost", 8338, None)
     dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr), dispatcher, loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr, DiscoveryRetryPolicy()), dispatcher, loop=event_loop, ctrl_queue=queue
     )
 
     async with EchoServer(addr, event_loop):
