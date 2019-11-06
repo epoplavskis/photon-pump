@@ -9,7 +9,7 @@ from typing import Any, NamedTuple, Optional, Sequence, Union
 
 from . import conversations as convo
 from . import messages as msg
-from .discovery import DiscoveryRetryPolicy, NodeService, get_discoverer, select_random
+from .discovery import NodeService, get_discoverer, select_random
 
 HEADER_LENGTH = 1 + 1 + 16
 SIZE_UINT_32 = 4
@@ -1202,6 +1202,7 @@ def connect(
     loop=None,
     name=None,
     selector=select_random,
+    retry_policy=None,
 ) -> Client:
     """ Create a new client.
 
@@ -1286,7 +1287,7 @@ def connect(
                 :class:`photonpump.disovery.DiscoveredNode` elements.
 
     """
-    discovery = get_discoverer(host, port, discovery_host, discovery_port, selector)
+    discovery = get_discoverer(host, port, discovery_host, discovery_port, selector, retry_policy)
     dispatcher = MessageDispatcher(name=name, loop=loop)
     connector = Connector(discovery, dispatcher, name=name)
 

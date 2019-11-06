@@ -27,6 +27,7 @@ class NodeState(IntEnum):
 
 
 ELIGIBLE_STATE = [NodeState.Clone, NodeState.Slave, NodeState.Master]
+KEEP_RETRYING = -1
 
 
 class NodeService(NamedTuple):
@@ -237,7 +238,7 @@ class SingleNodeDiscovery:
     def __init__(self, node, retry_policy=None):
         self.node = node
         self.failed = False
-        self.policy = retry_policy or DiscoveryRetryPolicy()
+        self.policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=KEEP_RETRYING)
 
     def record_failure(self, node):
         self.policy.record_failure(node)
@@ -364,7 +365,7 @@ class DiscoveryRetryPolicy:
     def should_retry(self, node):
         stats = self.stats[node]
         return (
-            self.retries_per_node == 0
+            self.retries_per_node == KEEP_RETRYING
             or stats.consecutive_failures < self.retries_per_node
         )
 
@@ -393,12 +394,17 @@ class DiscoveryRetryPolicy:
 
 
 def get_discoverer(
-    host, port, discovery_host, discovery_port, selector: Optional[Selector] = None
+    host,
+    port,
+    discovery_host,
+    discovery_port,
+    selector: Optional[Selector] = None,
+    retry_policy: Optional[DiscoveryRetryPolicy] = None,
 ):
     if discovery_host is None:
         LOG.info("Using single-node discoverer")
 
-        return SingleNodeDiscovery(NodeService(host or "localhost", port, None))
+        return SingleNodeDiscovery(NodeService(host or "localhost", port, None), retry_policy)
 
     session = aiohttp.ClientSession()
     try:
@@ -408,7 +414,7 @@ def get_discoverer(
         return ClusterDiscovery(
             StaticSeedFinder([NodeService(discovery_host, discovery_port, None)]),
             session,
-            DiscoveryRetryPolicy(),
+            retry_policy or DiscoveryRetryPolicy(),
             selector,
         )
     except socket.error:
@@ -418,6 +424,6 @@ def get_discoverer(
         return ClusterDiscovery(
             DnsSeedFinder(discovery_host, resolver, discovery_port),
             session,
-            DiscoveryRetryPolicy(),
+            retry_policy or DiscoveryRetryPolicy(),
             selector,
         )
