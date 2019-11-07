@@ -20,6 +20,7 @@ from photonpump.discovery import (
     select,
     prefer_master,
     prefer_replica,
+    KEEP_RETRYING,
 )
 
 from . import data
@@ -160,6 +161,7 @@ async def test_discovery_with_a_single_node():
 
     for i in range(0, 5):
         assert await discoverer.next_node() == NodeService("localhost", 1113, None)
+        assert discoverer.retry_policy.retries_per_node == KEEP_RETRYING
 
 
 @pytest.mark.asyncio
@@ -190,6 +192,7 @@ async def test_discovery_with_a_static_seed():
 
         assert await discoverer.next_node() == NodeService(first_node_ip, 1113, None)
         assert await discoverer.next_node() == NodeService(second_node_ip, 1113, None)
+        assert discoverer.retry_policy.retries_per_node == 3
         discoverer.close()
 
 
