@@ -27,6 +27,7 @@ class NodeState(IntEnum):
 
 
 ELIGIBLE_STATE = [NodeState.Clone, NodeState.Slave, NodeState.Master]
+KEEP_RETRYING = -1
 
 
 class NodeService(NamedTuple):
@@ -234,20 +235,22 @@ async def fetch_new_gossip(session, seed):
 
 
 class SingleNodeDiscovery:
-    def __init__(self, node):
+    def __init__(self, node, retry_policy):
         self.node = node
         self.failed = False
+        self.retry_policy = retry_policy
 
-    def mark_failed(self, node):
-        if node == self.node:
-            self.failed = True
+    def record_failure(self, node):
+        self.retry_policy.record_failure(node)
 
-    async def discover(self):
-        if self.failed:
-            raise DiscoveryFailed()
-        LOG.debug("SingleNodeDiscovery returning node %s", self.node)
+    def record_success(self, node):
+        self.retry_policy.record_success(node)
 
-        return self.node
+    async def next_node(self):
+        if self.retry_policy.should_retry(self.node):
+            await self.retry_policy.wait(self.node)
+            return self.node
+        raise DiscoveryFailed()
 
 
 class DiscoveryStats(NamedTuple):
@@ -327,13 +330,19 @@ class ClusterDiscovery:
                 if not self.retry_policy.should_retry(seed):
                     self.seeds.mark_failed(seed)
 
-    async def discover(self):
+    async def next_node(self):
         gossip = await self.get_gossip()
 
         if gossip:
             if self.best_node:
                 return self.best_node.external_tcp
         raise DiscoveryFailed()
+
+    def record_failure(self, node):
+        self.retry_policy.record_failure(node)
+
+    def record_success(self, node):
+        self.retry_policy.record_success(node)
 
 
 class DiscoveryRetryPolicy:
@@ -356,7 +365,7 @@ class DiscoveryRetryPolicy:
     def should_retry(self, node):
         stats = self.stats[node]
         return (
-            self.retries_per_node == 0
+            self.retries_per_node == KEEP_RETRYING
             or stats.consecutive_failures < self.retries_per_node
         )
 
@@ -385,12 +394,22 @@ class DiscoveryRetryPolicy:
 
 
 def get_discoverer(
-    host, port, discovery_host, discovery_port, selector: Optional[Selector] = None
+    host,
+    port,
+    discovery_host,
+    discovery_port,
+    selector: Optional[Selector] = None,
+    retry_policy: Optional[DiscoveryRetryPolicy] = None,
 ):
     if discovery_host is None:
         LOG.info("Using single-node discoverer")
 
-        return SingleNodeDiscovery(NodeService(host or "localhost", port, None))
+        retry_policy = retry_policy or DiscoveryRetryPolicy(
+            retries_per_node=KEEP_RETRYING
+        )
+        return SingleNodeDiscovery(
+            NodeService(host or "localhost", port, None), retry_policy
+        )
 
     session = aiohttp.ClientSession()
     try:
@@ -400,7 +419,7 @@ def get_discoverer(
         return ClusterDiscovery(
             StaticSeedFinder([NodeService(discovery_host, discovery_port, None)]),
             session,
-            DiscoveryRetryPolicy(),
+            retry_policy or DiscoveryRetryPolicy(),
             selector,
         )
     except socket.error:
@@ -410,6 +429,6 @@ def get_discoverer(
         return ClusterDiscovery(
             DnsSeedFinder(discovery_host, resolver, discovery_port),
             session,
-            DiscoveryRetryPolicy(),
+            retry_policy or DiscoveryRetryPolicy(),
             selector,
         )

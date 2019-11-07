@@ -20,6 +20,7 @@ from photonpump.discovery import (
     select,
     prefer_master,
     prefer_replica,
+    KEEP_RETRYING,
 )
 
 from . import data
@@ -159,7 +160,8 @@ async def test_discovery_with_a_single_node():
     discoverer = get_discoverer("localhost", 1113, None, None)
 
     for i in range(0, 5):
-        assert await discoverer.discover() == NodeService("localhost", 1113, None)
+        assert await discoverer.next_node() == NodeService("localhost", 1113, None)
+        assert discoverer.retry_policy.retries_per_node == KEEP_RETRYING
 
 
 @pytest.mark.asyncio
@@ -188,8 +190,9 @@ async def test_discovery_with_a_static_seed():
             f"http://{first_node_ip}:2113/gossip", status=200, payload=second_gossip
         )
 
-        assert await discoverer.discover() == NodeService(first_node_ip, 1113, None)
-        assert await discoverer.discover() == NodeService(second_node_ip, 1113, None)
+        assert await discoverer.next_node() == NodeService(first_node_ip, 1113, None)
+        assert await discoverer.next_node() == NodeService(second_node_ip, 1113, None)
+        assert discoverer.retry_policy.retries_per_node == 3
         discoverer.close()
 
 
@@ -222,7 +225,7 @@ async def test_discovery_failure_for_static_seed():
         mock.get("http://1.2.3.4:2113/gossip", status=500)
         mock.get("http://1.2.3.4:2113/gossip", payload=gossip)
 
-        assert await successful_discoverer.discover() == NodeService(
+        assert await successful_discoverer.next_node() == NodeService(
             "2.3.4.5", 1113, None
         )
         stats = retry.stats[seed]
@@ -263,7 +266,7 @@ async def test_repeated_discovery_failure_for_static_seed():
         mock.get("http://1.2.3.4:2113/gossip", payload=gossip)
 
         with pytest.raises(DiscoveryFailed):
-            assert await successful_discoverer.discover() == NodeService(
+            assert await successful_discoverer.next_node() == NodeService(
                 "2.3.4.5", 1113, None
             )
             stats = retry.stats[seed]
@@ -272,43 +275,6 @@ async def test_repeated_discovery_failure_for_static_seed():
             assert stats.successes == 0
             assert stats.failures == 1
             assert stats.consecutive_failures == 1
-
-
-@pytest.mark.asyncio
-async def test_single_node_mark_failed():
-    """
-    The SingleNodeDiscovery should raise DiscoveryFailed if we ask for a node
-    after calling mark_failed.
-    """
-
-    node = NodeService("2.3.4.5", 1234, None)
-    discoverer = SingleNodeDiscovery(node)
-
-    assert await discoverer.discover() == node
-
-    discoverer.mark_failed(node)
-
-    with pytest.raises(DiscoveryFailed):
-        await discoverer.discover()
-
-
-@pytest.mark.asyncio
-async def test_cluster_discovery_mark_failed():
-    """
-    ClusterDiscovery should just pass the mark_failed call to the seed source.
-    """
-
-    class spy_seed_finder(List):
-        def mark_failed(self, node):
-            self.append(node)
-
-    node = NodeService("2.3.4.5", 1234, None)
-    finder = spy_seed_finder()
-    discoverer = ClusterDiscovery(finder, None, None, None)
-
-    discoverer.mark_failed(node)
-
-    assert finder == [node]
 
 
 @pytest.mark.asyncio
@@ -323,7 +289,7 @@ async def test_prefer_replica():
     with aioresponses() as mock:
         mock.get("http://10.0.0.1:2113/gossip", payload=gossip)
 
-        assert await discoverer.discover() == NodeService("10.0.0.2", 1113, None)
+        assert await discoverer.next_node() == NodeService("10.0.0.2", 1113, None)
 
 
 @pytest.mark.asyncio
@@ -338,4 +304,4 @@ async def test_prefer_master():
     with aioresponses() as mock:
         mock.get("http://10.0.0.1:2113/gossip", payload=gossip)
 
-        assert await discoverer.discover() == NodeService("10.0.0.1", 1113, None)
+        assert await discoverer.next_node() == NodeService("10.0.0.1", 1113, None)

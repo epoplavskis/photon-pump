@@ -9,7 +9,7 @@ from typing import Any, NamedTuple, Optional, Sequence, Union
 
 from . import conversations as convo
 from . import messages as msg
-from .discovery import DiscoveryRetryPolicy, NodeService, get_discoverer, select_random
+from .discovery import NodeService, get_discoverer, select_random
 
 HEADER_LENGTH = 1 + 1 + 16
 SIZE_UINT_32 = 4
@@ -55,7 +55,6 @@ class Connector:
         self,
         discovery,
         dispatcher,
-        retry_policy=None,
         ctrl_queue=None,
         connect_timeout=5,
         name=None,
@@ -75,7 +74,6 @@ class Connector:
         self.heartbeat_failures = 0
         self.connect_timeout = connect_timeout
         self.active_protocol = None
-        self.retry_policy = retry_policy or DiscoveryRetryPolicy(retries_per_node=0)
 
     def _put_msg(self, msg):
         asyncio.ensure_future(self.ctrl_queue.put(msg))
@@ -88,7 +86,7 @@ class Connector:
         )
 
     def heartbeat_received(self, conversation_id):
-        self.retry_policy.record_success(self.target_node)
+        self.discovery.record_success(self.target_node)
         self._put_msg(
             ConnectorInstruction(
                 ConnectorCommand.HandleHeartbeatSuccess, None, conversation_id
@@ -97,7 +95,7 @@ class Connector:
 
     def connection_lost(self, exn=None):
         self.log.info("connection_lost {}".format(exn))
-        self.retry_policy.record_failure(self.target_node)
+        self.discovery.record_failure(self.target_node)
 
         if exn:
             self._put_msg(
@@ -130,7 +128,7 @@ class Connector:
     async def stop(self, exn=None):
         self.log.info("Stopping connector")
         self.state = ConnectorState.Stopping
-        self._stop_active_protocol()
+        await self._stop_active_protocol()
 
         self._run_loop.cancel()
         self.stopped(exn)
@@ -139,7 +137,7 @@ class Connector:
         if not node:
             try:
                 self.log.debug("Performing node discovery")
-                node = self.target_node = await self.discovery.discover()
+                node = self.target_node = await self.discovery.next_node()
             except Exception as e:
                 await self.ctrl_queue.put(
                     ConnectorInstruction(
@@ -188,21 +186,15 @@ class Connector:
                 "connector.reconnect: No node was given, starting connection without node selected"
             )
             await self.start()
-
             return
 
-        if self.retry_policy.should_retry(node):
-            self.log.info("connector.reconnect: Running retry policy")
-            await self.retry_policy.wait(node)
-            await self.start(target=node)
-        else:
-            self.log.error(
-                "connector.reconnect: Reached maximum number of retry attempts on node %s",
-                node,
+        try:
+            node = await self.discovery.next_node()
+            await self.start(node)
+        except Exception as e:
+            await self.ctrl_queue.put(
+                ConnectorInstruction(ConnectorCommand.HandleConnectorFailed, None, e)
             )
-            self.discovery.mark_failed(node)
-
-            await self.start()
 
     async def _on_transport_closed(self):
         self.log.info("Connection closed gracefully, restarting")
@@ -220,7 +212,7 @@ class Connector:
             self.target_node,
             exn,
         )
-        self.retry_policy.record_failure(self.target_node)
+        self.discovery.record_failure(self.target_node)
         await self.reconnect(self.target_node)
 
     async def _on_failed_heartbeat(self, exn):
@@ -1210,6 +1202,7 @@ def connect(
     loop=None,
     name=None,
     selector=select_random,
+    retry_policy=None,
 ) -> Client:
     """ Create a new client.
 
@@ -1294,7 +1287,9 @@ def connect(
                 :class:`photonpump.disovery.DiscoveredNode` elements.
 
     """
-    discovery = get_discoverer(host, port, discovery_host, discovery_port, selector)
+    discovery = get_discoverer(
+        host, port, discovery_host, discovery_port, selector, retry_policy
+    )
     dispatcher = MessageDispatcher(name=name, loop=loop)
     connector = Connector(discovery, dispatcher, name=name)
 
