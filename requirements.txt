@@ -7,6 +7,6 @@ pytest
 pytest-asyncio
 pytest-cov
 sphinx
-testfixtures
+testfixtures==6.10.2
 tox
 versioneer
