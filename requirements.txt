@@ -1,7 +1,7 @@
 aioresponses
 black
 codecov
-colorama
+colorama==0.4.3
 idna-ssl
 pytest
 pytest-asyncio
