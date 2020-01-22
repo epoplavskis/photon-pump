@@ -3,7 +3,7 @@ black
 codecov
 colorama
 idna-ssl
-pytest
+pytest==5.3.4
 pytest-asyncio
 pytest-cov
 sphinx
