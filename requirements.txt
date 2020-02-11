@@ -1,4 +1,4 @@
-aioresponses
+aioresponses==0.6.3
 black
 codecov
 colorama
