@@ -1,5 +1,5 @@
 aioresponses
-black
+black==19.10b0
 codecov
 colorama
 idna-ssl
