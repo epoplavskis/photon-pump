@@ -6,7 +6,7 @@ idna-ssl
 pytest
 pytest-asyncio
 pytest-cov
-sphinx
+sphinx==3.0.1
 testfixtures
 tox
 versioneer
