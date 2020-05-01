@@ -679,6 +679,7 @@ class Client:
             events,
             expected_version=expected_version,
             require_master=require_master,
+            credentials=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
 
@@ -785,6 +786,7 @@ class Client:
             resolve_links,
             require_master,
             direction=direction,
+            credentials=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
 

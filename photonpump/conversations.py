@@ -9,10 +9,10 @@ try:
 except ImportError:
     from asyncio.futures import InvalidStateError
 from enum import IntEnum
-from typing import NamedTuple, Optional, Sequence, Union
+from typing import Optional, Sequence, Union
 from uuid import UUID, uuid4
 
-from photonpump import exceptions
+from photonpump import exceptions, messages_pb2
 from photonpump import messages as messages
 from photonpump import messages_pb2 as proto
 from photonpump.messages import (
@@ -259,10 +259,10 @@ class WriteEvents(Conversation):
         expected_version: Union[ExpectedVersion, int] = ExpectedVersion.Any,
         require_master: bool = False,
         conversation_id: UUID = None,
-        credential=None,
+        credentials=None,
         loop=None,
     ):
-        super().__init__(conversation_id, credential)
+        super().__init__(conversation_id, credentials)
         self._logger = logging.get_named_logger(WriteEvents)
         self.stream = stream
         self.require_master = require_master
@@ -315,6 +315,13 @@ class WriteEvents(Conversation):
         self.expect_only(message, TcpCommand.WriteEventsCompleted)
         result = proto.WriteEventsCompleted()
         result.ParseFromString(message.payload)
+        # or should we call one of the dispatch methods IDK
+        if result.result == messages_pb2.AccessDenied:
+            await self.error(
+                exceptions.AccessDenied(
+                    self.conversation_id, type(self).__name__, result.message
+                )
+            )
         try:
             self.result.set_result(result)
             self.is_complete = True

@@ -38,4 +38,3 @@ eventstore_docker:
 		--user admin:changeit \
 		-H "Content-Type: application/json" \
 		-d @test-user.json
-

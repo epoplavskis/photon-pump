@@ -2,7 +2,7 @@ from photonpump import messages
 
 
 async def given_a_stream_with_three_events(c, stream_name):
-    await c.publish(
+    return await c.publish(
         stream_name,
         [
             messages.NewEvent(

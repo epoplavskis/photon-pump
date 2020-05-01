@@ -4,10 +4,7 @@ import uuid
 import pytest
 from photonpump import connect, exceptions, messages
 
-from .fixtures import (
-    given_a_stream_with_three_events,
-    given_two_streams_with_two_events,
-)
+from .fixtures import given_a_stream_with_three_events
 
 
 @pytest.mark.asyncio
@@ -205,6 +202,24 @@ async def test_readall(event_loop):
         events_read = 0
 
         for event in await c.get_all(max_count=3):
+            print(event)
+            events_read += 1
+
+        assert events_read == 3
+
+
+@pytest.mark.asyncio
+async def test_get(event_loop):
+    async with connect(
+        loop=event_loop, name="read_all", username="admin", password="changeit"
+    ) as c:
+        stream_name = str(uuid.uuid4())
+        result = await given_a_stream_with_three_events(c, stream_name)
+        assert "denied" not in str(result).lower()
+
+        events_read = 0
+
+        for event in await c.get(stream=stream_name, max_count=3):
             print(event)
             events_read += 1
 
