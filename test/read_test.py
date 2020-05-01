@@ -158,9 +158,8 @@ async def test_iter_from_missing_stream(event_loop):
 @pytest.mark.asyncio
 async def test_iterall(event_loop):
     async with connect(
-        # TODO: find out how come iterall needs different perms to normal reads
         loop=event_loop,
-        username="admin",
+        username="admin",  # iter_all aggregates all streams so it needs systemwide-read perms
         password="changeit",
         name="iter_all",
     ) as c:
@@ -178,9 +177,8 @@ async def test_iterall(event_loop):
 @pytest.mark.asyncio
 async def test_readall(event_loop):
     async with connect(
-        # TODO: find out how come readll needs different perms to normal reads
         loop=event_loop,
-        username="admin",
+        username="admin",  # get_all aggregates all streams so it needs systemwide-read perms
         password="changeit",
         name="iter_all",
     ) as c:
