@@ -9,8 +9,12 @@ from .fixtures import given_a_stream_with_three_events
 @pytest.mark.asyncio
 async def test_single_event_roundtrip(event_loop):
     stream_name = str(uuid.uuid4())
-    async with connect(loop=event_loop, username="test-user", password="test-password") as c:
-        await c.publish_event(stream_name, "thing_happened", body={"thing": 1, "happening": True})
+    async with connect(
+        loop=event_loop, username="test-user", password="test-password"
+    ) as c:
+        await c.publish_event(
+            stream_name, "thing_happened", body={"thing": 1, "happening": True}
+        )
 
         result = await c.get_event(stream_name, 0)
 
@@ -25,7 +29,9 @@ async def test_single_event_roundtrip(event_loop):
 @pytest.mark.asyncio
 async def test_missing_stream(event_loop):
     stream_name = str(uuid.uuid4())
-    async with connect(loop=event_loop, username="test-user", password="test-password") as c:
+    async with connect(
+        loop=event_loop, username="test-user", password="test-password"
+    ) as c:
         with pytest.raises(exceptions.StreamNotFound) as exc:
             await c.get_event(stream_name, 0)
         assert exc.value.stream == stream_name
@@ -34,7 +40,9 @@ async def test_missing_stream(event_loop):
 @pytest.mark.asyncio
 async def test_read_multiple(event_loop):
     stream_name = str(uuid.uuid4())
-    async with connect(loop=event_loop, username="test-user", password="test-password") as c:
+    async with connect(
+        loop=event_loop, username="test-user", password="test-password"
+    ) as c:
         await given_a_stream_with_three_events(c, stream_name)
 
         result = await c.get(stream_name)
@@ -51,7 +59,9 @@ async def test_read_multiple(event_loop):
 @pytest.mark.asyncio
 async def test_read_with_max_count(event_loop):
     stream_name = str(uuid.uuid4())
-    async with connect(loop=event_loop, username="test-user", password="test-password") as c:
+    async with connect(
+        loop=event_loop, username="test-user", password="test-password"
+    ) as c:
         await given_a_stream_with_three_events(c, stream_name)
 
         result = await c.get(stream_name, max_count=1)
@@ -67,7 +77,9 @@ async def test_read_with_max_count(event_loop):
 @pytest.mark.asyncio
 async def test_read_with_max_count_and_from_event(event_loop):
     stream_name = str(uuid.uuid4())
-    async with connect(loop=event_loop, username="test-user", password="test-password") as c:
+    async with connect(
+        loop=event_loop, username="test-user", password="test-password"
+    ) as c:
         await given_a_stream_with_three_events(c, stream_name)
 
         result = await c.get(stream_name, max_count=1, from_event=2)
@@ -84,7 +96,10 @@ async def test_read_with_max_count_and_from_event(event_loop):
 async def test_streaming_read(event_loop):
     stream_name = str(uuid.uuid4())
     async with connect(
-        loop=event_loop, username="test-user", password="test-password", name="streaming-read"
+        loop=event_loop,
+        username="test-user",
+        password="test-password",
+        name="streaming-read",
     ) as c:
         await given_a_stream_with_three_events(c, stream_name)
 
@@ -107,13 +122,18 @@ async def test_async_comprehension(event_loop):
     stream_name = str(uuid.uuid4())
 
     async with connect(
-        loop=event_loop, username="test-user", password="test-password", name="comprehensions"
+        loop=event_loop,
+        username="test-user",
+        password="test-password",
+        name="comprehensions",
     ) as c:
 
         await given_a_stream_with_three_events(c, stream_name)
 
         jumps = (
-            e.event async for e in c.iter(stream_name, batch_size=2) if e.type == "pony_jumped"
+            e.event
+            async for e in c.iter(stream_name, batch_size=2)
+            if e.type == "pony_jumped"
         )
         big_jumps = (embiggen(e) async for e in jumps)
 
@@ -128,7 +148,9 @@ async def test_async_comprehension(event_loop):
 
 @pytest.mark.asyncio
 async def test_iter_from_missing_stream(event_loop):
-    async with connect(loop=event_loop, username="test-user", password="test-password") as c:
+    async with connect(
+        loop=event_loop, username="test-user", password="test-password"
+    ) as c:
         with pytest.raises(exceptions.StreamNotFound):
             [e async for e in c.iter("my-stream-that-isnt-a-stream")]
 
@@ -136,7 +158,11 @@ async def test_iter_from_missing_stream(event_loop):
 @pytest.mark.asyncio
 async def test_iterall(event_loop):
     async with connect(
-        loop=event_loop, username="admin", password="changeit", name="iter_all",
+        # TODO: find out how come iterall needs different perms to normal reads
+        loop=event_loop,
+        username="admin",
+        password="changeit",
+        name="iter_all",
     ) as c:
         stream_name = str(uuid.uuid4())
         await given_a_stream_with_three_events(c, stream_name)
@@ -152,7 +178,11 @@ async def test_iterall(event_loop):
 @pytest.mark.asyncio
 async def test_readall(event_loop):
     async with connect(
-        loop=event_loop, username="test-user", password="test-password", name="read_all",
+        # TODO: find out how come readll needs different perms to normal reads
+        loop=event_loop,
+        username="admin",
+        password="changeit",
+        name="iter_all",
     ) as c:
         stream_name = str(uuid.uuid4())
         await given_a_stream_with_three_events(c, stream_name)

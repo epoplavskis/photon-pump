@@ -1,3 +1,4 @@
+# pylint: disable=invalid-name, bad-continuation
 import uuid
 
 import pytest
@@ -8,26 +9,23 @@ from . import data
 
 @pytest.mark.asyncio
 async def test_single_event_publish(event_loop):
-
     stream_name = str(uuid.uuid4())
-
-    async with connect(loop=event_loop) as conn:
+    async with connect(
+        loop=event_loop, username="test-user", password="test-password"
+    ) as conn:
         result = await conn.publish_event(
             stream_name,
             "testEvent",
             id=uuid.uuid4(),
             body={"greeting": "hello", "target": "world"},
         )
-
         assert isinstance(result, messages_pb2.WriteEventsCompleted)
         assert result.first_event_number == 0
 
 
 @pytest.mark.asyncio
 async def test_three_events_publish(event_loop):
-
     stream_name = str(uuid.uuid4())
-
     async with connect(
         loop=event_loop, username="test-user", password="test-password"
     ) as c:
@@ -48,17 +46,16 @@ async def test_three_events_publish(event_loop):
                 ),
             ],
         )
-
         assert result.first_event_number == 0
         assert result.last_event_number == 2
 
 
 @pytest.mark.asyncio
 async def test_a_large_event(event_loop):
-
     stream_name = str(uuid.uuid4())
-
-    async with connect(loop=event_loop) as c:
+    async with connect(
+        loop=event_loop, username="test-user", password="test-password"
+    ) as c:
         write_result = await c.publish(
             stream_name,
             [
