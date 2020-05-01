@@ -1,4 +1,5 @@
 BLACK_EXCLUSION=photonpump/__init__.py|photonpump/_version.py|versioneer.py|.tox|.venv
+SHELL = /bin/bash
 default: fast_tests
 travis: check_lint tox
 
@@ -25,7 +26,7 @@ continous_test:
 	PYASYNCIODEBUG=1 ptw
 
 cleanup:
-	docker rm -f eventstore_local
+	- docker rm -f eventstore_local
 
 eventstore_docker:
 	docker run -d --name eventstore_local -p 2113:2113 -p 1113:1113 eventstore/eventstore
