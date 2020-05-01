@@ -2,7 +2,7 @@ from photonpump import messages
 
 
 async def given_a_stream_with_three_events(c, stream_name):
-    return await c.publish(
+    result = await c.publish(
         stream_name,
         [
             messages.NewEvent(
@@ -19,11 +19,12 @@ async def given_a_stream_with_three_events(c, stream_name):
             ),
         ],
     )
+    assert "denied" not in str(result).lower()  # this should now never happen
 
 
-async def given_two_streams_with_two_events(c, id):
+async def given_two_streams_with_two_events(c, unique_id):
     await c.publish(
-        "stream_one_{}".format(id),
+        f"stream_one_{unique_id}",
         [
             messages.NewEvent(
                 "pony_splits",
@@ -36,7 +37,7 @@ async def given_two_streams_with_two_events(c, id):
         ],
     )
     await c.publish(
-        "stream_two_{}".format(id),
+        f"stream_two_{unique_id}",
         [
             messages.NewEvent(
                 "pony_splits",
