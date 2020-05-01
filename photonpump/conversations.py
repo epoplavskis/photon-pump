@@ -259,10 +259,10 @@ class WriteEvents(Conversation):
         expected_version: Union[ExpectedVersion, int] = ExpectedVersion.Any,
         require_master: bool = False,
         conversation_id: UUID = None,
-        credentials=None,
+        credential=None,
         loop=None,
     ):
-        super().__init__(conversation_id, credentials)
+        super().__init__(conversation_id, credential)
         self._logger = logging.get_named_logger(WriteEvents)
         self.stream = stream
         self.require_master = require_master
@@ -458,10 +458,10 @@ class ReadEvent(Conversation):
         resolve_links: bool = True,
         require_master: bool = False,
         conversation_id: Optional[UUID] = None,
-        credentials=None,
+        credential=None,
     ) -> None:
 
-        Conversation.__init__(self, conversation_id, credential=credentials)
+        Conversation.__init__(self, conversation_id, credential=credential)
         self.stream = stream
         self.event_number = event_number
         self.require_master = require_master
@@ -557,11 +557,11 @@ class ReadAllEvents(Conversation):
         resolve_links: bool = True,
         require_master: bool = False,
         direction: StreamDirection = StreamDirection.Forward,
-        credentials=None,
+        credential=None,
         conversation_id: UUID = None,
     ) -> None:
 
-        Conversation.__init__(self, conversation_id, credential=credentials)
+        Conversation.__init__(self, conversation_id, credential=credential)
         self.has_first_page = False
         self.direction = direction
         self.from_position = from_position
@@ -611,11 +611,11 @@ class ReadStreamEvents(Conversation):
         resolve_links: bool = True,
         require_master: bool = False,
         direction: StreamDirection = StreamDirection.Forward,
-        credentials=None,
+        credential=None,
         conversation_id: UUID = None,
     ) -> None:
 
-        Conversation.__init__(self, conversation_id, credential=credentials)
+        Conversation.__init__(self, conversation_id, credential=credential)
         self.has_first_page = False
         self.stream = stream
         self.direction = direction
@@ -680,11 +680,11 @@ class IterAllEvents(Conversation):
         resolve_links: bool = True,
         require_master: bool = False,
         direction: StreamDirection = StreamDirection.Forward,
-        credentials=None,
+        credential=None,
         conversation_id: UUID = None,
     ):
 
-        Conversation.__init__(self, conversation_id, credentials)
+        Conversation.__init__(self, conversation_id, credential)
         self.batch_size = batch_size
         self.has_first_page = False
         self.resolve_link_tos = resolve_links
@@ -761,11 +761,11 @@ class IterStreamEvents(Conversation):
         resolve_links: bool = True,
         require_master: bool = False,
         direction: StreamDirection = StreamDirection.Forward,
-        credentials=None,
+        credential=None,
         conversation_id: UUID = None,
     ):
 
-        Conversation.__init__(self, conversation_id, credentials)
+        Conversation.__init__(self, conversation_id, credential)
         self.batch_size = batch_size
         self.has_first_page = False
         self.stream = stream
@@ -881,11 +881,11 @@ class CreatePersistentSubscription(Conversation):
         checkpoint_max_count=1024,
         checkpoint_min_count=10,
         subscriber_max_count=10,
-        credentials=None,
+        credential=None,
         conversation_id=None,
         consumer_strategy=messages.ROUND_ROBIN,
     ) -> None:
-        super().__init__(conversation_id, credentials)
+        super().__init__(conversation_id, credential)
         self.stream = stream
         self.name = name
         self.resolve_links = resolve_links
@@ -972,11 +972,11 @@ class ConnectPersistentSubscription(Conversation):
         name,
         stream,
         max_in_flight=10,
-        credentials=None,
+        credential=None,
         conversation_id=None,
         auto_ack=False,
     ) -> None:
-        super().__init__(conversation_id, credentials)
+        super().__init__(conversation_id, credential)
         self.stream = stream
         self.max_in_flight = max_in_flight
         self.name = name
@@ -1074,12 +1074,12 @@ class ConnectPersistentSubscription(Conversation):
 
 class SubscribeToStream(Conversation):
     def __init__(
-        self, stream, resolve_link_tos=True, conversation_id=None, credentials=None
+        self, stream, resolve_link_tos=True, conversation_id=None, credential=None
     ):
         self.stream = stream
         self.resolve_link_tos = resolve_link_tos
         self.is_live = False
-        super().__init__(conversation_id, credentials)
+        super().__init__(conversation_id, credential)
 
     async def start(self, output: Queue) -> None:
         msg = proto.SubscribeToStream()

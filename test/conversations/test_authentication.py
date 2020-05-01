@@ -14,8 +14,8 @@ async def test_authenticated_request():
     output = TeeQueue()
 
     conversation_id = uuid4()
-    credentials = Credential("username", "password")
-    convo = Ping(conversation_id, credentials)
+    credential = Credential("username", "password")
+    convo = Ping(conversation_id, credential)
 
     await convo.start(output)
 
