@@ -7,24 +7,6 @@ from .fixtures import given_two_streams_with_two_events, given_a_stream_with_thr
 
 
 @pytest.mark.asyncio
-async def test_single_get(event_loop):
-    async with connect(
-        loop=event_loop, username="test-user", password="test-password", name="get",
-    ) as c:
-        stream_name = str(uuid.uuid4())
-        result = await given_a_stream_with_three_events(c, stream_name)
-        assert "denied" not in str(result).lower()
-
-        events_read = 0
-
-        for event in await c.get(stream=stream_name, max_count=3):
-            print(event)
-            events_read += 1
-
-        assert events_read == 3
-
-
-@pytest.mark.asyncio
 async def test_single_event_roundtrip(event_loop):
     stream_name = str(uuid.uuid4())
     async with connect(loop=event_loop, username="test-user", password="test-password") as c:
