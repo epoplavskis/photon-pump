@@ -461,7 +461,7 @@ class ReadEvent(Conversation):
         credential=None,
     ) -> None:
 
-        Conversation.__init__(self, conversation_id, credential=credential)
+        super().__init__(conversation_id, credential=credential)
         self.stream = stream
         self.event_number = event_number
         self.require_master = require_master
@@ -561,7 +561,7 @@ class ReadAllEvents(Conversation):
         conversation_id: UUID = None,
     ) -> None:
 
-        Conversation.__init__(self, conversation_id, credential=credential)
+        super().__init__(conversation_id, credential=credential)
         self.has_first_page = False
         self.direction = direction
         self.from_position = from_position
@@ -615,7 +615,7 @@ class ReadStreamEvents(Conversation):
         conversation_id: UUID = None,
     ) -> None:
 
-        Conversation.__init__(self, conversation_id, credential=credential)
+        super().__init__(conversation_id, credential=credential)
         self.has_first_page = False
         self.stream = stream
         self.direction = direction
@@ -684,7 +684,7 @@ class IterAllEvents(Conversation):
         conversation_id: UUID = None,
     ):
 
-        Conversation.__init__(self, conversation_id, credential)
+        super().__init__(conversation_id, credential)
         self.batch_size = batch_size
         self.has_first_page = False
         self.resolve_link_tos = resolve_links
@@ -765,7 +765,7 @@ class IterStreamEvents(Conversation):
         conversation_id: UUID = None,
     ):
 
-        Conversation.__init__(self, conversation_id, credential)
+        super().__init__(conversation_id, credential)
         self.batch_size = batch_size
         self.has_first_page = False
         self.stream = stream
@@ -1334,7 +1334,7 @@ class CatchupSubscription(__catchup):
         self.subscribe_from = -1
         self.next_event_number = self.from_event
         self.last_event_number = -1
-        Conversation.__init__(self, conversation_id, credential)
+        super().__init__(conversation_id, credential)
 
     async def start(self, output):
         if self.phase > CatchupSubscriptionPhase.READ_HISTORICAL:
@@ -1448,7 +1448,7 @@ class CatchupAllSubscription(__catchup):
         self.buffer = []
         self.next_position = self.from_position
         self.last_position = Position.min
-        Conversation.__init__(self, conversation_id, credential)
+        super().__init__(conversation_id, credential)
 
     async def _yield_events(self, events):
         for event in events:
