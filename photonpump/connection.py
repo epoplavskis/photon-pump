@@ -662,6 +662,7 @@ class Client:
             [event],
             expected_version=expected_version,
             require_master=require_master,
+            credentials=self.credential,
         )
         result = await self.dispatcher.start_conversation(conversation)
 
@@ -682,7 +683,6 @@ class Client:
             credentials=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
-
         return await result
 
     async def get_event(
@@ -723,6 +723,7 @@ class Client:
             resolve_links,
             require_master,
             conversation_id=correlation_id,
+            credentials=self.credential,
         )
 
         result = await self.dispatcher.start_conversation(cmd)
