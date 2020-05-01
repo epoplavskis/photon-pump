@@ -12,8 +12,8 @@ from enum import IntEnum
 from typing import Optional, Sequence, Union
 from uuid import UUID, uuid4
 
-from photonpump import exceptions, messages_pb2
-from photonpump import messages as messages
+from photonpump import exceptions
+from photonpump import messages
 from photonpump import messages_pb2 as proto
 from photonpump.messages import (
     AllStreamSlice,
@@ -315,8 +315,7 @@ class WriteEvents(Conversation):
         self.expect_only(message, TcpCommand.WriteEventsCompleted)
         result = proto.WriteEventsCompleted()
         result.ParseFromString(message.payload)
-        # or should we call one of the dispatch methods IDK
-        if result.result == messages_pb2.AccessDenied:
+        if result.result == proto.AccessDenied:
             await self.error(
                 exceptions.AccessDenied(
                     self.conversation_id, type(self).__name__, result.message
