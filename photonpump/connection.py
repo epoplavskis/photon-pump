@@ -662,6 +662,7 @@ class Client:
             [event],
             expected_version=expected_version,
             require_master=require_master,
+            credential=self.credential,
         )
         result = await self.dispatcher.start_conversation(conversation)
 
@@ -679,9 +680,9 @@ class Client:
             events,
             expected_version=expected_version,
             require_master=require_master,
+            credential=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
-
         return await result
 
     async def get_event(
@@ -722,6 +723,7 @@ class Client:
             resolve_links,
             require_master,
             conversation_id=correlation_id,
+            credential=self.credential,
         )
 
         result = await self.dispatcher.start_conversation(cmd)
@@ -785,6 +787,7 @@ class Client:
             resolve_links,
             require_master,
             direction=direction,
+            credential=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
 
@@ -838,7 +841,7 @@ class Client:
             resolve_links,
             require_master,
             direction=direction,
-            credentials=self.credential,
+            credential=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
 
@@ -899,7 +902,7 @@ class Client:
             batch_size,
             resolve_links,
             direction=direction,
-            credentials=self.credential,
+            credential=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
         iterator = await result
@@ -986,7 +989,7 @@ class Client:
         checkpoint_max_count: int = 1000,
         checkpoint_min_count: int = 10,
         subscriber_max_count: int = 10,
-        credentials: msg.Credential = None,
+        credential: msg.Credential = None,
         conversation_id: uuid.UUID = None,
         consumer_strategy: str = msg.ROUND_ROBIN,
     ):
@@ -1006,7 +1009,7 @@ class Client:
             checkpoint_max_count=checkpoint_max_count,
             checkpoint_min_count=checkpoint_min_count,
             subscriber_max_count=subscriber_max_count,
-            credentials=credentials or self.credential,
+            credential=credential or self.credential,
             conversation_id=conversation_id,
             consumer_strategy=consumer_strategy,
         )
@@ -1024,7 +1027,7 @@ class Client:
         cmd = convo.ConnectPersistentSubscription(
             subscription,
             stream,
-            credentials=self.credential,
+            credential=self.credential,
             conversation_id=conversation_id,
         )
         future = await self.dispatcher.start_conversation(cmd)
@@ -1079,7 +1082,7 @@ class Client:
 
         if start_from == -1:
             cmd: convo.Conversation = convo.SubscribeToStream(
-                stream, resolve_link_tos, credentials=self.credential
+                stream, resolve_link_tos, credential=self.credential
             )
         else:
             cmd = convo.CatchupSubscription(
