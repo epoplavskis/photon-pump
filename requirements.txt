@@ -10,3 +10,5 @@ sphinx
 testfixtures
 tox
 versioneer
+protobuf
+aiodns
