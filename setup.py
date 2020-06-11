@@ -38,7 +38,7 @@ setup(
     url="http://github.com/madedotcom/photon-pump/",
     license="MIT",
     author="Bob Gregory",
-    install_requires=["aiodns>=1.1.1", "aiohttp>=3.1.3", "protobuf>=3.5.1"],
+    install_requires=["aiodns>=1.1.1", "aiohttp>=3.1.3", "protobuf>=3.12.0"],
     cmdclass=versioneer.get_cmdclass(),
     author_email="bob@made.com",
     description="Fast, easy to use client for EventStore",
