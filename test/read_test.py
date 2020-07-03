@@ -195,12 +195,3 @@ async def test_readall(event_loop):
             events_read += 1
 
         assert events_read == 4
-
-
-@pytest.mark.asyncio
-async def test_anonymous_access_still_works(event_loop):
-    stream_name = str(uuid.uuid4())
-    async with connect(loop=event_loop, port=11113, discovery_port=22113) as c:
-        await c.publish_event(stream_name, "first_event", body={"thing": 1})
-        results = await c.get(stream_name)
-        assert results[0].event.type == "first_event"

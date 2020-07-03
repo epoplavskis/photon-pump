@@ -286,16 +286,12 @@ class Stats(dict):
 
 
 class ClusterDiscovery:
-    def __init__(self, seed_finder, http_session, retry_policy, selector):
-        self.session = http_session
+    def __init__(self, seed_finder, retry_policy, selector):
         self.seeds = seed_finder
         self.last_gossip = []
         self.best_node = None
         self.retry_policy = retry_policy
         self.selector = selector
-
-    def close(self):
-        self.session.close()
 
     def mark_failed(self, node):
         self.seeds.mark_failed(node)
@@ -318,7 +314,8 @@ class ClusterDiscovery:
                 raise DiscoveryFailed()
 
             await self.retry_policy.wait(seed)
-            gossip = await fetch_new_gossip(self.session, seed)
+            async with aiohttp.ClientSession() as session:
+                gossip = await fetch_new_gossip(session, seed)
 
             if gossip:
                 self.record_gossip(seed, gossip)
@@ -411,14 +408,12 @@ def get_discoverer(
             NodeService(host or "localhost", port, None), retry_policy
         )
 
-    session = aiohttp.ClientSession()
     try:
         socket.inet_aton(discovery_host)
         LOG.info("Using cluster node discovery with a static seed")
 
         return ClusterDiscovery(
             StaticSeedFinder([NodeService(discovery_host, discovery_port, None)]),
-            session,
             retry_policy or DiscoveryRetryPolicy(),
             selector,
         )
@@ -428,7 +423,6 @@ def get_discoverer(
 
         return ClusterDiscovery(
             DnsSeedFinder(discovery_host, resolver, discovery_port),
-            session,
             retry_policy or DiscoveryRetryPolicy(),
             selector,
         )
