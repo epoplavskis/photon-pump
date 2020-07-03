@@ -27,7 +27,6 @@ continous_test:
 
 cleanup:
 	- docker rm -f eventstore_local
-	- docker rm -f eventstore_local_noauth
 
 eventstore_docker:
 	docker run -d --name eventstore_local -p 2113:2113 -p 1113:1113 eventstore/eventstore:release-5.0.8
