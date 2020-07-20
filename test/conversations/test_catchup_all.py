@@ -195,7 +195,7 @@ async def test_start_read_phase():
     assert body.commit_position == 0
     assert body.prepare_position == 0
     assert body.resolve_link_tos is True
-    assert body.require_master is False
+    assert body.require_main is False
     assert body.max_count == 100
 
 

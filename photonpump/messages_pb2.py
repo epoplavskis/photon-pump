@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
     syntax="proto2",
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
-    serialized_pb=b'\n\x0emessages.proto\x12\x1a\x45ventStore.Client.Messages"\x8a\x01\n\x08NewEvent\x12\x10\n\x08\x65vent_id\x18\x01 \x02(\x0c\x12\x12\n\nevent_type\x18\x02 \x02(\t\x12\x19\n\x11\x64\x61ta_content_type\x18\x03 \x02(\x05\x12\x1d\n\x15metadata_content_type\x18\x04 \x02(\x05\x12\x0c\n\x04\x64\x61ta\x18\x05 \x02(\x0c\x12\x10\n\x08metadata\x18\x06 \x01(\x0c"\xe4\x01\n\x0b\x45ventRecord\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x14\n\x0c\x65vent_number\x18\x02 \x02(\x05\x12\x10\n\x08\x65vent_id\x18\x03 \x02(\x0c\x12\x12\n\nevent_type\x18\x04 \x02(\t\x12\x19\n\x11\x64\x61ta_content_type\x18\x05 \x02(\x05\x12\x1d\n\x15metadata_content_type\x18\x06 \x02(\x05\x12\x0c\n\x04\x64\x61ta\x18\x07 \x02(\x0c\x12\x10\n\x08metadata\x18\x08 \x01(\x0c\x12\x0f\n\x07\x63reated\x18\t \x01(\x03\x12\x15\n\rcreated_epoch\x18\n \x01(\x03"\x85\x01\n\x14ResolvedIndexedEvent\x12\x36\n\x05\x65vent\x18\x01 \x02(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x35\n\x04link\x18\x02 \x01(\x0b\x32\'.EventStore.Client.Messages.EventRecord"\xb1\x01\n\rResolvedEvent\x12\x36\n\x05\x65vent\x18\x01 \x02(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x35\n\x04link\x18\x02 \x01(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x17\n\x0f\x63ommit_position\x18\x03 \x02(\x03\x12\x18\n\x10prepare_position\x18\x04 \x02(\x03"\x8e\x01\n\x0bWriteEvents\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x34\n\x06\x65vents\x18\x03 \x03(\x0b\x32$.EventStore.Client.Messages.NewEvent\x12\x16\n\x0erequire_master\x18\x04 \x02(\x08"\xce\x01\n\x14WriteEventsCompleted\x12;\n\x06result\x18\x01 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x1a\n\x12\x66irst_event_number\x18\x03 \x02(\x05\x12\x19\n\x11last_event_number\x18\x04 \x02(\x05\x12\x18\n\x10prepare_position\x18\x05 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x06 \x01(\x03"n\n\x0c\x44\x65leteStream\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x16\n\x0erequire_master\x18\x03 \x02(\x08\x12\x13\n\x0bhard_delete\x18\x04 \x01(\x08"\x98\x01\n\x15\x44\x65leteStreamCompleted\x12;\n\x06result\x18\x01 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x18\n\x10prepare_position\x18\x03 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x04 \x01(\x03"]\n\x10TransactionStart\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x16\n\x0erequire_master\x18\x03 \x02(\x08"\x81\x01\n\x19TransactionStartCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t"x\n\x10TransactionWrite\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12\x34\n\x06\x65vents\x18\x02 \x03(\x0b\x32$.EventStore.Client.Messages.NewEvent\x12\x16\n\x0erequire_master\x18\x03 \x02(\x08"\x81\x01\n\x19TransactionWriteCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t"C\n\x11TransactionCommit\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12\x16\n\x0erequire_master\x18\x02 \x02(\x08"\xec\x01\n\x1aTransactionCommitCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\x1a\n\x12\x66irst_event_number\x18\x04 \x02(\x05\x12\x19\n\x11last_event_number\x18\x05 \x02(\x05\x12\x18\n\x10prepare_position\x18\x06 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x07 \x01(\x03"l\n\tReadEvent\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x14\n\x0c\x65vent_number\x18\x02 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x16\n\x0erequire_master\x18\x04 \x02(\x08"\xa0\x02\n\x12ReadEventCompleted\x12N\n\x06result\x18\x01 \x02(\x0e\x32>.EventStore.Client.Messages.ReadEventCompleted.ReadEventResult\x12?\n\x05\x65vent\x18\x02 \x02(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent\x12\r\n\x05\x65rror\x18\x03 \x01(\t"j\n\x0fReadEventResult\x12\x0b\n\x07Success\x10\x00\x12\x0c\n\x08NotFound\x10\x01\x12\x0c\n\x08NoStream\x10\x02\x12\x11\n\rStreamDeleted\x10\x03\x12\t\n\x05\x45rror\x10\x04\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x05"\x8b\x01\n\x10ReadStreamEvents\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x19\n\x11\x66rom_event_number\x18\x02 \x02(\x05\x12\x11\n\tmax_count\x18\x03 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x04 \x02(\x08\x12\x16\n\x0erequire_master\x18\x05 \x02(\x08"\xa2\x03\n\x19ReadStreamEventsCompleted\x12@\n\x06\x65vents\x18\x01 \x03(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent\x12V\n\x06result\x18\x02 \x02(\x0e\x32\x46.EventStore.Client.Messages.ReadStreamEventsCompleted.ReadStreamResult\x12\x19\n\x11next_event_number\x18\x03 \x02(\x05\x12\x19\n\x11last_event_number\x18\x04 \x02(\x05\x12\x18\n\x10is_end_of_stream\x18\x05 \x02(\x08\x12\x1c\n\x14last_commit_position\x18\x06 \x02(\x03\x12\r\n\x05\x65rror\x18\x07 \x01(\t"n\n\x10ReadStreamResult\x12\x0b\n\x07Success\x10\x00\x12\x0c\n\x08NoStream\x10\x01\x12\x11\n\rStreamDeleted\x10\x02\x12\x0f\n\x0bNotModified\x10\x03\x12\t\n\x05\x45rror\x10\x04\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x05"\x87\x01\n\rReadAllEvents\x12\x17\n\x0f\x63ommit_position\x18\x01 \x02(\x03\x12\x18\n\x10prepare_position\x18\x02 \x02(\x03\x12\x11\n\tmax_count\x18\x03 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x04 \x02(\x08\x12\x16\n\x0erequire_master\x18\x05 \x02(\x08"\xf9\x02\n\x16ReadAllEventsCompleted\x12\x17\n\x0f\x63ommit_position\x18\x01 \x02(\x03\x12\x18\n\x10prepare_position\x18\x02 \x02(\x03\x12\x39\n\x06\x65vents\x18\x03 \x03(\x0b\x32).EventStore.Client.Messages.ResolvedEvent\x12\x1c\n\x14next_commit_position\x18\x04 \x02(\x03\x12\x1d\n\x15next_prepare_position\x18\x05 \x02(\x03\x12Y\n\x06result\x18\x06 \x01(\x0e\x32@.EventStore.Client.Messages.ReadAllEventsCompleted.ReadAllResult:\x07Success\x12\r\n\x05\x65rror\x18\x07 \x01(\t"J\n\rReadAllResult\x12\x0b\n\x07Success\x10\x00\x12\x0f\n\x0bNotModified\x10\x01\x12\t\n\x05\x45rror\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"\xde\x03\n\x1c\x43reatePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x12\n\nstart_from\x18\x04 \x02(\x05\x12$\n\x1cmessage_timeout_milliseconds\x18\x05 \x02(\x05\x12\x19\n\x11record_statistics\x18\x06 \x02(\x08\x12\x18\n\x10live_buffer_size\x18\x07 \x02(\x05\x12\x17\n\x0fread_batch_size\x18\x08 \x02(\x05\x12\x13\n\x0b\x62uffer_size\x18\t \x02(\x05\x12\x17\n\x0fmax_retry_count\x18\n \x02(\x05\x12\x1a\n\x12prefer_round_robin\x18\x0b \x02(\x08\x12\x1d\n\x15\x63heckpoint_after_time\x18\x0c \x02(\x05\x12\x1c\n\x14\x63heckpoint_max_count\x18\r \x02(\x05\x12\x1c\n\x14\x63heckpoint_min_count\x18\x0e \x02(\x05\x12\x1c\n\x14subscriber_max_count\x18\x0f \x02(\x05\x12\x1f\n\x17named_consumer_strategy\x18\x10 \x01(\t"X\n\x1c\x44\x65letePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t"\xde\x03\n\x1cUpdatePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x12\n\nstart_from\x18\x04 \x02(\x05\x12$\n\x1cmessage_timeout_milliseconds\x18\x05 \x02(\x05\x12\x19\n\x11record_statistics\x18\x06 \x02(\x08\x12\x18\n\x10live_buffer_size\x18\x07 \x02(\x05\x12\x17\n\x0fread_batch_size\x18\x08 \x02(\x05\x12\x13\n\x0b\x62uffer_size\x18\t \x02(\x05\x12\x17\n\x0fmax_retry_count\x18\n \x02(\x05\x12\x1a\n\x12prefer_round_robin\x18\x0b \x02(\x08\x12\x1d\n\x15\x63heckpoint_after_time\x18\x0c \x02(\x05\x12\x1c\n\x14\x63heckpoint_max_count\x18\r \x02(\x05\x12\x1c\n\x14\x63heckpoint_min_count\x18\x0e \x02(\x05\x12\x1c\n\x14subscriber_max_count\x18\x0f \x02(\x05\x12\x1f\n\x17named_consumer_strategy\x18\x10 \x01(\t"\x97\x02\n%UpdatePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted.UpdatePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t"_\n"UpdatePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x10\n\x0c\x44oesNotExist\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"\x98\x02\n%CreatePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.CreatePersistentSubscriptionCompleted.CreatePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t"`\n"CreatePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x11\n\rAlreadyExists\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"\x97\x02\n%DeletePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.DeletePersistentSubscriptionCompleted.DeletePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t"_\n"DeletePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x10\n\x0c\x44oesNotExist\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"w\n\x1f\x43onnectToPersistentSubscription\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12"\n\x1a\x61llowed_in_flight_messages\x18\x03 \x02(\x05"W\n\x1fPersistentSubscriptionAckEvents\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x1b\n\x13processed_event_ids\x18\x02 \x03(\x0c"\x8b\x02\n\x1fPersistentSubscriptionNakEvents\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x1b\n\x13processed_event_ids\x18\x02 \x03(\x0c\x12\x0f\n\x07message\x18\x03 \x01(\t\x12^\n\x06\x61\x63tion\x18\x04 \x02(\x0e\x32\x45.EventStore.Client.Messages.PersistentSubscriptionNakEvents.NakAction:\x07Unknown"A\n\tNakAction\x12\x0b\n\x07Unknown\x10\x00\x12\x08\n\x04Park\x10\x01\x12\t\n\x05Retry\x10\x02\x12\x08\n\x04Skip\x10\x03\x12\x08\n\x04Stop\x10\x04"v\n"PersistentSubscriptionConfirmation\x12\x1c\n\x14last_commit_position\x18\x01 \x02(\x03\x12\x17\n\x0fsubscription_id\x18\x02 \x02(\t\x12\x19\n\x11last_event_number\x18\x03 \x01(\x05"l\n)PersistentSubscriptionStreamEventAppeared\x12?\n\x05\x65vent\x18\x01 \x02(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent"F\n\x11SubscribeToStream\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x02 \x02(\x08"S\n\x18SubscriptionConfirmation\x12\x1c\n\x14last_commit_position\x18\x01 \x02(\x03\x12\x19\n\x11last_event_number\x18\x02 \x01(\x05"O\n\x13StreamEventAppeared\x12\x38\n\x05\x65vent\x18\x01 \x02(\x0b\x32).EventStore.Client.Messages.ResolvedEvent"\x17\n\x15UnsubscribeFromStream"\x06\n\x04Ping"\x06\n\x04Pong"\x8a\x02\n\x13SubscriptionDropped\x12\x64\n\x06reason\x18\x01 \x01(\x0e\x32\x46.EventStore.Client.Messages.SubscriptionDropped.SubscriptionDropReason:\x0cUnsubscribed"\x8c\x01\n\x16SubscriptionDropReason\x12\x10\n\x0cUnsubscribed\x10\x00\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x01\x12\x0c\n\x08NotFound\x10\x02\x12!\n\x1dPersistentSubscriptionDeleted\x10\x03\x12\x1d\n\x19SubscriberMaxCountReached\x10\x04"\xf6\x02\n\nNotHandled\x12G\n\x06reason\x18\x01 \x02(\x0e\x32\x37.EventStore.Client.Messages.NotHandled.NotHandledReason\x12\x17\n\x0f\x61\x64\x64itional_info\x18\x02 \x01(\x0c\x1a\xc7\x01\n\nMasterInfo\x12\x1c\n\x14\x65xternal_tcp_address\x18\x01 \x02(\t\x12\x19\n\x11\x65xternal_tcp_port\x18\x02 \x02(\x05\x12\x1d\n\x15\x65xternal_http_address\x18\x03 \x02(\t\x12\x1a\n\x12\x65xternal_http_port\x18\x04 \x02(\x05\x12#\n\x1b\x65xternal_secure_tcp_address\x18\x05 \x01(\t\x12 \n\x18\x65xternal_secure_tcp_port\x18\x06 \x01(\x05"<\n\x10NotHandledReason\x12\x0c\n\x08NotReady\x10\x00\x12\x0b\n\x07TooBusy\x10\x01\x12\r\n\tNotMaster\x10\x02"\x12\n\x10ScavengeDatabase"\xed\x01\n\x19ScavengeDatabaseCompleted\x12T\n\x06result\x18\x01 \x02(\x0e\x32\x44.EventStore.Client.Messages.ScavengeDatabaseCompleted.ScavengeResult\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12\x15\n\rtotal_time_ms\x18\x03 \x02(\x05\x12\x19\n\x11total_space_saved\x18\x04 \x02(\x03"9\n\x0eScavengeResult\x12\x0b\n\x07Success\x10\x00\x12\x0e\n\nInProgress\x10\x01\x12\n\n\x06\x46\x61iled\x10\x02*\xb0\x01\n\x0fOperationResult\x12\x0b\n\x07Success\x10\x00\x12\x12\n\x0ePrepareTimeout\x10\x01\x12\x11\n\rCommitTimeout\x10\x02\x12\x12\n\x0e\x46orwardTimeout\x10\x03\x12\x18\n\x14WrongExpectedVersion\x10\x04\x12\x11\n\rStreamDeleted\x10\x05\x12\x16\n\x12InvalidTransaction\x10\x06\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x07',
+    serialized_pb=b'\n\x0emessages.proto\x12\x1a\x45ventStore.Client.Messages"\x8a\x01\n\x08NewEvent\x12\x10\n\x08\x65vent_id\x18\x01 \x02(\x0c\x12\x12\n\nevent_type\x18\x02 \x02(\t\x12\x19\n\x11\x64\x61ta_content_type\x18\x03 \x02(\x05\x12\x1d\n\x15metadata_content_type\x18\x04 \x02(\x05\x12\x0c\n\x04\x64\x61ta\x18\x05 \x02(\x0c\x12\x10\n\x08metadata\x18\x06 \x01(\x0c"\xe4\x01\n\x0b\x45ventRecord\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x14\n\x0c\x65vent_number\x18\x02 \x02(\x05\x12\x10\n\x08\x65vent_id\x18\x03 \x02(\x0c\x12\x12\n\nevent_type\x18\x04 \x02(\t\x12\x19\n\x11\x64\x61ta_content_type\x18\x05 \x02(\x05\x12\x1d\n\x15metadata_content_type\x18\x06 \x02(\x05\x12\x0c\n\x04\x64\x61ta\x18\x07 \x02(\x0c\x12\x10\n\x08metadata\x18\x08 \x01(\x0c\x12\x0f\n\x07\x63reated\x18\t \x01(\x03\x12\x15\n\rcreated_epoch\x18\n \x01(\x03"\x85\x01\n\x14ResolvedIndexedEvent\x12\x36\n\x05\x65vent\x18\x01 \x02(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x35\n\x04link\x18\x02 \x01(\x0b\x32\'.EventStore.Client.Messages.EventRecord"\xb1\x01\n\rResolvedEvent\x12\x36\n\x05\x65vent\x18\x01 \x02(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x35\n\x04link\x18\x02 \x01(\x0b\x32\'.EventStore.Client.Messages.EventRecord\x12\x17\n\x0f\x63ommit_position\x18\x03 \x02(\x03\x12\x18\n\x10prepare_position\x18\x04 \x02(\x03"\x8e\x01\n\x0bWriteEvents\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x34\n\x06\x65vents\x18\x03 \x03(\x0b\x32$.EventStore.Client.Messages.NewEvent\x12\x16\n\x0erequire_main\x18\x04 \x02(\x08"\xce\x01\n\x14WriteEventsCompleted\x12;\n\x06result\x18\x01 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x1a\n\x12\x66irst_event_number\x18\x03 \x02(\x05\x12\x19\n\x11last_event_number\x18\x04 \x02(\x05\x12\x18\n\x10prepare_position\x18\x05 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x06 \x01(\x03"n\n\x0c\x44\x65leteStream\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x16\n\x0erequire_main\x18\x03 \x02(\x08\x12\x13\n\x0bhard_delete\x18\x04 \x01(\x08"\x98\x01\n\x15\x44\x65leteStreamCompleted\x12;\n\x06result\x18\x01 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x18\n\x10prepare_position\x18\x03 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x04 \x01(\x03"]\n\x10TransactionStart\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10\x65xpected_version\x18\x02 \x02(\x05\x12\x16\n\x0erequire_main\x18\x03 \x02(\x08"\x81\x01\n\x19TransactionStartCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t"x\n\x10TransactionWrite\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12\x34\n\x06\x65vents\x18\x02 \x03(\x0b\x32$.EventStore.Client.Messages.NewEvent\x12\x16\n\x0erequire_main\x18\x03 \x02(\x08"\x81\x01\n\x19TransactionWriteCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t"C\n\x11TransactionCommit\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12\x16\n\x0erequire_main\x18\x02 \x02(\x08"\xec\x01\n\x1aTransactionCommitCompleted\x12\x16\n\x0etransaction_id\x18\x01 \x02(\x03\x12;\n\x06result\x18\x02 \x02(\x0e\x32+.EventStore.Client.Messages.OperationResult\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\x1a\n\x12\x66irst_event_number\x18\x04 \x02(\x05\x12\x19\n\x11last_event_number\x18\x05 \x02(\x05\x12\x18\n\x10prepare_position\x18\x06 \x01(\x03\x12\x17\n\x0f\x63ommit_position\x18\x07 \x01(\x03"l\n\tReadEvent\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x14\n\x0c\x65vent_number\x18\x02 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x16\n\x0erequire_main\x18\x04 \x02(\x08"\xa0\x02\n\x12ReadEventCompleted\x12N\n\x06result\x18\x01 \x02(\x0e\x32>.EventStore.Client.Messages.ReadEventCompleted.ReadEventResult\x12?\n\x05\x65vent\x18\x02 \x02(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent\x12\r\n\x05\x65rror\x18\x03 \x01(\t"j\n\x0fReadEventResult\x12\x0b\n\x07Success\x10\x00\x12\x0c\n\x08NotFound\x10\x01\x12\x0c\n\x08NoStream\x10\x02\x12\x11\n\rStreamDeleted\x10\x03\x12\t\n\x05\x45rror\x10\x04\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x05"\x8b\x01\n\x10ReadStreamEvents\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x19\n\x11\x66rom_event_number\x18\x02 \x02(\x05\x12\x11\n\tmax_count\x18\x03 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x04 \x02(\x08\x12\x16\n\x0erequire_main\x18\x05 \x02(\x08"\xa2\x03\n\x19ReadStreamEventsCompleted\x12@\n\x06\x65vents\x18\x01 \x03(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent\x12V\n\x06result\x18\x02 \x02(\x0e\x32\x46.EventStore.Client.Messages.ReadStreamEventsCompleted.ReadStreamResult\x12\x19\n\x11next_event_number\x18\x03 \x02(\x05\x12\x19\n\x11last_event_number\x18\x04 \x02(\x05\x12\x18\n\x10is_end_of_stream\x18\x05 \x02(\x08\x12\x1c\n\x14last_commit_position\x18\x06 \x02(\x03\x12\r\n\x05\x65rror\x18\x07 \x01(\t"n\n\x10ReadStreamResult\x12\x0b\n\x07Success\x10\x00\x12\x0c\n\x08NoStream\x10\x01\x12\x11\n\rStreamDeleted\x10\x02\x12\x0f\n\x0bNotModified\x10\x03\x12\t\n\x05\x45rror\x10\x04\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x05"\x87\x01\n\rReadAllEvents\x12\x17\n\x0f\x63ommit_position\x18\x01 \x02(\x03\x12\x18\n\x10prepare_position\x18\x02 \x02(\x03\x12\x11\n\tmax_count\x18\x03 \x02(\x05\x12\x18\n\x10resolve_link_tos\x18\x04 \x02(\x08\x12\x16\n\x0erequire_main\x18\x05 \x02(\x08"\xf9\x02\n\x16ReadAllEventsCompleted\x12\x17\n\x0f\x63ommit_position\x18\x01 \x02(\x03\x12\x18\n\x10prepare_position\x18\x02 \x02(\x03\x12\x39\n\x06\x65vents\x18\x03 \x03(\x0b\x32).EventStore.Client.Messages.ResolvedEvent\x12\x1c\n\x14next_commit_position\x18\x04 \x02(\x03\x12\x1d\n\x15next_prepare_position\x18\x05 \x02(\x03\x12Y\n\x06result\x18\x06 \x01(\x0e\x32@.EventStore.Client.Messages.ReadAllEventsCompleted.ReadAllResult:\x07Success\x12\r\n\x05\x65rror\x18\x07 \x01(\t"J\n\rReadAllResult\x12\x0b\n\x07Success\x10\x00\x12\x0f\n\x0bNotModified\x10\x01\x12\t\n\x05\x45rror\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"\xde\x03\n\x1c\x43reatePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x12\n\nstart_from\x18\x04 \x02(\x05\x12$\n\x1cmessage_timeout_milliseconds\x18\x05 \x02(\x05\x12\x19\n\x11record_statistics\x18\x06 \x02(\x08\x12\x18\n\x10live_buffer_size\x18\x07 \x02(\x05\x12\x17\n\x0fread_batch_size\x18\x08 \x02(\x05\x12\x13\n\x0b\x62uffer_size\x18\t \x02(\x05\x12\x17\n\x0fmax_retry_count\x18\n \x02(\x05\x12\x1a\n\x12prefer_round_robin\x18\x0b \x02(\x08\x12\x1d\n\x15\x63heckpoint_after_time\x18\x0c \x02(\x05\x12\x1c\n\x14\x63heckpoint_max_count\x18\r \x02(\x05\x12\x1c\n\x14\x63heckpoint_min_count\x18\x0e \x02(\x05\x12\x1c\n\x14subscriber_max_count\x18\x0f \x02(\x05\x12\x1f\n\x17named_consumer_strategy\x18\x10 \x01(\t"X\n\x1c\x44\x65letePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t"\xde\x03\n\x1cUpdatePersistentSubscription\x12\x1f\n\x17subscription_group_name\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x03 \x02(\x08\x12\x12\n\nstart_from\x18\x04 \x02(\x05\x12$\n\x1cmessage_timeout_milliseconds\x18\x05 \x02(\x05\x12\x19\n\x11record_statistics\x18\x06 \x02(\x08\x12\x18\n\x10live_buffer_size\x18\x07 \x02(\x05\x12\x17\n\x0fread_batch_size\x18\x08 \x02(\x05\x12\x13\n\x0b\x62uffer_size\x18\t \x02(\x05\x12\x17\n\x0fmax_retry_count\x18\n \x02(\x05\x12\x1a\n\x12prefer_round_robin\x18\x0b \x02(\x08\x12\x1d\n\x15\x63heckpoint_after_time\x18\x0c \x02(\x05\x12\x1c\n\x14\x63heckpoint_max_count\x18\r \x02(\x05\x12\x1c\n\x14\x63heckpoint_min_count\x18\x0e \x02(\x05\x12\x1c\n\x14subscriber_max_count\x18\x0f \x02(\x05\x12\x1f\n\x17named_consumer_strategy\x18\x10 \x01(\t"\x97\x02\n%UpdatePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.UpdatePersistentSubscriptionCompleted.UpdatePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t"_\n"UpdatePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x10\n\x0c\x44oesNotExist\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"\x98\x02\n%CreatePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.CreatePersistentSubscriptionCompleted.CreatePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t"`\n"CreatePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x11\n\rAlreadyExists\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"\x97\x02\n%DeletePersistentSubscriptionCompleted\x12}\n\x06result\x18\x01 \x02(\x0e\x32\x64.EventStore.Client.Messages.DeletePersistentSubscriptionCompleted.DeletePersistentSubscriptionResult:\x07Success\x12\x0e\n\x06reason\x18\x02 \x01(\t"_\n"DeletePersistentSubscriptionResult\x12\x0b\n\x07Success\x10\x00\x12\x10\n\x0c\x44oesNotExist\x10\x01\x12\x08\n\x04\x46\x61il\x10\x02\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x03"w\n\x1f\x43onnectToPersistentSubscription\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x17\n\x0f\x65vent_stream_id\x18\x02 \x02(\t\x12"\n\x1a\x61llowed_in_flight_messages\x18\x03 \x02(\x05"W\n\x1fPersistentSubscriptionAckEvents\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x1b\n\x13processed_event_ids\x18\x02 \x03(\x0c"\x8b\x02\n\x1fPersistentSubscriptionNakEvents\x12\x17\n\x0fsubscription_id\x18\x01 \x02(\t\x12\x1b\n\x13processed_event_ids\x18\x02 \x03(\x0c\x12\x0f\n\x07message\x18\x03 \x01(\t\x12^\n\x06\x61\x63tion\x18\x04 \x02(\x0e\x32\x45.EventStore.Client.Messages.PersistentSubscriptionNakEvents.NakAction:\x07Unknown"A\n\tNakAction\x12\x0b\n\x07Unknown\x10\x00\x12\x08\n\x04Park\x10\x01\x12\t\n\x05Retry\x10\x02\x12\x08\n\x04Skip\x10\x03\x12\x08\n\x04Stop\x10\x04"v\n"PersistentSubscriptionConfirmation\x12\x1c\n\x14last_commit_position\x18\x01 \x02(\x03\x12\x17\n\x0fsubscription_id\x18\x02 \x02(\t\x12\x19\n\x11last_event_number\x18\x03 \x01(\x05"l\n)PersistentSubscriptionStreamEventAppeared\x12?\n\x05\x65vent\x18\x01 \x02(\x0b\x32\x30.EventStore.Client.Messages.ResolvedIndexedEvent"F\n\x11SubscribeToStream\x12\x17\n\x0f\x65vent_stream_id\x18\x01 \x02(\t\x12\x18\n\x10resolve_link_tos\x18\x02 \x02(\x08"S\n\x18SubscriptionConfirmation\x12\x1c\n\x14last_commit_position\x18\x01 \x02(\x03\x12\x19\n\x11last_event_number\x18\x02 \x01(\x05"O\n\x13StreamEventAppeared\x12\x38\n\x05\x65vent\x18\x01 \x02(\x0b\x32).EventStore.Client.Messages.ResolvedEvent"\x17\n\x15UnsubscribeFromStream"\x06\n\x04Ping"\x06\n\x04Pong"\x8a\x02\n\x13SubscriptionDropped\x12\x64\n\x06reason\x18\x01 \x01(\x0e\x32\x46.EventStore.Client.Messages.SubscriptionDropped.SubscriptionDropReason:\x0cUnsubscribed"\x8c\x01\n\x16SubscriptionDropReason\x12\x10\n\x0cUnsubscribed\x10\x00\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x01\x12\x0c\n\x08NotFound\x10\x02\x12!\n\x1dPersistentSubscriptionDeleted\x10\x03\x12\x1d\n\x19SubscriberMaxCountReached\x10\x04"\xf6\x02\n\nNotHandled\x12G\n\x06reason\x18\x01 \x02(\x0e\x32\x37.EventStore.Client.Messages.NotHandled.NotHandledReason\x12\x17\n\x0f\x61\x64\x64itional_info\x18\x02 \x01(\x0c\x1a\xc7\x01\n\nMainInfo\x12\x1c\n\x14\x65xternal_tcp_address\x18\x01 \x02(\t\x12\x19\n\x11\x65xternal_tcp_port\x18\x02 \x02(\x05\x12\x1d\n\x15\x65xternal_http_address\x18\x03 \x02(\t\x12\x1a\n\x12\x65xternal_http_port\x18\x04 \x02(\x05\x12#\n\x1b\x65xternal_secure_tcp_address\x18\x05 \x01(\t\x12 \n\x18\x65xternal_secure_tcp_port\x18\x06 \x01(\x05"<\n\x10NotHandledReason\x12\x0c\n\x08NotReady\x10\x00\x12\x0b\n\x07TooBusy\x10\x01\x12\r\n\tNotMain\x10\x02"\x12\n\x10ScavengeDatabase"\xed\x01\n\x19ScavengeDatabaseCompleted\x12T\n\x06result\x18\x01 \x02(\x0e\x32\x44.EventStore.Client.Messages.ScavengeDatabaseCompleted.ScavengeResult\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12\x15\n\rtotal_time_ms\x18\x03 \x02(\x05\x12\x19\n\x11total_space_saved\x18\x04 \x02(\x03"9\n\x0eScavengeResult\x12\x0b\n\x07Success\x10\x00\x12\x0e\n\nInProgress\x10\x01\x12\n\n\x06\x46\x61iled\x10\x02*\xb0\x01\n\x0fOperationResult\x12\x0b\n\x07Success\x10\x00\x12\x12\n\x0ePrepareTimeout\x10\x01\x12\x11\n\rCommitTimeout\x10\x02\x12\x12\n\x0e\x46orwardTimeout\x10\x03\x12\x18\n\x14WrongExpectedVersion\x10\x04\x12\x11\n\rStreamDeleted\x10\x05\x12\x16\n\x12InvalidTransaction\x10\x06\x12\x10\n\x0c\x41\x63\x63\x65ssDenied\x10\x07',
 )
 
 _OPERATIONRESULT = _descriptor.EnumDescriptor(
@@ -566,7 +566,7 @@ _NOTHANDLED_NOTHANDLEDREASON = _descriptor.EnumDescriptor(
             create_key=_descriptor._internal_create_key,
         ),
         _descriptor.EnumValueDescriptor(
-            name="NotMaster",
+            name="NotMain",
             index=2,
             number=2,
             serialized_options=None,
@@ -1193,8 +1193,8 @@ _WRITEEVENTS = _descriptor.Descriptor(
             create_key=_descriptor._internal_create_key,
         ),
         _descriptor.FieldDescriptor(
-            name="require_master",
-            full_name="EventStore.Client.Messages.WriteEvents.require_master",
+            name="require_main",
+            full_name="EventStore.Client.Messages.WriteEvents.require_main",
             index=3,
             number=4,
             type=8,
@@ -1408,8 +1408,8 @@ _DELETESTREAM = _descriptor.Descriptor(
             create_key=_descriptor._internal_create_key,
         ),
         _descriptor.FieldDescriptor(
-            name="require_master",
-            full_name="EventStore.Client.Messages.DeleteStream.require_master",
+            name="require_main",
+            full_name="EventStore.Client.Messages.DeleteStream.require_main",
             index=2,
             number=3,
             type=8,
@@ -1604,8 +1604,8 @@ _TRANSACTIONSTART = _descriptor.Descriptor(
             create_key=_descriptor._internal_create_key,
         ),
         _descriptor.FieldDescriptor(
-            name="require_master",
-            full_name="EventStore.Client.Messages.TransactionStart.require_master",
+            name="require_main",
+            full_name="EventStore.Client.Messages.TransactionStart.require_main",
             index=2,
             number=3,
             type=8,
@@ -1762,8 +1762,8 @@ _TRANSACTIONWRITE = _descriptor.Descriptor(
             create_key=_descriptor._internal_create_key,
         ),
         _descriptor.FieldDescriptor(
-            name="require_master",
-            full_name="EventStore.Client.Messages.TransactionWrite.require_master",
+            name="require_main",
+            full_name="EventStore.Client.Messages.TransactionWrite.require_main",
             index=2,
             number=3,
             type=8,
@@ -1901,8 +1901,8 @@ _TRANSACTIONCOMMIT = _descriptor.Descriptor(
             create_key=_descriptor._internal_create_key,
         ),
         _descriptor.FieldDescriptor(
-            name="require_master",
-            full_name="EventStore.Client.Messages.TransactionCommit.require_master",
+            name="require_main",
+            full_name="EventStore.Client.Messages.TransactionCommit.require_main",
             index=1,
             number=2,
             type=8,
@@ -2154,8 +2154,8 @@ _READEVENT = _descriptor.Descriptor(
             create_key=_descriptor._internal_create_key,
         ),
         _descriptor.FieldDescriptor(
-            name="require_master",
-            full_name="EventStore.Client.Messages.ReadEvent.require_master",
+            name="require_main",
+            full_name="EventStore.Client.Messages.ReadEvent.require_main",
             index=3,
             number=4,
             type=8,
@@ -2350,8 +2350,8 @@ _READSTREAMEVENTS = _descriptor.Descriptor(
             create_key=_descriptor._internal_create_key,
         ),
         _descriptor.FieldDescriptor(
-            name="require_master",
-            full_name="EventStore.Client.Messages.ReadStreamEvents.require_master",
+            name="require_main",
+            full_name="EventStore.Client.Messages.ReadStreamEvents.require_main",
             index=4,
             number=5,
             type=8,
@@ -2622,8 +2622,8 @@ _READALLEVENTS = _descriptor.Descriptor(
             create_key=_descriptor._internal_create_key,
         ),
         _descriptor.FieldDescriptor(
-            name="require_master",
-            full_name="EventStore.Client.Messages.ReadAllEvents.require_master",
+            name="require_main",
+            full_name="EventStore.Client.Messages.ReadAllEvents.require_main",
             index=4,
             number=5,
             type=8,
@@ -4330,8 +4330,8 @@ _SUBSCRIPTIONDROPPED = _descriptor.Descriptor(
 
 
 _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
-    name="MasterInfo",
-    full_name="EventStore.Client.Messages.NotHandled.MasterInfo",
+    name="MainInfo",
+    full_name="EventStore.Client.Messages.NotHandled.MainInfo",
     filename=None,
     file=DESCRIPTOR,
     containing_type=None,
@@ -4339,7 +4339,7 @@ _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
     fields=[
         _descriptor.FieldDescriptor(
             name="external_tcp_address",
-            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_tcp_address",
+            full_name="EventStore.Client.Messages.NotHandled.MainInfo.external_tcp_address",
             index=0,
             number=1,
             type=9,
@@ -4358,7 +4358,7 @@ _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
         ),
         _descriptor.FieldDescriptor(
             name="external_tcp_port",
-            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_tcp_port",
+            full_name="EventStore.Client.Messages.NotHandled.MainInfo.external_tcp_port",
             index=1,
             number=2,
             type=5,
@@ -4377,7 +4377,7 @@ _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
         ),
         _descriptor.FieldDescriptor(
             name="external_http_address",
-            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_http_address",
+            full_name="EventStore.Client.Messages.NotHandled.MainInfo.external_http_address",
             index=2,
             number=3,
             type=9,
@@ -4396,7 +4396,7 @@ _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
         ),
         _descriptor.FieldDescriptor(
             name="external_http_port",
-            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_http_port",
+            full_name="EventStore.Client.Messages.NotHandled.MainInfo.external_http_port",
             index=3,
             number=4,
             type=5,
@@ -4415,7 +4415,7 @@ _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
         ),
         _descriptor.FieldDescriptor(
             name="external_secure_tcp_address",
-            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_secure_tcp_address",
+            full_name="EventStore.Client.Messages.NotHandled.MainInfo.external_secure_tcp_address",
             index=4,
             number=5,
             type=9,
@@ -4434,7 +4434,7 @@ _NOTHANDLED_MASTERINFO = _descriptor.Descriptor(
         ),
         _descriptor.FieldDescriptor(
             name="external_secure_tcp_port",
-            full_name="EventStore.Client.Messages.NotHandled.MasterInfo.external_secure_tcp_port",
+            full_name="EventStore.Client.Messages.NotHandled.MainInfo.external_secure_tcp_port",
             index=5,
             number=6,
             type=5,
@@ -5205,13 +5205,13 @@ NotHandled = _reflection.GeneratedProtocolMessageType(
     "NotHandled",
     (_message.Message,),
     {
-        "MasterInfo": _reflection.GeneratedProtocolMessageType(
-            "MasterInfo",
+        "MainInfo": _reflection.GeneratedProtocolMessageType(
+            "MainInfo",
             (_message.Message,),
             {
                 "DESCRIPTOR": _NOTHANDLED_MASTERINFO,
                 "__module__": "messages_pb2"
-                # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.NotHandled.MasterInfo)
+                # @@protoc_insertion_point(class_scope:EventStore.Client.Messages.NotHandled.MainInfo)
             },
         ),
         "DESCRIPTOR": _NOTHANDLED,
@@ -5220,7 +5220,7 @@ NotHandled = _reflection.GeneratedProtocolMessageType(
     },
 )
 _sym_db.RegisterMessage(NotHandled)
-_sym_db.RegisterMessage(NotHandled.MasterInfo)
+_sym_db.RegisterMessage(NotHandled.MainInfo)
 
 ScavengeDatabase = _reflection.GeneratedProtocolMessageType(
     "ScavengeDatabase",

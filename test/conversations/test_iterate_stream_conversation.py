@@ -24,7 +24,7 @@ async def test_read_stream_request():
     assert body.event_stream_id == "my-stream"
     assert body.from_event_number == 0
     assert body.resolve_link_tos is True
-    assert body.require_master is False
+    assert body.require_main is False
     assert body.max_count == 100
 
 
@@ -45,7 +45,7 @@ async def test_read_stream_backward():
     assert body.event_stream_id == "my-stream"
     assert body.from_event_number == -1
     assert body.resolve_link_tos is True
-    assert body.require_master is False
+    assert body.require_main is False
     assert body.max_count == 10
 
 
@@ -270,5 +270,5 @@ async def test_reconnect_at_last_event_number():
     assert body.event_stream_id == "my-stream"
     assert body.from_event_number == 33
     assert body.resolve_link_tos is True
-    assert body.require_master is False
+    assert body.require_main is False
     assert body.max_count == 100

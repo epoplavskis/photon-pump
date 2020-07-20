@@ -25,7 +25,7 @@ async def test_read_single_event():
     assert body.event_stream_id == "my-stream"
     assert body.event_number == 23
     assert body.resolve_link_tos is True
-    assert body.require_master is False
+    assert body.require_main is False
 
 
 @pytest.mark.asyncio

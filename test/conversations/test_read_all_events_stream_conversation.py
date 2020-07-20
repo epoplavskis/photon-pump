@@ -24,7 +24,7 @@ async def test_read_all_request():
     assert body.commit_position == 10
     assert body.prepare_position == 11
     assert body.resolve_link_tos is True
-    assert body.require_master is False
+    assert body.require_main is False
     assert body.max_count == 100
 
 
@@ -47,7 +47,7 @@ async def test_read_all_backward():
     assert body.commit_position == 10
     assert body.prepare_position == 11
     assert body.resolve_link_tos is True
-    assert body.require_master is False
+    assert body.require_main is False
     assert body.max_count == 20
 
 

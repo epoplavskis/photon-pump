@@ -99,7 +99,7 @@ def _validate_write_request(
     assert payload.event_stream_id == stream_id
     assert payload.expected_version == msg.ExpectedVersion.Any
     assert len(payload.events) == 1
-    assert not payload.require_master
+    assert not payload.require_main
 
     [evt] = payload.events
     assert evt.event_id == event_id.bytes_le
