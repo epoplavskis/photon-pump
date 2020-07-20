@@ -18,7 +18,7 @@ from photonpump.discovery import (
     get_discoverer,
     read_gossip,
     select,
-    prefer_master,
+    prefer_main,
     prefer_replica,
     KEEP_RETRYING,
 )
@@ -26,7 +26,7 @@ from photonpump.discovery import (
 from . import data
 
 GOOD_NODE = DiscoveredNode(
-    state=NodeState.Master,
+    state=NodeState.Main,
     is_alive=True,
     internal_tcp=None,
     internal_http=None,
@@ -77,29 +77,29 @@ def test_selector_with_nodes_in_all_states():
 
     selected = select(gossip)
 
-    assert selected.state == NodeState.Master
+    assert selected.state == NodeState.Main
 
 
-def test_selector_with_slave_and_clone():
+def test_selector_with_subordinate_and_clone():
     gossip = [
         GOOD_NODE._replace(state=NodeState.Clone),
-        GOOD_NODE._replace(state=NodeState.Slave),
+        GOOD_NODE._replace(state=NodeState.Subordinate),
     ]
 
     selected = select(gossip)
 
-    assert selected.state == NodeState.Slave
+    assert selected.state == NodeState.Subordinate
 
 
-def test_selector_with_master_and_slave():
+def test_selector_with_main_and_subordinate():
     gossip = [
-        GOOD_NODE._replace(state=NodeState.Master),
-        GOOD_NODE._replace(state=NodeState.Slave),
+        GOOD_NODE._replace(state=NodeState.Main),
+        GOOD_NODE._replace(state=NodeState.Subordinate),
     ]
 
     selected = select(gossip)
 
-    assert selected.state == NodeState.Master
+    assert selected.state == NodeState.Main
 
 
 def gossip_nodes(nodes: List[NodeService]):
@@ -274,7 +274,7 @@ async def test_repeated_discovery_failure_for_static_seed():
 async def test_prefer_replica():
     """
     If we ask the discoverer to prefer_replica it should return a replica node
-    before returning a master.
+    before returning a main.
     """
 
     discoverer = get_discoverer(None, None, "10.0.0.1", 2113, prefer_replica)
@@ -286,13 +286,13 @@ async def test_prefer_replica():
 
 
 @pytest.mark.asyncio
-async def test_prefer_master():
+async def test_prefer_main():
     """
-    If we ask the discoverer to prefer_master it should return a master node
+    If we ask the discoverer to prefer_main it should return a main node
     before returning a replica.
     """
 
-    discoverer = get_discoverer(None, None, "10.0.0.1", 2113, prefer_master)
+    discoverer = get_discoverer(None, None, "10.0.0.1", 2113, prefer_main)
     gossip = data.make_gossip("10.0.0.1", "10.0.0.2")
     with aioresponses() as mock:
         mock.get("http://10.0.0.1:2113/gossip", payload=gossip)

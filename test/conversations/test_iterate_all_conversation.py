@@ -24,7 +24,7 @@ async def test_read_request():
     assert body.commit_position == 0
     assert body.prepare_position == 0
     assert body.resolve_link_tos is True
-    assert body.require_master is False
+    assert body.require_main is False
     assert body.max_count == 100
 
 
@@ -42,7 +42,7 @@ async def test_read_backward():
     assert request.command is msg.TcpCommand.ReadAllEventsBackward
     assert body.commit_position == 0
     assert body.resolve_link_tos is True
-    assert body.require_master is False
+    assert body.require_main is False
     assert body.max_count == 10
 
 

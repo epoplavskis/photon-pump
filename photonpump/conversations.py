@@ -149,8 +149,8 @@ class Conversation:
             exn = exceptions.NotReady(self.conversation_id)
         elif body.reason == NotHandledReason.TooBusy:
             exn = exceptions.TooBusy(self.conversation_id)
-        elif body.reason == NotHandledReason.NotMaster:
-            exn = exceptions.NotMaster(self.conversation_id)
+        elif body.reason == NotHandledReason.NotMain:
+            exn = exceptions.NotMain(self.conversation_id)
         else:
             exn = exceptions.NotHandled(self.conversation_id, body.reason)
 
@@ -245,8 +245,8 @@ class WriteEvents(Conversation):
         events: A sequence of events to write.
         expected_version (optional): The expected version of the
             target stream used for concurrency control.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
+        required_main (optional): True if this command must be
+            sent direct to the main node, otherwise False.
         correlation_id (optional): A unique identifer for this
             command.
 
@@ -257,7 +257,7 @@ class WriteEvents(Conversation):
         stream: str,
         events: Sequence[NewEvent],
         expected_version: Union[ExpectedVersion, int] = ExpectedVersion.Any,
-        require_master: bool = False,
+        require_main: bool = False,
         conversation_id: UUID = None,
         credential=None,
         loop=None,
@@ -265,14 +265,14 @@ class WriteEvents(Conversation):
         super().__init__(conversation_id, credential)
         self._logger = logging.get_named_logger(WriteEvents)
         self.stream = stream
-        self.require_master = require_master
+        self.require_main = require_main
         self.events = events
         self.expected_version = expected_version
 
     async def start(self, output: Queue) -> None:
         msg = proto.WriteEvents()
         msg.event_stream_id = self.stream
-        msg.require_master = self.require_master
+        msg.require_main = self.require_main
         msg.expected_version = self.expected_version
 
         for event in self.events:
@@ -443,8 +443,8 @@ class ReadEvent(Conversation):
         event_number: The sequence number of the event to read.
         resolve_links (optional): True if eventstore should
             automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
+        required_main (optional): True if this command must be
+            sent direct to the main node, otherwise False.
         correlation_id (optional): A unique identifer for this
             command.
 
@@ -455,7 +455,7 @@ class ReadEvent(Conversation):
         stream: str,
         event_number: int,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_main: bool = False,
         conversation_id: Optional[UUID] = None,
         credential=None,
     ) -> None:
@@ -463,7 +463,7 @@ class ReadEvent(Conversation):
         super().__init__(conversation_id, credential=credential)
         self.stream = stream
         self.event_number = event_number
-        self.require_master = require_master
+        self.require_main = require_main
         self.resolve_link_tos = resolve_links
         self.name = stream
 
@@ -471,7 +471,7 @@ class ReadEvent(Conversation):
         msg = proto.ReadEvent()
         msg.event_number = self.event_number
         msg.event_stream_id = self.stream
-        msg.require_master = self.require_master
+        msg.require_main = self.require_main
         msg.resolve_link_tos = self.resolve_link_tos
 
         data = msg.SerializeToString()
@@ -505,7 +505,7 @@ def page_stream_message(conversation, from_event):
     msg.event_stream_id = conversation.stream
     msg.from_event_number = from_event
     msg.max_count = conversation.batch_size
-    msg.require_master = conversation.require_master
+    msg.require_main = conversation.require_main
     msg.resolve_link_tos = conversation.resolve_link_tos
 
     data = msg.SerializeToString()
@@ -525,7 +525,7 @@ def page_all_message(conversation, from_position: Position):
     msg.commit_position = from_position.commit
     msg.prepare_position = from_position.prepare
     msg.max_count = conversation.batch_size
-    msg.require_master = conversation.require_master
+    msg.require_main = conversation.require_main
     msg.resolve_link_tos = conversation.resolve_link_tos
 
     data = msg.SerializeToString()
@@ -543,8 +543,8 @@ class ReadAllEvents(Conversation):
         event_number: The sequence number of the event to read.
         resolve_links (optional): True if eventstore should
             automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
+        required_main (optional): True if this command must be
+            sent direct to the main node, otherwise False.
         correlation_id (optional): A unique identifer for this
             command.
     """
@@ -554,7 +554,7 @@ class ReadAllEvents(Conversation):
         from_position: Optional[Position] = None,
         max_count: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_main: bool = False,
         direction: StreamDirection = StreamDirection.Forward,
         credential=None,
         conversation_id: UUID = None,
@@ -565,7 +565,7 @@ class ReadAllEvents(Conversation):
         self.direction = direction
         self.from_position = from_position
         self.batch_size = max_count
-        self.require_master = require_master
+        self.require_main = require_main
         self.resolve_link_tos = resolve_links
 
     async def reply(self, message: InboundMessage, output: Queue) -> None:
@@ -596,8 +596,8 @@ class ReadStreamEvents(Conversation):
         event_number: The sequence number of the event to read.
         resolve_links (optional): True if eventstore should
             automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
+        required_main (optional): True if this command must be
+            sent direct to the main node, otherwise False.
         correlation_id (optional): A unique identifer for this
             command.
     """
@@ -608,7 +608,7 @@ class ReadStreamEvents(Conversation):
         from_event: int = 0,
         max_count: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_main: bool = False,
         direction: StreamDirection = StreamDirection.Forward,
         credential=None,
         conversation_id: UUID = None,
@@ -620,7 +620,7 @@ class ReadStreamEvents(Conversation):
         self.direction = direction
         self.from_event = from_event
         self.batch_size = max_count
-        self.require_master = require_master
+        self.require_main = require_main
         self.resolve_link_tos = resolve_links
 
     async def reply(self, message: InboundMessage, output: Queue):
@@ -664,8 +664,8 @@ class IterAllEvents(Conversation):
         batch_size (optional): The maximum number of events to read at a time.
         resolve_links (optional): True if eventstore should
             automatically resolve Link Events, otherwise False.
-        require_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
+        require_main (optional): True if this command must be
+            sent direct to the main node, otherwise False.
         direction (optional): Controls whether to read forward or backward
           through the events. Defaults to  StreamDirection.Forward
         correlation_id (optional): A unique identifer for this
@@ -677,7 +677,7 @@ class IterAllEvents(Conversation):
         from_position: Position = None,
         batch_size: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_main: bool = False,
         direction: StreamDirection = StreamDirection.Forward,
         credential=None,
         conversation_id: UUID = None,
@@ -687,7 +687,7 @@ class IterAllEvents(Conversation):
         self.batch_size = batch_size
         self.has_first_page = False
         self.resolve_link_tos = resolve_links
-        self.require_master = require_master
+        self.require_main = require_main
         self.from_position = from_position or Position(0, 0)
         self.direction = direction
         self._logger = logging.get_named_logger(IterAllEvents)
@@ -745,8 +745,8 @@ class IterStreamEvents(Conversation):
         stream: The name of the stream containing the event.
         resolve_links (optional): True if eventstore should
             automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
+        required_main (optional): True if this command must be
+            sent direct to the main node, otherwise False.
         correlation_id (optional): A unique identifer for this
             command.
 
@@ -758,7 +758,7 @@ class IterStreamEvents(Conversation):
         from_event: int = None,
         batch_size: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_main: bool = False,
         direction: StreamDirection = StreamDirection.Forward,
         credential=None,
         conversation_id: UUID = None,
@@ -769,7 +769,7 @@ class IterStreamEvents(Conversation):
         self.has_first_page = False
         self.stream = stream
         self.resolve_link_tos = resolve_links
-        self.require_master = require_master
+        self.require_main = require_main
         self.direction = direction
         self._logger = logging.get_named_logger(IterStreamEvents)
         self.iterator = StreamingIterator(self.batch_size)
@@ -1324,7 +1324,7 @@ class CatchupSubscription(__catchup):
         self.direction = StreamDirection.Forward
         self.batch_size = batch_size
         self.has_first_page = False
-        self.require_master = False
+        self.require_main = False
         self.resolve_link_tos = True
         self.credential = credential
         self.result = Future()
@@ -1439,7 +1439,7 @@ class CatchupAllSubscription(__catchup):
         self.direction = StreamDirection.Forward
         self.batch_size = batch_size
         self.has_first_page = False
-        self.require_master = False
+        self.require_main = False
         self.resolve_link_tos = True
         self.credential = credential
         self.result = Future()
@@ -1478,7 +1478,7 @@ class CatchupAllSubscription(__catchup):
         msg.prepare_position = self.from_position.prepare
         msg.max_count = self.batch_size
         msg.resolve_link_tos = self.resolve_link_tos
-        msg.require_master = self.require_master
+        msg.require_main = self.require_main
 
         data = msg.SerializeToString()
 

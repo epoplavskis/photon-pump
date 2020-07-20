@@ -208,13 +208,13 @@ class OutboundMessage:
         payload: Any,
         creds: Credential = None,
         one_way: bool = False,
-        require_master=False,
+        require_main=False,
     ) -> None:
         self.conversation_id = conversation_id
         self.command = command
         self.payload = payload
         self.creds = creds
-        self.require_master = require_master
+        self.require_main = require_main
 
         self.data_length = len(payload)
         self.length = HEADER_LENGTH + self.data_length
@@ -229,7 +229,7 @@ class OutboundMessage:
         struct.pack_into(
             "<IBB",
             data,
-            1 if self.require_master else 0,
+            1 if self.require_main else 0,
             self.length,
             self.command.value,
             1 if self.creds else 0,

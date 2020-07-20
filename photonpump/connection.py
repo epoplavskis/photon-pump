@@ -611,7 +611,7 @@ class Client:
         id: Optional[uuid.UUID] = None,
         metadata: Optional[Any] = None,
         expected_version: int = -2,
-        require_master: bool = False,
+        require_main: bool = False,
     ) -> None:
         """
         Publish a single event to the EventStore.
@@ -637,7 +637,7 @@ class Client:
                     -1: NoStream. Checks that the stream does not yet exist.
                     0: EmptyStream. Checks that the stream has been explicitly created but
                     does not yet contain any events.
-            require_master: If true, slave nodes will reject this message.
+            require_main: If true, subordinate nodes will reject this message.
 
         Examples:
 
@@ -661,7 +661,7 @@ class Client:
             stream,
             [event],
             expected_version=expected_version,
-            require_master=require_master,
+            require_main=require_main,
             credential=self.credential,
         )
         result = await self.dispatcher.start_conversation(conversation)
@@ -673,13 +673,13 @@ class Client:
         stream: str,
         events: Sequence[msg.NewEventData],
         expected_version=msg.ExpectedVersion.Any,
-        require_master=False,
+        require_main=False,
     ):
         cmd = convo.WriteEvents(
             stream,
             events,
             expected_version=expected_version,
-            require_master=require_master,
+            require_main=require_main,
             credential=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
@@ -690,7 +690,7 @@ class Client:
         stream: str,
         event_number: int,
         resolve_links=True,
-        require_master=False,
+        require_main=False,
         correlation_id: uuid.UUID = None,
     ) -> msg.Event:
         """
@@ -701,8 +701,8 @@ class Client:
             event_number: The sequence number of the event to read.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_main (optional): True if this command must be
+                sent direct to the main node, otherwise False.
             correlation_id (optional): A unique identifer for this
                 command.
 
@@ -721,7 +721,7 @@ class Client:
             stream,
             event_number,
             resolve_links,
-            require_master,
+            require_main,
             conversation_id=correlation_id,
             credential=self.credential,
         )
@@ -737,7 +737,7 @@ class Client:
         from_event: int = 0,
         max_count: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_main: bool = False,
         correlation_id: uuid.UUID = None,
     ):
         """
@@ -753,8 +753,8 @@ class Client:
             max_count (optional): The maximum number of events to return.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_main (optional): True if this command must be
+                sent direct to the main node, otherwise False.
             correlation_id (optional): A unique identifer for this command.
 
         Examples:
@@ -785,7 +785,7 @@ class Client:
             from_event,
             max_count,
             resolve_links,
-            require_master,
+            require_main,
             direction=direction,
             credential=self.credential,
         )
@@ -799,7 +799,7 @@ class Client:
         from_position: Optional[Union[msg.Position, msg._PositionSentinel]] = None,
         max_count: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_main: bool = False,
         correlation_id: uuid.UUID = None,
     ):
         """
@@ -814,8 +814,8 @@ class Client:
             max_count (optional): The maximum number of events to return.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_main (optional): True if this command must be
+                sent direct to the main node, otherwise False.
             correlation_id (optional): A unique identifer for this command.
 
         Examples:
@@ -839,7 +839,7 @@ class Client:
             msg.Position.for_direction(direction, from_position),
             max_count,
             resolve_links,
-            require_master,
+            require_main,
             direction=direction,
             credential=self.credential,
         )
@@ -854,7 +854,7 @@ class Client:
         from_event: int = None,
         batch_size: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_main: bool = False,
         correlation_id: uuid.UUID = None,
     ):
         """
@@ -869,8 +869,8 @@ class Client:
             batch_size: The maximum number of events to read at a time.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_main (optional): True if this command must be
+                sent direct to the main node, otherwise False.
             correlation_id (optional): A unique identifer for this
                 command.
 
@@ -915,7 +915,7 @@ class Client:
         from_position: Optional[Union[msg.Position, msg._PositionSentinel]] = None,
         batch_size: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_main: bool = False,
         correlation_id: Optional[uuid.UUID] = None,
     ):
         """
@@ -930,8 +930,8 @@ class Client:
             batch_size (optional): The maximum number of events to read at a time.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_main (optional): True if this command must be
+                sent direct to the main node, otherwise False.
             correlation_id (optional): A unique identifer for this
                 command.
 
@@ -962,7 +962,7 @@ class Client:
             msg.Position.for_direction(direction, from_position),
             batch_size,
             resolve_links,
-            require_master,
+            require_main,
             direction,
             self.credential,
             correlation_id,
@@ -1054,8 +1054,8 @@ class Client:
 
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_main (optional): True if this command must be
+                sent direct to the main node, otherwise False.
             correlation_id (optional): A unique identifer for this
                 command.
             batch_size (optioal): The number of events to pull down from
@@ -1236,21 +1236,21 @@ def connect(
 
             If you're using
             :meth:`persistent subscriptions <photonpump.connection.Client.create_subscription>`
-            you will always want to connect to the master node of the cluster.
+            you will always want to connect to the main node of the cluster.
             The selector parameter is a function that chooses an available node from
-            the gossip result. To select the master node, use the
-            :func:`photonpump.discovery.prefer_master` function. This function will return
-            the master node if there is a live master, and a random replica otherwise.
-            All requests to the server can be made with the require_master flag which
-            will raise an error if the current node is not a master.
+            the gossip result. To select the main node, use the
+            :func:`photonpump.discovery.prefer_main` function. This function will return
+            the main node if there is a live main, and a random replica otherwise.
+            All requests to the server can be made with the require_main flag which
+            will raise an error if the current node is not a main.
 
             >>> async with connect(
             >>>     discovery_host="eventstore.test",
-            >>>     selector=discovery.prefer_master,
+            >>>     selector=discovery.prefer_main,
             >>> ) as c:
-            >>>     await c.ping(require_master=True)
+            >>>     await c.ping(require_main=True)
 
-            Conversely, you might want to avoid connecting to the master node for reasons
+            Conversely, you might want to avoid connecting to the main node for reasons
             of scalability. For this you can use the
             :func:`photonpump.discovery.prefer_replica` function.
 

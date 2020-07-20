@@ -18,15 +18,15 @@ class NodeState(IntEnum):
     PreReplica = 2
     CatchingUp = 3
     Clone = 4
-    Slave = 5
-    PreMaster = 6
-    Master = 7
+    Subordinate = 5
+    PreMain = 6
+    Main = 7
     Manager = 8
     ShuttingDown = 9
     Shutdown = 10
 
 
-ELIGIBLE_STATE = [NodeState.Clone, NodeState.Slave, NodeState.Master]
+ELIGIBLE_STATE = [NodeState.Clone, NodeState.Subordinate, NodeState.Main]
 KEEP_RETRYING = -1
 
 
@@ -58,26 +58,26 @@ def first(elems: Iterable):
         return elem
 
 
-def prefer_master(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
+def prefer_main(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
     """
-    Select the master if available, otherwise fall back to a replica.
+    Select the main if available, otherwise fall back to a replica.
     """
     return max(nodes, key=attrgetter("state"))
 
 
 def prefer_replica(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
     """
-    Select a random replica if any are available or fall back to the master.
+    Select a random replica if any are available or fall back to the main.
     """
-    masters = [node for node in nodes if node.state == NodeState.Master]
-    replicas = [node for node in nodes if node.state != NodeState.Master]
+    mains = [node for node in nodes if node.state == NodeState.Main]
+    replicas = [node for node in nodes if node.state != NodeState.Main]
 
     if replicas:
         return random.choice(replicas)
     else:
-        # if you have more than one master then you're on your own, bud.
+        # if you have more than one main then you're on your own, bud.
 
-        return masters[0]
+        return mains[0]
 
 
 def select_random(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
@@ -94,7 +94,7 @@ def select(
         node for node in gossip if node.is_alive and node.state in ELIGIBLE_STATE
     ]
 
-    selector = selector or prefer_master
+    selector = selector or prefer_main
     LOG.debug(
         "Selecting node using '%s' from gossip members: %r", selector, eligible_nodes
     )
