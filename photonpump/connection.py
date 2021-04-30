@@ -683,7 +683,7 @@ class Client:
             credential=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
-        return await result
+        return result
 
     async def get_event(
         self,
