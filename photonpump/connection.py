@@ -68,7 +68,7 @@ class Connector:
         self.connected = Event()
         self.disconnected = Event()
         self.stopped = Event()
-        self.ctrl_queue = ctrl_queue or asyncio.Queue(loop=self.loop)
+        self.ctrl_queue = ctrl_queue or asyncio.Queue()
         self.log = logging.get_named_logger(Connector)
         self._run_loop = asyncio.ensure_future(self._run())
         self.heartbeat_failures = 0
@@ -1126,8 +1126,8 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
 
     def connection_made(self, transport):
         self._log.debug("Connection made.")
-        self.input_queue = asyncio.Queue(loop=self.loop)
-        self.output_queue = asyncio.Queue(loop=self.loop)
+        self.input_queue = asyncio.Queue()
+        self.output_queue = asyncio.Queue()
         self.transport = transport
 
         stream_reader = asyncio.StreamReader(loop=self.loop)
@@ -1186,7 +1186,6 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
                 self.write_loop,
                 self.dispatch_loop,
                 self.heartbeat_loop,
-                loop=self.loop,
                 return_exceptions=True,
             )
             self.transport.close()
