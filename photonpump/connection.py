@@ -5,6 +5,7 @@ import enum
 import logging
 import struct
 import uuid
+import warnings
 from typing import Any, NamedTuple, Optional, Sequence, Union
 
 from . import conversations as convo
@@ -58,12 +59,10 @@ class Connector:
         ctrl_queue=None,
         connect_timeout=5,
         name=None,
-        loop=None,
     ):
         self.name = name
         self.connection_counter = 0
         self.dispatcher = dispatcher
-        self.loop = loop or asyncio.get_event_loop()
         self.discovery = discovery
         self.connected = Event()
         self.disconnected = Event()
@@ -134,6 +133,7 @@ class Connector:
         self.stopped(exn)
 
     async def _attempt_connect(self, node):
+        loop = asyncio.get_running_loop()
         if not node:
             try:
                 self.log.debug("Performing node discovery")
@@ -154,11 +154,11 @@ class Connector:
                 self.connection_counter,
                 self.dispatcher,
                 self,
-                self.loop,
+                loop,
                 self.name,
             )
             await asyncio.wait_for(
-                self.loop.create_connection(lambda: protocol, node.address, node.port),
+                loop.create_connection(lambda: protocol, node.address, node.port),
                 self.connect_timeout,
             )
         except Exception as e:
@@ -340,7 +340,6 @@ class MessageWriter:
         connection_number: int,
         output_queue: asyncio.Queue,
         name=None,
-        loop=None,
     ):
         self._logger = logging.get_named_logger(MessageWriter, name, connection_number)
         self.writer = writer
@@ -381,9 +380,7 @@ class MessageReader:
         queue,
         pacemaker: PaceMaker,
         name=None,
-        loop=None,
     ):
-        self._loop = loop or asyncio.get_event_loop()
         self.header_bytes = array.array("B", [0] * (self.MESSAGE_MIN_SIZE))
         self.header_bytes_required = self.MESSAGE_MIN_SIZE
         self.queue = queue
@@ -499,11 +496,10 @@ class MessageReader:
 
 
 class MessageDispatcher:
-    def __init__(self, name=None, loop=None):
+    def __init__(self, name=None):
         self.active_conversations = {}
         self._logger = logging.get_named_logger(MessageDispatcher, name)
         self.output = None
-        self._loop = loop or asyncio.get_event_loop()
 
     async def start_conversation(
         self, conversation: convo.Conversation
@@ -1117,7 +1113,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
             PhotonPumpProtocol, self.name, connection_number
         )
         self.transport = None
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or asyncio.get_running_loop()
         super().__init__(self.loop)
         self.connection_number = connection_number
         self.node = addr
@@ -1130,7 +1126,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
         self.output_queue = asyncio.Queue()
         self.transport = transport
 
-        stream_reader = asyncio.StreamReader(loop=self.loop)
+        stream_reader = asyncio.StreamReader()
         stream_reader.set_transport(transport)
         stream_writer = asyncio.StreamWriter(transport, self, stream_reader, self.loop)
         self.pacemaker = PaceMaker(self.output_queue, self.connector)
@@ -1289,10 +1285,16 @@ def connect(
                 :class:`photonpump.disovery.DiscoveredNode` elements.
 
     """
+    if loop is not None:
+        warnings.warn(
+            "The loop parameter has been removed from most of asyncio‘s high-level API following deprecation in Python 3.8",
+            DeprecationWarning,
+            stacklevel=2,
+    )
     discovery = get_discoverer(
         host, port, discovery_host, discovery_port, selector, retry_policy
     )
-    dispatcher = MessageDispatcher(name=name, loop=loop)
+    dispatcher = MessageDispatcher(name=name)
     connector = Connector(discovery, dispatcher, name=name)
 
     credential = msg.Credential(username, password) if username and password else None

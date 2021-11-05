@@ -49,13 +49,12 @@ async def test_when_connecting_to_a_server(event_loop):
 
     addr = NodeService("localhost", 8338, None)
 
-    async with EchoServer(addr, event_loop):
+    async with EchoServer(addr):
 
         dispatcher = SpyDispatcher()
         connector = Connector(
             SingleNodeDiscovery(addr, DiscoveryRetryPolicy()),
             dispatcher,
-            loop=event_loop,
         )
 
         ping = Ping()
@@ -87,17 +86,16 @@ async def test_when_a_server_disconnects(event_loop):
     connector = Connector(
         SingleNodeDiscovery(addr, DiscoveryRetryPolicy()),
         dispatcher,
-        loop=event_loop,
         ctrl_queue=queue,
     )
-    raised_disconnected_event = asyncio.Future(loop=event_loop)
+    raised_disconnected_event = asyncio.Future()
 
     def on_disconnected():
         raised_disconnected_event.set_result(True)
 
     connector.disconnected.append(on_disconnected)
 
-    async with EchoServer(addr, event_loop) as server:
+    async with EchoServer(addr) as server:
 
         await connector.start()
         connect = await queue.next_event()
@@ -132,11 +130,10 @@ async def test_when_three_heartbeats_fail_in_a_row(event_loop):
     connector = Connector(
         SingleNodeDiscovery(addr, DiscoveryRetryPolicy()),
         dispatcher,
-        loop=event_loop,
         ctrl_queue=queue,
     )
 
-    async with EchoServer(addr, event_loop):
+    async with EchoServer(addr):
         await connector.start()
         [connect, connected] = await queue.next_event(count=2)
         assert connect.command == ConnectorCommand.Connect
@@ -168,11 +165,10 @@ async def test_when_a_heartbeat_succeeds(event_loop):
     connector = Connector(
         SingleNodeDiscovery(addr, DiscoveryRetryPolicy()),
         dispatcher,
-        loop=event_loop,
         ctrl_queue=queue,
     )
 
-    async with EchoServer(addr, event_loop):
+    async with EchoServer(addr):
         await connector.start()
         [connect, connected] = await queue.next_event(count=2)
         assert connect.command == ConnectorCommand.Connect
@@ -229,7 +225,7 @@ async def test_when_discovery_fails_on_reconnection(event_loop):
     policy = never_retry()
     dispatcher = SpyDispatcher()
     connector = Connector(
-        SingleNodeDiscovery(addr, policy), dispatcher, loop=event_loop, ctrl_queue=queue
+        SingleNodeDiscovery(addr, policy), dispatcher, ctrl_queue=queue
     )
 
     connector.stopped.append(on_stopped)
@@ -251,11 +247,10 @@ async def test_when_the_connection_fails_with_an_error(event_loop):
     connector = Connector(
         SingleNodeDiscovery(addr, DiscoveryRetryPolicy()),
         dispatcher,
-        loop=event_loop,
         ctrl_queue=queue,
     )
 
-    async with EchoServer(addr, event_loop):
+    async with EchoServer(addr):
 
         await connector.start()
         [connect, connected] = await queue.next_event(count=2)
@@ -279,11 +274,10 @@ async def test_when_restarting_a_running_connector(event_loop):
     connector = Connector(
         SingleNodeDiscovery(addr, DiscoveryRetryPolicy()),
         dispatcher,
-        loop=event_loop,
         ctrl_queue=queue,
     )
 
-    async with EchoServer(addr, event_loop):
+    async with EchoServer(addr):
         await connector.start()
 
         [connect, connected] = await queue.next_event(count=2)
@@ -310,11 +304,10 @@ async def test_when_restarting_a_stopped_connector(event_loop):
     connector = Connector(
         SingleNodeDiscovery(addr, DiscoveryRetryPolicy()),
         dispatcher,
-        loop=event_loop,
         ctrl_queue=queue,
     )
 
-    async with EchoServer(addr, event_loop):
+    async with EchoServer(addr):
         await connector.reconnect()
         [connect, connected] = await queue.next_event(count=2)
 

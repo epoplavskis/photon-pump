@@ -10,9 +10,7 @@ from . import data
 @pytest.mark.asyncio
 async def test_single_event_publish(event_loop):
     stream_name = str(uuid.uuid4())
-    async with connect(
-        loop=event_loop, username="test-user", password="test-password"
-    ) as conn:
+    async with connect(username="test-user", password="test-password") as conn:
         result = await conn.publish_event(
             stream_name,
             "testEvent",
@@ -26,9 +24,7 @@ async def test_single_event_publish(event_loop):
 @pytest.mark.asyncio
 async def test_three_events_publish(event_loop):
     stream_name = str(uuid.uuid4())
-    async with connect(
-        loop=event_loop, username="test-user", password="test-password"
-    ) as c:
+    async with connect(username="test-user", password="test-password") as c:
         result = await c.publish(
             stream_name,
             [
@@ -53,9 +49,7 @@ async def test_three_events_publish(event_loop):
 @pytest.mark.asyncio
 async def test_a_large_event(event_loop):
     stream_name = str(uuid.uuid4())
-    async with connect(
-        loop=event_loop, username="test-user", password="test-password"
-    ) as c:
+    async with connect(username="test-user", password="test-password") as c:
         write_result = await c.publish(
             stream_name,
             [
@@ -74,7 +68,7 @@ async def test_a_large_event(event_loop):
 async def test_publish_raises_exception_if_not_authenticated(event_loop):
     stream_name = str(uuid.uuid4())
 
-    async with connect(loop=event_loop) as conn:
+    async with connect() as conn:
         with pytest.raises(exceptions.AccessDenied):
             await conn.publish(
                 stream_name, [messages.NewEvent("pony_jumped", data={})],

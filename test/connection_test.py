@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 import pytest
@@ -9,7 +10,7 @@ from photonpump.discovery import DiscoveryRetryPolicy
 @pytest.mark.asyncio
 async def test_ping_context_mgr(event_loop):
 
-    async with connect(loop=event_loop) as conn:
+    async with connect() as conn:
         id = uuid.uuid4()
         await conn.ping(conversation_id=id)
 
@@ -17,7 +18,7 @@ async def test_ping_context_mgr(event_loop):
 @pytest.mark.asyncio
 async def test_connect_subscription(event_loop):
 
-    async with connect(username="admin", password="changeit", loop=event_loop) as conn:
+    async with connect(username="admin", password="changeit") as conn:
         subscription_name = str(uuid.uuid4())
         stream_name = str(uuid.uuid4())
         event_id = uuid.uuid4()
@@ -33,7 +34,7 @@ async def test_connect_subscription(event_loop):
 @pytest.mark.asyncio
 async def test_subscribe_to(event_loop):
 
-    async with connect(username="admin", password="changeit", loop=event_loop) as conn:
+    async with connect(username="admin", password="changeit") as conn:
         stream_name = str(uuid.uuid4())
         event_id = uuid.uuid4()
 
@@ -59,5 +60,15 @@ async def test_setting_retry_policy(event_loop):
 
     expected_policy = silly_retry_policy()
 
-    async with connect(loop=event_loop, retry_policy=expected_policy) as client:
+    async with connect(retry_policy=expected_policy) as client:
         assert client.connector.discovery.retry_policy == expected_policy
+
+
+@pytest.mark.asyncio
+async def test_connect_logs_deprecation_warning_when_used_with_loop_parameter(event_loop ):
+    with pytest.warns(DeprecationWarning) as record:
+        async with connect(loop=event_loop) as conn:
+            await conn.ping(conversation_id=uuid.uuid4())
+
+    assert len(record) == 1
+    assert "The loop parameter has been removed from most of asyncio‘s high-level API" in record[0].message.args[0]

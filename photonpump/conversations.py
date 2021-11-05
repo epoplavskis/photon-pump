@@ -260,7 +260,6 @@ class WriteEvents(Conversation):
         require_master: bool = False,
         conversation_id: UUID = None,
         credential=None,
-        loop=None,
     ):
         super().__init__(conversation_id, credential)
         self._logger = logging.get_named_logger(WriteEvents)

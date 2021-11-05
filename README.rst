@@ -25,23 +25,17 @@ Usually you will want to interact with photon pump via the `~photonpump.Client` 
 
 First you will need to create a connection:
 
-    >>> import asyncio
     >>> from photonpump import connect
     >>>
-    >>> loop = asyncio.get_event_loop()
-    >>>
-    >>> async with connect(loop=loop) as c:
+    >>> async with connect() as c:
     >>>     await c.ping()
 
 
 The `photonpump.connect` function returns an async context manager so that the connection will be automatically closed when you are finished. Alternatively you can create a client and manage its lifetime yourself.
 
-    >>> import asyncio
     >>> from photonpump import connect
     >>>
-    >>> loop = asyncio.get_event_loop()
-    >>>
-    >>> client = connect(loop=loop)
+    >>> client = connect()
     >>> await client.connect()
     >>> await client.ping()
     >>> await client.close()
