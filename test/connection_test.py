@@ -1,4 +1,3 @@
-import logging
 import uuid
 
 import pytest
@@ -71,4 +70,4 @@ async def test_connect_logs_deprecation_warning_when_used_with_loop_parameter(ev
             await conn.ping(conversation_id=uuid.uuid4())
 
     assert len(record) == 1
-    assert "The loop parameter has been removed from most of asyncio‘s high-level API" in record[0].message.args[0]
+    assert "The loop parameter has been deprecated" in record[0].message.args[0]

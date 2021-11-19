@@ -1287,7 +1287,7 @@ def connect(
     """
     if loop is not None:
         warnings.warn(
-            "The loop parameter has been removed from most of asyncio‘s high-level API following deprecation in Python 3.8",
+            "The loop parameter has been deprecated",
             DeprecationWarning,
             stacklevel=2,
     )
