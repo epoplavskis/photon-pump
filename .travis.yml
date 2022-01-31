@@ -2,26 +2,26 @@ sudo: required
 language: python
 matrix:
   include:
-  - python: 3.6
-    env: TOXENV=py36
-  - python: 3.7
-    env: TOXENV=py37
-  - python: 3.8
-    env: TOXENV=py38
-  - python: 3.9
-    env: TOXENV=py39
-  - python: 3.10-dev
-    env: TOXENV=py310
+    - python: 3.6
+      env: TOXENV=py36
+    - python: 3.7
+      env: TOXENV=py37
+    - python: 3.8
+      env: TOXENV=py38
+    - python: 3.9
+      env: TOXENV=py39
+    - python: 3.10
+      env: TOXENV=py310
 services:
-- docker
+  - docker
 before_install:
-- make eventstore_docker
+  - make eventstore_docker
 install:
-- pip install tox black
+  - pip install tox black
 script:
-- make travis
+  - make travis
 after_success:
-- codecov
+  - codecov
 deploy:
   provider: pypi
   user: __token__
