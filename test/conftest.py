@@ -6,7 +6,7 @@ import pytest
 logging.basicConfig(level=logging.DEBUG)
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def event_loop():
 
     loop = asyncio.new_event_loop()

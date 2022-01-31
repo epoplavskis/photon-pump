@@ -1,5 +1,6 @@
 aioresponses
 black
+typing-extensions
 codecov
 colorama
 idna-ssl

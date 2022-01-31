@@ -3,6 +3,7 @@ import logging
 
 from photonpump.connection import Event
 from photonpump.conversations import Conversation
+from photonpump.compat import get_running_loop
 
 
 class TeeQueue:
@@ -55,16 +56,16 @@ class EchoServerClientProtocol(asyncio.Protocol):
 
 
 class EchoServer:
-    def __init__(self, addr, loop):
+    def __init__(self, addr):
         self.host = addr.address
         self.port = addr.port
-        self.loop = loop
         self.protocol_counter = 0
         self.running = False
 
     async def __aenter__(self):
         self.transports = []
-        server = self.loop.create_server(self.make_protocol, self.host, self.port)
+        loop = get_running_loop()
+        server = loop.create_server(self.make_protocol, self.host, self.port)
         self._server = await server
         self.running = True
         logging.info("Echo server is running %s", self._server)
@@ -120,7 +121,9 @@ class SpyDispatcher:
 
 
 class FakeConnector:
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         self.connected = Event()
         self.disconnected = Event()
         self.stopped = Event()

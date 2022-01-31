@@ -801,8 +801,7 @@ async def test_live_restart():
 
 @pytest.mark.asyncio
 async def test_paging_projection():
-    """
-    """
+    """ """
 
     convo = CatchupSubscription("my-stream")
     output = TeeQueue()

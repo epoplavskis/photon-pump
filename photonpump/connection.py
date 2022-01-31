@@ -5,11 +5,14 @@ import enum
 import logging
 import struct
 import uuid
+import warnings
 from typing import Any, NamedTuple, Optional, Sequence, Union
+from webbrowser import get
 
 from . import conversations as convo
 from . import messages as msg
 from .discovery import NodeService, get_discoverer, select_random
+from photonpump.compat import get_running_loop
 
 HEADER_LENGTH = 1 + 1 + 16
 SIZE_UINT_32 = 4
@@ -58,17 +61,15 @@ class Connector:
         ctrl_queue=None,
         connect_timeout=5,
         name=None,
-        loop=None,
     ):
         self.name = name
         self.connection_counter = 0
         self.dispatcher = dispatcher
-        self.loop = loop or asyncio.get_event_loop()
         self.discovery = discovery
         self.connected = Event()
         self.disconnected = Event()
         self.stopped = Event()
-        self.ctrl_queue = ctrl_queue or asyncio.Queue(loop=self.loop)
+        self.ctrl_queue = ctrl_queue or asyncio.Queue()
         self.log = logging.get_named_logger(Connector)
         self._run_loop = asyncio.ensure_future(self._run())
         self.heartbeat_failures = 0
@@ -134,6 +135,7 @@ class Connector:
         self.stopped(exn)
 
     async def _attempt_connect(self, node):
+        loop = get_running_loop()
         if not node:
             try:
                 self.log.debug("Performing node discovery")
@@ -154,11 +156,11 @@ class Connector:
                 self.connection_counter,
                 self.dispatcher,
                 self,
-                self.loop,
+                loop,
                 self.name,
             )
             await asyncio.wait_for(
-                self.loop.create_connection(lambda: protocol, node.address, node.port),
+                loop.create_connection(lambda: protocol, node.address, node.port),
                 self.connect_timeout,
             )
         except Exception as e:
@@ -340,7 +342,6 @@ class MessageWriter:
         connection_number: int,
         output_queue: asyncio.Queue,
         name=None,
-        loop=None,
     ):
         self._logger = logging.get_named_logger(MessageWriter, name, connection_number)
         self.writer = writer
@@ -381,9 +382,7 @@ class MessageReader:
         queue,
         pacemaker: PaceMaker,
         name=None,
-        loop=None,
     ):
-        self._loop = loop or asyncio.get_event_loop()
         self.header_bytes = array.array("B", [0] * (self.MESSAGE_MIN_SIZE))
         self.header_bytes_required = self.MESSAGE_MIN_SIZE
         self.queue = queue
@@ -401,7 +400,7 @@ class MessageReader:
 
     async def start(self):
         """Loop forever reading messages and invoking
-           the operation that caused them"""
+        the operation that caused them"""
 
         while True:
             try:
@@ -499,11 +498,10 @@ class MessageReader:
 
 
 class MessageDispatcher:
-    def __init__(self, name=None, loop=None):
+    def __init__(self, name=None):
         self.active_conversations = {}
         self._logger = logging.get_named_logger(MessageDispatcher, name)
         self.output = None
-        self._loop = loop or asyncio.get_event_loop()
 
     async def start_conversation(
         self, conversation: convo.Conversation
@@ -1117,7 +1115,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
             PhotonPumpProtocol, self.name, connection_number
         )
         self.transport = None
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_running_loop()
         super().__init__(self.loop)
         self.connection_number = connection_number
         self.node = addr
@@ -1126,11 +1124,11 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
 
     def connection_made(self, transport):
         self._log.debug("Connection made.")
-        self.input_queue = asyncio.Queue(loop=self.loop)
-        self.output_queue = asyncio.Queue(loop=self.loop)
+        self.input_queue = asyncio.Queue()
+        self.output_queue = asyncio.Queue()
         self.transport = transport
 
-        stream_reader = asyncio.StreamReader(loop=self.loop)
+        stream_reader = asyncio.StreamReader()
         stream_reader.set_transport(transport)
         stream_writer = asyncio.StreamWriter(transport, self, stream_reader, self.loop)
         self.pacemaker = PaceMaker(self.output_queue, self.connector)
@@ -1186,7 +1184,6 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
                 self.write_loop,
                 self.dispatch_loop,
                 self.heartbeat_loop,
-                loop=self.loop,
                 return_exceptions=True,
             )
             self.transport.close()
@@ -1207,93 +1204,99 @@ def connect(
     selector=select_random,
     retry_policy=None,
 ) -> Client:
-    """ Create a new client.
+    """Create a new client.
 
-        Examples:
-            Since the Client is an async context manager, we can use it in a
-            with block for automatic connect/disconnect semantics.
+    Examples:
+        Since the Client is an async context manager, we can use it in a
+        with block for automatic connect/disconnect semantics.
 
-            >>> async with connect(host='127.0.0.1', port=1113) as c:
-            >>>     await c.ping()
+        >>> async with connect(host='127.0.0.1', port=1113) as c:
+        >>>     await c.ping()
 
-            Or we can call connect at a more convenient moment
+        Or we can call connect at a more convenient moment
 
-            >>> c = connect()
-            >>> await c.connect()
-            >>> await c.ping()
-            >>> await c.close()
+        >>> c = connect()
+        >>> await c.connect()
+        >>> await c.ping()
+        >>> await c.close()
 
-            For cluster discovery cases, we can provide a discovery host and
-            port. The host may be an IP or DNS entry. If you provide a DNS
-            entry, discovery will choose randomly from the registered IP
-            addresses for the hostname.
+        For cluster discovery cases, we can provide a discovery host and
+        port. The host may be an IP or DNS entry. If you provide a DNS
+        entry, discovery will choose randomly from the registered IP
+        addresses for the hostname.
 
-            >>> async with connect(discovery_host="eventstore.test") as c:
-            >>>     await c.ping()
+        >>> async with connect(discovery_host="eventstore.test") as c:
+        >>>     await c.ping()
 
-            The discovery host returns gossip data about the cluster. We use the
-            gossip to select a node at random from the avaialble cluster members.
+        The discovery host returns gossip data about the cluster. We use the
+        gossip to select a node at random from the avaialble cluster members.
 
-            If you're using
-            :meth:`persistent subscriptions <photonpump.connection.Client.create_subscription>`
-            you will always want to connect to the master node of the cluster.
-            The selector parameter is a function that chooses an available node from
-            the gossip result. To select the master node, use the
-            :func:`photonpump.discovery.prefer_master` function. This function will return
-            the master node if there is a live master, and a random replica otherwise.
-            All requests to the server can be made with the require_master flag which
-            will raise an error if the current node is not a master.
+        If you're using
+        :meth:`persistent subscriptions <photonpump.connection.Client.create_subscription>`
+        you will always want to connect to the master node of the cluster.
+        The selector parameter is a function that chooses an available node from
+        the gossip result. To select the master node, use the
+        :func:`photonpump.discovery.prefer_master` function. This function will return
+        the master node if there is a live master, and a random replica otherwise.
+        All requests to the server can be made with the require_master flag which
+        will raise an error if the current node is not a master.
 
-            >>> async with connect(
-            >>>     discovery_host="eventstore.test",
-            >>>     selector=discovery.prefer_master,
-            >>> ) as c:
-            >>>     await c.ping(require_master=True)
+        >>> async with connect(
+        >>>     discovery_host="eventstore.test",
+        >>>     selector=discovery.prefer_master,
+        >>> ) as c:
+        >>>     await c.ping(require_master=True)
 
-            Conversely, you might want to avoid connecting to the master node for reasons
-            of scalability. For this you can use the
-            :func:`photonpump.discovery.prefer_replica` function.
+        Conversely, you might want to avoid connecting to the master node for reasons
+        of scalability. For this you can use the
+        :func:`photonpump.discovery.prefer_replica` function.
 
-            >>> async with connect(
-            >>>     discovery_host="eventstore.test",
-            >>>     selector=discovery.prefer_replica,
-            >>> ) as c:
-            >>>     await c.ping()
-
-
-            For some operations, you may need to authenticate your requests by
-            providing a username and password to the client.
-
-            >>> async with connect(username='admin', password='changeit') as c:
-            >>>     await c.ping()
-
-            Ordinarily you will create a single Client per application, but for
-            advanced scenarios you might want multiple connections. In this
-            situation, you can name each connection in order to get better logging.
-
-            >>> async with connect(name="event-reader"):
-            >>>     await c.ping()
-
-            >>> async with connect(name="event-writer"):
-            >>>     await c.ping()
+        >>> async with connect(
+        >>>     discovery_host="eventstore.test",
+        >>>     selector=discovery.prefer_replica,
+        >>> ) as c:
+        >>>     await c.ping()
 
 
-        Args:
-            host: The IP or DNS entry to connect with, defaults to 'localhost'.
-            port: The port to connect with, defaults to 1113.
-            discovery_host: The IP or DNS entry to use for cluster discovery.
-            discovery_port: The port to use for cluster discovery, defaults to 2113.
-            username: The username to use when communicating with eventstore.
-            password: The password to use when communicating with eventstore.
-            loop:An Asyncio event loop.
-            selector: An optional function that selects one element from a list of
-                :class:`photonpump.disovery.DiscoveredNode` elements.
+        For some operations, you may need to authenticate your requests by
+        providing a username and password to the client.
+
+        >>> async with connect(username='admin', password='changeit') as c:
+        >>>     await c.ping()
+
+        Ordinarily you will create a single Client per application, but for
+        advanced scenarios you might want multiple connections. In this
+        situation, you can name each connection in order to get better logging.
+
+        >>> async with connect(name="event-reader"):
+        >>>     await c.ping()
+
+        >>> async with connect(name="event-writer"):
+        >>>     await c.ping()
+
+
+    Args:
+        host: The IP or DNS entry to connect with, defaults to 'localhost'.
+        port: The port to connect with, defaults to 1113.
+        discovery_host: The IP or DNS entry to use for cluster discovery.
+        discovery_port: The port to use for cluster discovery, defaults to 2113.
+        username: The username to use when communicating with eventstore.
+        password: The password to use when communicating with eventstore.
+        loop:An Asyncio event loop.
+        selector: An optional function that selects one element from a list of
+            :class:`photonpump.disovery.DiscoveredNode` elements.
 
     """
+    if loop is not None:
+        warnings.warn(
+            "The loop parameter has been deprecated",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     discovery = get_discoverer(
         host, port, discovery_host, discovery_port, selector, retry_policy
     )
-    dispatcher = MessageDispatcher(name=name, loop=loop)
+    dispatcher = MessageDispatcher(name=name)
     connector = Connector(discovery, dispatcher, name=name)
 
     credential = msg.Credential(username, password) if username and password else None

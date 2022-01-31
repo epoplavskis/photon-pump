@@ -240,9 +240,9 @@ async def test_end_of_stream():
 @pytest.mark.asyncio
 async def test_paging():
     """
-   During the read phase, we expect to page through multiple batches of
-   events. In this scenario we have two batches, each of two events.
-   """
+    During the read phase, we expect to page through multiple batches of
+    events. In this scenario we have two batches, each of two events.
+    """
 
     convo = CatchupAllSubscription()
     output = TeeQueue()
@@ -294,9 +294,9 @@ async def test_paging():
 async def test_subscribes_at_end_of_stream():
 
     """
-   When we have read all the events in the stream, we should send a
-   request to subscribe for new events.
-   """
+    When we have read all the events in the stream, we should send a
+    request to subscribe for new events.
+    """
 
     convo = CatchupAllSubscription()
     output = TeeQueue()
@@ -321,12 +321,12 @@ async def test_subscribes_at_end_of_stream():
 async def test_should_perform_a_catchup_when_subscription_is_confirmed():
 
     """
-   When we have read all the events in the stream, we should send a
-   request to subscribe for new events.
+    When we have read all the events in the stream, we should send a
+    request to subscribe for new events.
 
-   We should start reading catchup events from the `next_commit_position`
-   returned by the historical event read.
-   """
+    We should start reading catchup events from the `next_commit_position`
+    returned by the historical event read.
+    """
 
     convo = CatchupAllSubscription()
     output = TeeQueue()
@@ -358,33 +358,33 @@ async def test_should_perform_a_catchup_when_subscription_is_confirmed():
 async def test_should_return_catchup_events_before_subscribed_events():
 
     """
-   It's possible that the following sequence of events occurs:
-       * The client reads the last batch of events from a stream containing
-         50 events.
-       * The client sends SubscribeToStream
-       * Event 51 is written to the stream
-       * The server creates a subscription starting at event 51 and
-         responds with SubscriptionConfirmed
-       * Event 52 is written to the stream
-       * The client receives event 52.
+    It's possible that the following sequence of events occurs:
+        * The client reads the last batch of events from a stream containing
+          50 events.
+        * The client sends SubscribeToStream
+        * Event 51 is written to the stream
+        * The server creates a subscription starting at event 51 and
+          responds with SubscriptionConfirmed
+        * Event 52 is written to the stream
+        * The client receives event 52.
 
-   To solve this problem, the client needs to perform an additional read
-   to fetch any missing events created between the last batch and the
-   subscription confirmation.
+    To solve this problem, the client needs to perform an additional read
+    to fetch any missing events created between the last batch and the
+    subscription confirmation.
 
-   --------------
+    --------------
 
-   In this scenario, we read a single event (1) from the end of the stream
-   and expect to create a subscription.
+    In this scenario, we read a single event (1) from the end of the stream
+    and expect to create a subscription.
 
-   We receive event 4 immediately on the subscription. We expect that the
-   client requests missing events.
+    We receive event 4 immediately on the subscription. We expect that the
+    client requests missing events.
 
-   We receive two pages, of one event each: 3, and 4, and then drop the subscription.
+    We receive two pages, of one event each: 3, and 4, and then drop the subscription.
 
-   Lastly, we expect that the events are yielded in the correct order
-   despite being received out of order and that we have no duplicates.
-   """
+    Lastly, we expect that the events are yielded in the correct order
+    despite being received out of order and that we have no duplicates.
+    """
 
     convo = CatchupAllSubscription()
     output = TeeQueue()
@@ -532,14 +532,14 @@ async def test_subscribe_with_context_manager():
 @pytest.mark.asyncio
 async def test_restart_from_historical():
     """
-   If we ask the conversation to start again while we're reading historical events
-   we should re-send the most recent page request.
+    If we ask the conversation to start again while we're reading historical events
+    we should re-send the most recent page request.
 
-   In this scenario, we start reading the stream at event 10, we receive a
-   page with 2 events, we request the next page starting at 12.
+    In this scenario, we start reading the stream at event 10, we receive a
+    page with 2 events, we request the next page starting at 12.
 
-   When we restart the conversation, we should again request the page starting at 12.
-   """
+    When we restart the conversation, we should again request the page starting at 12.
+    """
 
     conversation_id = uuid.uuid4()
     output = TeeQueue()
@@ -573,24 +573,24 @@ async def test_restart_from_historical():
 @pytest.mark.asyncio
 async def test_restart_from_catchup():
     """
-   If the connection drops during the catchup phase, we need to unsubscribe
-   from the stream and then go back to reading historical events starting from
-   the last page.
+    If the connection drops during the catchup phase, we need to unsubscribe
+    from the stream and then go back to reading historical events starting from
+    the last page.
 
-   => Request historical events
-   <= Receive 1 event, next_event = 1
-   => Subscribe
-   <= Confirmed
-   => Catch up from 1
+    => Request historical events
+    <= Receive 1 event, next_event = 1
+    => Subscribe
+    <= Confirmed
+    => Catch up from 1
 
-   ** Restart **
+    ** Restart **
 
-   => Unsubscribe
-   <= Confirmed
-   => Read historical from 1
-   <= Empty page
-   => Subscribe
-   """
+    => Unsubscribe
+    <= Confirmed
+    => Read historical from 1
+    <= Empty page
+    => Subscribe
+    """
     conversation_id = uuid.uuid4()
     output = TeeQueue()
     convo = CatchupAllSubscription(conversation_id=conversation_id)
@@ -629,19 +629,19 @@ async def test_restart_from_catchup():
 @pytest.mark.asyncio
 async def test_historical_duplicates():
     """
-   It's possible that we receive the reply to a ReadStreamEvents request after we've
-   resent the request. This will result in our receiving a duplicate page.
+    It's possible that we receive the reply to a ReadStreamEvents request after we've
+    resent the request. This will result in our receiving a duplicate page.
 
-   In this instance, we should not raise duplicate events.
+    In this instance, we should not raise duplicate events.
 
-   => Request historical
-   RESTART
-   => Request historical
-   <= 2 events
-   <= 3 events
+    => Request historical
+    RESTART
+    => Request historical
+    <= 2 events
+    <= 3 events
 
-   Should only see the 3 unique events
-   """
+    Should only see the 3 unique events
+    """
 
     two_events = (
         ReadAllEventsResponseBuilder()
@@ -681,32 +681,32 @@ async def test_historical_duplicates():
 @pytest.mark.asyncio
 async def test_subscription_duplicates():
     """
-   If we receive subscription events while catching up, we buffer them internally.
-   If we restart the conversation at that point we need to make sure we clear our buffer
-   and do not raise duplicate events.
+    If we receive subscription events while catching up, we buffer them internally.
+    If we restart the conversation at that point we need to make sure we clear our buffer
+    and do not raise duplicate events.
 
-   => Request historical
-   <= Empty
-   => Subscribe to stream
-   <= Confirmed
-   => Request catchup
-   <= Subscribed event 2 appeared
-   <= Event 1, not end of stream
+    => Request historical
+    <= Empty
+    => Subscribe to stream
+    <= Confirmed
+    => Request catchup
+    <= Subscribed event 2 appeared
+    <= Event 1, not end of stream
 
-   RESTART
+    RESTART
 
-   => Drop subscription
-   <= Dropped
-   => Request historical from_event = 1
-   <= Receive event 2 at end of stream
-   => Subscribe
-   <= Confirmed
-   => Catchup
-   <= Subscribed event 3 appeared
-   <= Empty
+    => Drop subscription
+    <= Dropped
+    => Request historical from_event = 1
+    <= Receive event 2 at end of stream
+    => Subscribe
+    <= Confirmed
+    => Catchup
+    <= Subscribed event 3 appeared
+    <= Empty
 
-   Should yield [event 1, event 2, event 3]
-   """
+    Should yield [event 1, event 2, event 3]
+    """
     event_1_not_end_of_stream = (
         ReadAllEventsResponseBuilder()
         .with_event(event_number=1)
@@ -753,24 +753,24 @@ async def test_subscription_duplicates():
 @pytest.mark.asyncio
 async def test_live_restart():
     """
-   If we reset the conversation while we are live, we should first unsubscribe
-   then start a historical read from the last read event.
+    If we reset the conversation while we are live, we should first unsubscribe
+    then start a historical read from the last read event.
 
-   => Read historial
-   <= empty
-   => subscribe
-   <= confirmed
-   => catchup
-   <= empty
-   <= event 1 appeared
-   <= event 2 appeared
+    => Read historial
+    <= empty
+    => subscribe
+    <= confirmed
+    => catchup
+    <= empty
+    <= event 1 appeared
+    <= event 2 appeared
 
-   RESTART
+    RESTART
 
-   => unsubscribe
-   <= dropped
-   => Read historical from 2
-   """
+    => unsubscribe
+    <= dropped
+    => Read historical from 2
+    """
 
     output = TeeQueue()
     convo = CatchupAllSubscription()
