@@ -7,10 +7,12 @@ import struct
 import uuid
 import warnings
 from typing import Any, NamedTuple, Optional, Sequence, Union
+from webbrowser import get
 
 from . import conversations as convo
 from . import messages as msg
 from .discovery import NodeService, get_discoverer, select_random
+from photonpump.compat import get_running_loop
 
 HEADER_LENGTH = 1 + 1 + 16
 SIZE_UINT_32 = 4
@@ -133,7 +135,7 @@ class Connector:
         self.stopped(exn)
 
     async def _attempt_connect(self, node):
-        loop = asyncio.get_running_loop()
+        loop = get_running_loop()
         if not node:
             try:
                 self.log.debug("Performing node discovery")
@@ -1113,7 +1115,7 @@ class PhotonPumpProtocol(asyncio.streams.FlowControlMixin):
             PhotonPumpProtocol, self.name, connection_number
         )
         self.transport = None
-        self.loop = loop or asyncio.get_running_loop()
+        self.loop = loop or get_running_loop()
         super().__init__(self.loop)
         self.connection_number = connection_number
         self.node = addr

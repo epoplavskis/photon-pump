@@ -3,6 +3,7 @@ import logging
 
 from photonpump.connection import Event
 from photonpump.conversations import Conversation
+from photonpump.compat import get_running_loop
 
 
 class TeeQueue:
@@ -63,7 +64,7 @@ class EchoServer:
 
     async def __aenter__(self):
         self.transports = []
-        loop = asyncio.get_running_loop()
+        loop = get_running_loop()
         server = loop.create_server(self.make_protocol, self.host, self.port)
         self._server = await server
         self.running = True
