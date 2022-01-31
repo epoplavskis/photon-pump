@@ -64,7 +64,9 @@ async def test_setting_retry_policy(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_connect_logs_deprecation_warning_when_used_with_loop_parameter(event_loop ):
+async def test_connect_logs_deprecation_warning_when_used_with_loop_parameter(
+    event_loop,
+):
     with pytest.warns(DeprecationWarning) as record:
         async with connect(loop=event_loop) as conn:
             await conn.ping(conversation_id=uuid.uuid4())

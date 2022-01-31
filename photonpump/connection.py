@@ -398,7 +398,7 @@ class MessageReader:
 
     async def start(self):
         """Loop forever reading messages and invoking
-           the operation that caused them"""
+        the operation that caused them"""
 
         while True:
             try:
@@ -1202,87 +1202,87 @@ def connect(
     selector=select_random,
     retry_policy=None,
 ) -> Client:
-    """ Create a new client.
+    """Create a new client.
 
-        Examples:
-            Since the Client is an async context manager, we can use it in a
-            with block for automatic connect/disconnect semantics.
+    Examples:
+        Since the Client is an async context manager, we can use it in a
+        with block for automatic connect/disconnect semantics.
 
-            >>> async with connect(host='127.0.0.1', port=1113) as c:
-            >>>     await c.ping()
+        >>> async with connect(host='127.0.0.1', port=1113) as c:
+        >>>     await c.ping()
 
-            Or we can call connect at a more convenient moment
+        Or we can call connect at a more convenient moment
 
-            >>> c = connect()
-            >>> await c.connect()
-            >>> await c.ping()
-            >>> await c.close()
+        >>> c = connect()
+        >>> await c.connect()
+        >>> await c.ping()
+        >>> await c.close()
 
-            For cluster discovery cases, we can provide a discovery host and
-            port. The host may be an IP or DNS entry. If you provide a DNS
-            entry, discovery will choose randomly from the registered IP
-            addresses for the hostname.
+        For cluster discovery cases, we can provide a discovery host and
+        port. The host may be an IP or DNS entry. If you provide a DNS
+        entry, discovery will choose randomly from the registered IP
+        addresses for the hostname.
 
-            >>> async with connect(discovery_host="eventstore.test") as c:
-            >>>     await c.ping()
+        >>> async with connect(discovery_host="eventstore.test") as c:
+        >>>     await c.ping()
 
-            The discovery host returns gossip data about the cluster. We use the
-            gossip to select a node at random from the avaialble cluster members.
+        The discovery host returns gossip data about the cluster. We use the
+        gossip to select a node at random from the avaialble cluster members.
 
-            If you're using
-            :meth:`persistent subscriptions <photonpump.connection.Client.create_subscription>`
-            you will always want to connect to the master node of the cluster.
-            The selector parameter is a function that chooses an available node from
-            the gossip result. To select the master node, use the
-            :func:`photonpump.discovery.prefer_master` function. This function will return
-            the master node if there is a live master, and a random replica otherwise.
-            All requests to the server can be made with the require_master flag which
-            will raise an error if the current node is not a master.
+        If you're using
+        :meth:`persistent subscriptions <photonpump.connection.Client.create_subscription>`
+        you will always want to connect to the master node of the cluster.
+        The selector parameter is a function that chooses an available node from
+        the gossip result. To select the master node, use the
+        :func:`photonpump.discovery.prefer_master` function. This function will return
+        the master node if there is a live master, and a random replica otherwise.
+        All requests to the server can be made with the require_master flag which
+        will raise an error if the current node is not a master.
 
-            >>> async with connect(
-            >>>     discovery_host="eventstore.test",
-            >>>     selector=discovery.prefer_master,
-            >>> ) as c:
-            >>>     await c.ping(require_master=True)
+        >>> async with connect(
+        >>>     discovery_host="eventstore.test",
+        >>>     selector=discovery.prefer_master,
+        >>> ) as c:
+        >>>     await c.ping(require_master=True)
 
-            Conversely, you might want to avoid connecting to the master node for reasons
-            of scalability. For this you can use the
-            :func:`photonpump.discovery.prefer_replica` function.
+        Conversely, you might want to avoid connecting to the master node for reasons
+        of scalability. For this you can use the
+        :func:`photonpump.discovery.prefer_replica` function.
 
-            >>> async with connect(
-            >>>     discovery_host="eventstore.test",
-            >>>     selector=discovery.prefer_replica,
-            >>> ) as c:
-            >>>     await c.ping()
-
-
-            For some operations, you may need to authenticate your requests by
-            providing a username and password to the client.
-
-            >>> async with connect(username='admin', password='changeit') as c:
-            >>>     await c.ping()
-
-            Ordinarily you will create a single Client per application, but for
-            advanced scenarios you might want multiple connections. In this
-            situation, you can name each connection in order to get better logging.
-
-            >>> async with connect(name="event-reader"):
-            >>>     await c.ping()
-
-            >>> async with connect(name="event-writer"):
-            >>>     await c.ping()
+        >>> async with connect(
+        >>>     discovery_host="eventstore.test",
+        >>>     selector=discovery.prefer_replica,
+        >>> ) as c:
+        >>>     await c.ping()
 
 
-        Args:
-            host: The IP or DNS entry to connect with, defaults to 'localhost'.
-            port: The port to connect with, defaults to 1113.
-            discovery_host: The IP or DNS entry to use for cluster discovery.
-            discovery_port: The port to use for cluster discovery, defaults to 2113.
-            username: The username to use when communicating with eventstore.
-            password: The password to use when communicating with eventstore.
-            loop:An Asyncio event loop.
-            selector: An optional function that selects one element from a list of
-                :class:`photonpump.disovery.DiscoveredNode` elements.
+        For some operations, you may need to authenticate your requests by
+        providing a username and password to the client.
+
+        >>> async with connect(username='admin', password='changeit') as c:
+        >>>     await c.ping()
+
+        Ordinarily you will create a single Client per application, but for
+        advanced scenarios you might want multiple connections. In this
+        situation, you can name each connection in order to get better logging.
+
+        >>> async with connect(name="event-reader"):
+        >>>     await c.ping()
+
+        >>> async with connect(name="event-writer"):
+        >>>     await c.ping()
+
+
+    Args:
+        host: The IP or DNS entry to connect with, defaults to 'localhost'.
+        port: The port to connect with, defaults to 1113.
+        discovery_host: The IP or DNS entry to use for cluster discovery.
+        discovery_port: The port to use for cluster discovery, defaults to 2113.
+        username: The username to use when communicating with eventstore.
+        password: The password to use when communicating with eventstore.
+        loop:An Asyncio event loop.
+        selector: An optional function that selects one element from a list of
+            :class:`photonpump.disovery.DiscoveredNode` elements.
 
     """
     if loop is not None:
@@ -1290,7 +1290,7 @@ def connect(
             "The loop parameter has been deprecated",
             DeprecationWarning,
             stacklevel=2,
-    )
+        )
     discovery = get_discoverer(
         host, port, discovery_host, discovery_port, selector, retry_policy
     )

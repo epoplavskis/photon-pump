@@ -71,5 +71,6 @@ async def test_publish_raises_exception_if_not_authenticated(event_loop):
     async with connect() as conn:
         with pytest.raises(exceptions.AccessDenied):
             await conn.publish(
-                stream_name, [messages.NewEvent("pony_jumped", data={})],
+                stream_name,
+                [messages.NewEvent("pony_jumped", data={})],
             )

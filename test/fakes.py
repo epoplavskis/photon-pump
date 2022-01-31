@@ -120,7 +120,9 @@ class SpyDispatcher:
 
 
 class FakeConnector:
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         self.connected = Event()
         self.disconnected = Event()
         self.stopped = Event()
