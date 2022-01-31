@@ -17,7 +17,6 @@ Documentation is available on `Read the docs`_.
 
 Basic Usage
 -----------
-
 Working with connections
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
