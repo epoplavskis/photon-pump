@@ -951,6 +951,14 @@ class CreatePersistentSubscription(Conversation):
                     self.conversation_id, type(self).__name__, result.reason
                 )
             )
+
+        elif result.result == SubscriptionResult.AlreadyExists:
+            await self.error(
+                exceptions.SubscriptionGroupAlreadyExists(
+                    self.conversation_id, type(self).__name__, result.reason
+                )
+            )
+
         else:
             await self.error(
                 exceptions.SubscriptionCreationFailed(

@@ -108,6 +108,10 @@ class SubscriptionCreationFailed(ConversationException):
     pass
 
 
+class SubscriptionGroupAlreadyExists(ConversationException):
+    pass
+
+
 class SubscriptionFailed(ConversationException):
     pass
 
