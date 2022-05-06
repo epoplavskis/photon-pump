@@ -11,7 +11,6 @@ from photonpump.discovery import (
     DiscoveryRetryPolicy,
     NodeService,
     NodeState,
-    SingleNodeDiscovery,
     StaticSeedFinder,
     Stats,
     fetch_new_gossip,
@@ -251,23 +250,19 @@ async def test_repeated_discovery_failure_for_static_seed():
 
     seed = NodeService("1.2.3.4", 2113, None)
     retry = always_fail()
-    gossip = data.make_gossip("2.3.4.5")
+    discoverer = ClusterDiscovery(StaticSeedFinder([seed]), retry, None)
     with aioresponses() as mock:
-        successful_discoverer = ClusterDiscovery(StaticSeedFinder([seed]), retry, None)
-
         mock.get("http://1.2.3.4:2113/gossip", status=500)
-        mock.get("http://1.2.3.4:2113/gossip", payload=gossip)
 
         with pytest.raises(DiscoveryFailed):
-            assert await successful_discoverer.next_node() == NodeService(
-                "2.3.4.5", 1113, None
-            )
-            stats = retry.stats[seed]
+            await discoverer.next_node()
 
-            assert stats.attempts == 1
-            assert stats.successes == 0
-            assert stats.failures == 1
-            assert stats.consecutive_failures == 1
+        stats = retry.stats[seed]
+
+        assert stats.attempts == 1
+        assert stats.successes == 0
+        assert stats.failures == 1
+        assert stats.consecutive_failures == 1
 
 
 @pytest.mark.asyncio
