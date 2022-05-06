@@ -35,6 +35,17 @@ GOOD_NODE = DiscoveredNode(
 )
 
 
+class always_fail(DiscoveryRetryPolicy):
+    def __init__(self):
+        super().__init__()
+
+    def should_retry(self, _):
+        return False
+
+    async def wait(self, seed):
+        pass
+
+
 def test_selector_with_one_node():
 
     gossip = [GOOD_NODE]
@@ -232,23 +243,50 @@ async def test_discovery_failure_for_static_seed():
         assert stats.consecutive_failures == 0
 
 
+@pytest.mark.xfail(reason="Bug in StaticSeedFinder", raises=ValueError)
+@pytest.mark.asyncio
+async def test_discovery_failure_on_a_discovered_node():
+    """
+    When gossip fetch fails for a discovered node, we should retry the seed node
+    """
+    seed_ip = "1.2.3.4"
+    discovered_ip = "2.3.4.5"
+
+    seed = NodeService(seed_ip, 2113, None)
+    discovered = NodeService(discovered_ip, 2113, None)
+
+    gossip = data.make_gossip(discovered_ip)
+    retry = always_fail()
+    discoverer = ClusterDiscovery(StaticSeedFinder([seed]), retry, None)
+    with aioresponses() as mock:
+        mock.get(f"http://{seed_ip}:2113/gossip", payload=gossip)
+        mock.get(f"http://{discovered_ip}:2113/gossip", status=500)
+        mock.get(f"http://{seed_ip}:2113/gossip", payload=gossip)
+
+        assert await discoverer.next_node() == NodeService(discovered_ip, 1113, None)
+        assert await discoverer.next_node() == NodeService(discovered_ip, 1113, None)
+
+        seed_stats = retry.stats[seed]
+
+        assert seed_stats.attempts == 2
+        assert seed_stats.successes == 2
+        assert seed_stats.failures == 0
+        assert seed_stats.consecutive_failures == 0
+
+        discovered_stats = retry.stats[discovered]
+
+        assert discovered_stats.attempts == 1
+        assert discovered_stats.successes == 0
+        assert discovered_stats.failures == 1
+        assert discovered_stats.consecutive_failures == 1
+
+
 @pytest.mark.asyncio
 async def test_repeated_discovery_failure_for_static_seed():
     """
     When gossip fetch fails `maximum_retry_count` times, we should fail with a
     DiscoverFailed error.
     """
-
-    class always_fail(DiscoveryRetryPolicy):
-        def __init__(self):
-            super().__init__()
-
-        def should_retry(self, _):
-            return False
-
-        async def wait(self, seed):
-            pass
-
     seed = NodeService("1.2.3.4", 2113, None)
     retry = always_fail()
     gossip = data.make_gossip("2.3.4.5")
