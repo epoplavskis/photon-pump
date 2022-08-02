@@ -254,7 +254,7 @@ High-Availability Scenarios
 
 Eventstore supports an HA-cluster deployment topology. In this scenario, Eventstore runs a leader node and multiple followers. Some operations, particularly persistent subscriptions and projections, are handled only by the leader node. To connect to an HA-cluster and automatically find the leader node, photonpump supports cluster discovery.
 
-The cluster discovery interrogates eventstore gossip to find the active leader. You can provide the IP of a matching in the cluster, or a DNS name that resolves to some members of the cluster, and photonpump will discover the others.
+The cluster discovery interrogates eventstore gossip to find the active leader. You can provide the IP of a machine in the cluster, or a DNS name that resolves to some members of the cluster, and photonpump will discover the others.
 
     >>> async def connect_to_cluster(hostname_or_ip, port=2113):
     >>>     with connect(discovery_host=hostname_or_ip, discovery_port=2113) as c:
