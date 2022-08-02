@@ -245,8 +245,8 @@ class WriteEvents(Conversation):
         events: A sequence of events to write.
         expected_version (optional): The expected version of the
             target stream used for concurrency control.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
+        required_leader (optional): True if this command must be
+            sent direct to the leader node, otherwise False.
         correlation_id (optional): A unique identifer for this
             command.
 
@@ -442,9 +442,9 @@ class ReadEvent(Conversation):
         event_number: The sequence number of the event to read.
         resolve_links (optional): True if eventstore should
             automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
-        correlation_id (optional): A unique identifer for this
+        required_leader (optional): True if this command must be
+            sent direct to the leader node, otherwise False.
+        correlation_id (optional): A unique identifier for this
             command.
 
     """
@@ -542,8 +542,8 @@ class ReadAllEvents(Conversation):
         event_number: The sequence number of the event to read.
         resolve_links (optional): True if eventstore should
             automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
+        required_leader (optional): True if this command must be
+            sent direct to the leader node, otherwise False.
         correlation_id (optional): A unique identifer for this
             command.
     """
@@ -595,8 +595,8 @@ class ReadStreamEvents(Conversation):
         event_number: The sequence number of the event to read.
         resolve_links (optional): True if eventstore should
             automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
+        required_leader (optional): True if this command must be
+            sent direct to the leader node, otherwise False.
         correlation_id (optional): A unique identifer for this
             command.
     """
@@ -664,10 +664,10 @@ class IterAllEvents(Conversation):
         resolve_links (optional): True if eventstore should
             automatically resolve Link Events, otherwise False.
         require_leader (optional): True if this command must be
-            sent direct to the master node, otherwise False.
+            sent direct to the leader node, otherwise False.
         direction (optional): Controls whether to read forward or backward
           through the events. Defaults to  StreamDirection.Forward
-        correlation_id (optional): A unique identifer for this
+        correlation_id (optional): A unique identifier for this
             command.
     """
 
@@ -744,8 +744,8 @@ class IterStreamEvents(Conversation):
         stream: The name of the stream containing the event.
         resolve_links (optional): True if eventstore should
             automatically resolve Link Events, otherwise False.
-        required_master (optional): True if this command must be
-            sent direct to the master node, otherwise False.
+        required_leader (optional): True if this command must be
+            sent direct to the leader node, otherwise False.
         correlation_id (optional): A unique identifer for this
             command.
 

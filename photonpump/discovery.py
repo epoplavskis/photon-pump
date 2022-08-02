@@ -16,16 +16,21 @@ LOG = logging.getLogger("photonpump.discovery")
 
 class NodeState(IntEnum):
     Initializing = enum.auto()
+    DiscoverLeader = enum.auto()
     Unknown = enum.auto()
     PreReplica = enum.auto()
     CatchingUp = enum.auto()
     Clone = enum.auto()
     Follower = enum.auto()
-    PreMaster = enum.auto()
+    PreLeader = enum.auto()
     Leader = enum.auto()
     Manager = enum.auto()
     ShuttingDown = enum.auto()
     Shutdown = enum.auto()
+    ReadOnlyLeaderless = enum.auto()
+    PreReadOnlyReplica = enum.auto()
+    ReadOnlyReplica = enum.auto()
+    ResigningLeader = enum.auto()
 
 
 ELIGIBLE_STATE = [NodeState.Clone, NodeState.Follower, NodeState.Leader]

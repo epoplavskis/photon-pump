@@ -79,7 +79,7 @@ def test_selector_with_nodes_in_all_states():
     assert selected.state == NodeState.Leader
 
 
-def test_selector_with_slave_and_clone():
+def test_selector_with_follower_and_clone():
     gossip = [
         GOOD_NODE._replace(state=NodeState.Clone),
         GOOD_NODE._replace(state=NodeState.Follower),
@@ -90,7 +90,7 @@ def test_selector_with_slave_and_clone():
     assert selected.state == NodeState.Follower
 
 
-def test_selector_with_master_and_slave():
+def test_selector_with_leader_and_follower():
     gossip = [
         GOOD_NODE._replace(state=NodeState.Leader),
         GOOD_NODE._replace(state=NodeState.Follower),

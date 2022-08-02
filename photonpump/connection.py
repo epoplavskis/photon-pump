@@ -704,8 +704,8 @@ class Client:
             event_number: The sequence number of the event to read.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_leader (optional): True if this command must be
+                sent direct to the leader node, otherwise False.
             correlation_id (optional): A unique identifer for this
                 command.
 
@@ -756,8 +756,8 @@ class Client:
             max_count (optional): The maximum number of events to return.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_leader (optional): True if this command must be
+                sent direct to the leader node, otherwise False.
             correlation_id (optional): A unique identifer for this command.
 
         Examples:
@@ -817,9 +817,9 @@ class Client:
             max_count (optional): The maximum number of events to return.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
-            correlation_id (optional): A unique identifer for this command.
+            required_leader (optional): True if this command must be
+                sent direct to the leader node, otherwise False.
+            correlation_id (optional): A unique identifier for this command.
 
         Examples:
 
@@ -933,9 +933,9 @@ class Client:
             batch_size (optional): The maximum number of events to read at a time.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
-            correlation_id (optional): A unique identifer for this
+            required_leader (optional): True if this command must be
+                sent direct to the leader node, otherwise False.
+            correlation_id (optional): A unique identifier for this
                 command.
 
         Examples:
@@ -1057,8 +1057,8 @@ class Client:
 
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_leader (optional): True if this command must be
+                sent direct to the leader node, otherwise False.
             correlation_id (optional): A unique identifer for this
                 command.
             batch_size (optioal): The number of events to pull down from
@@ -1239,21 +1239,21 @@ def connect(
 
         If you're using
         :meth:`persistent subscriptions <photonpump.connection.Client.create_subscription>`
-        you will always want to connect to the master node of the cluster.
+        you will always want to connect to the leader node of the cluster.
         The selector parameter is a function that chooses an available node from
-        the gossip result. To select the master node, use the
-        :func:`photonpump.discovery.prefer_master` function. This function will return
-        the master node if there is a live master, and a random replica otherwise.
+        the gossip result. To select the leader node, use the
+        :func:`photonpump.discovery.prefer_leader` function. This function will return
+        the leader node if there is a live leader, and a random replica otherwise.
         All requests to the server can be made with the require_leader flag which
-        will raise an error if the current node is not a master.
+        will raise an error if the current node is not a leader.
 
         >>> async with connect(
         >>>     discovery_host="eventstore.test",
-        >>>     selector=discovery.prefer_master,
+        >>>     selector=discovery.prefer_leader,
         >>> ) as c:
         >>>     await c.ping(require_leader=True)
 
-        Conversely, you might want to avoid connecting to the master node for reasons
+        Conversely, you might want to avoid connecting to the leader node for reasons
         of scalability. For this you can use the
         :func:`photonpump.discovery.prefer_replica` function.
 
