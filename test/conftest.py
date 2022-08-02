@@ -27,4 +27,6 @@ def ssl_context() -> ssl.SSLContext:
 
 @pytest.fixture
 def connect(ssl_context):
-    return lambda *args, **kwargs: _connect(*args, **{"sslcontext": ssl_context, "port": 1111, **kwargs})
+    return lambda *args, **kwargs: _connect(
+        *args, **{"sslcontext": ssl_context, "port": 1111, **kwargs}
+    )

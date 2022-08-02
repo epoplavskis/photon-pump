@@ -16,7 +16,13 @@ async def test_ping_context_mgr(event_loop, connect):
 @pytest.mark.asyncio
 async def test_connect_subscription(event_loop, connect):
 
-    async with connect(username="admin", password="changeit", discovery_host="localhost", selector=prefer_leader, discovery_port=2111) as conn:
+    async with connect(
+        username="admin",
+        password="changeit",
+        discovery_host="localhost",
+        selector=prefer_leader,
+        discovery_port=2111,
+    ) as conn:
         subscription_name = str(uuid.uuid4())
         stream_name = str(uuid.uuid4())
         event_id = uuid.uuid4()
@@ -71,5 +77,5 @@ async def test_connect_logs_deprecation_warning_when_used_with_loop_parameter(
             await conn.ping(conversation_id=uuid.uuid4())
 
     assert len(record) <= 10
-    
+
     assert "The loop parameter has been deprecated" in record[0].message.args[0]

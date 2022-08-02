@@ -215,7 +215,9 @@ async def test_discovery_failure_for_static_seed():
     gossip = data.make_gossip("2.3.4.5")
     retry = always_succeed()
     with aioresponses() as mock:
-        successful_discoverer = ClusterDiscovery(StaticSeedFinder([seed]), retry, None, None)
+        successful_discoverer = ClusterDiscovery(
+            StaticSeedFinder([seed]), retry, None, None
+        )
 
         mock.get("http://1.2.3.4:2113/gossip", status=500)
         mock.get("http://1.2.3.4:2113/gossip", payload=gossip)
@@ -252,7 +254,9 @@ async def test_repeated_discovery_failure_for_static_seed():
     retry = always_fail()
     gossip = data.make_gossip("2.3.4.5")
     with aioresponses() as mock:
-        successful_discoverer = ClusterDiscovery(StaticSeedFinder([seed]), retry, None, None)
+        successful_discoverer = ClusterDiscovery(
+            StaticSeedFinder([seed]), retry, None, None
+        )
 
         mock.get("http://1.2.3.4:2113/gossip", status=500)
         mock.get("http://1.2.3.4:2113/gossip", payload=gossip)

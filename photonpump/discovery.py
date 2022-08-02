@@ -120,18 +120,21 @@ def read_gossip(data, secure: bool):
 
     LOG.debug("Received gossip for {%s} nodes", len(data["members"]))
 
-
     nodes = []
     for m in data["members"]:
-        internal_tcp_port = m['internalSecureTcpPort'] if secure else m['internalTcpPort']
-        external_tcp_port = m['externalSecureTcpPort'] if secure else m['externalTcpPort']
-        internal_http_ip = m.get('httpEndPointIp', m.get('internalHttpIp'))
+        internal_tcp_port = (
+            m["internalSecureTcpPort"] if secure else m["internalTcpPort"]
+        )
+        external_tcp_port = (
+            m["externalSecureTcpPort"] if secure else m["externalTcpPort"]
+        )
+        internal_http_ip = m.get("httpEndPointIp", m.get("internalHttpIp"))
         assert internal_http_ip
-        external_http_ip = m.get('httpEndPointIp', m.get('externalHttpIp'))
+        external_http_ip = m.get("httpEndPointIp", m.get("externalHttpIp"))
         assert external_http_ip
-        internal_http_port = m.get('httpEndPointPort', m.get('internalHttpPort'))
+        internal_http_port = m.get("httpEndPointPort", m.get("internalHttpPort"))
         assert internal_http_port
-        external_http_port = m.get('httpEndPointPort', m.get('externalHttpPort'))
+        external_http_port = m.get("httpEndPointPort", m.get("externalHttpPort"))
         assert external_http_port
         node = DiscoveredNode(
             state=NodeState[m["state"]],
@@ -249,9 +252,7 @@ async def fetch_new_gossip(session, seed, sslcontext):
 
         return read_gossip(data, bool(sslcontext))
     except aiohttp.ClientError:
-        LOG.exception(
-            "Failed loading gossip from %s", url
-        )
+        LOG.exception("Failed loading gossip from %s", url)
 
         return None
 

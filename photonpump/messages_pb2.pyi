@@ -55,13 +55,14 @@ class NewEvent(google.protobuf.message.Message):
     metadata: builtins.bytes
     def __init__(self,
         *,
-        event_id: builtins.bytes = ...,
-        event_type: typing.Text = ...,
-        data_content_type: builtins.int = ...,
-        metadata_content_type: builtins.int = ...,
-        data: builtins.bytes = ...,
-        metadata: builtins.bytes = ...,
+        event_id: typing.Optional[builtins.bytes] = ...,
+        event_type: typing.Optional[typing.Text] = ...,
+        data_content_type: typing.Optional[builtins.int] = ...,
+        metadata_content_type: typing.Optional[builtins.int] = ...,
+        data: typing.Optional[builtins.bytes] = ...,
+        metadata: typing.Optional[builtins.bytes] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["data",b"data","data_content_type",b"data_content_type","event_id",b"event_id","event_type",b"event_type","metadata",b"metadata","metadata_content_type",b"metadata_content_type"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["data",b"data","data_content_type",b"data_content_type","event_id",b"event_id","event_type",b"event_type","metadata",b"metadata","metadata_content_type",b"metadata_content_type"]) -> None: ...
 global___NewEvent = NewEvent
 
@@ -89,17 +90,18 @@ class EventRecord(google.protobuf.message.Message):
     created_epoch: builtins.int
     def __init__(self,
         *,
-        event_stream_id: typing.Text = ...,
-        event_number: builtins.int = ...,
-        event_id: builtins.bytes = ...,
-        event_type: typing.Text = ...,
-        data_content_type: builtins.int = ...,
-        metadata_content_type: builtins.int = ...,
-        data: builtins.bytes = ...,
-        metadata: builtins.bytes = ...,
-        created: builtins.int = ...,
-        created_epoch: builtins.int = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
+        event_number: typing.Optional[builtins.int] = ...,
+        event_id: typing.Optional[builtins.bytes] = ...,
+        event_type: typing.Optional[typing.Text] = ...,
+        data_content_type: typing.Optional[builtins.int] = ...,
+        metadata_content_type: typing.Optional[builtins.int] = ...,
+        data: typing.Optional[builtins.bytes] = ...,
+        metadata: typing.Optional[builtins.bytes] = ...,
+        created: typing.Optional[builtins.int] = ...,
+        created_epoch: typing.Optional[builtins.int] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["created",b"created","created_epoch",b"created_epoch","data",b"data","data_content_type",b"data_content_type","event_id",b"event_id","event_number",b"event_number","event_stream_id",b"event_stream_id","event_type",b"event_type","metadata",b"metadata","metadata_content_type",b"metadata_content_type"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["created",b"created","created_epoch",b"created_epoch","data",b"data","data_content_type",b"data_content_type","event_id",b"event_id","event_number",b"event_number","event_stream_id",b"event_stream_id","event_type",b"event_type","metadata",b"metadata","metadata_content_type",b"metadata_content_type"]) -> None: ...
 global___EventRecord = EventRecord
 
@@ -136,10 +138,10 @@ class ResolvedEvent(google.protobuf.message.Message):
         *,
         event: typing.Optional[global___EventRecord] = ...,
         link: typing.Optional[global___EventRecord] = ...,
-        commit_position: builtins.int = ...,
-        prepare_position: builtins.int = ...,
+        commit_position: typing.Optional[builtins.int] = ...,
+        prepare_position: typing.Optional[builtins.int] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["event",b"event","link",b"link"]) -> builtins.bool: ...
+    def HasField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","event",b"event","link",b"link","prepare_position",b"prepare_position"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","event",b"event","link",b"link","prepare_position",b"prepare_position"]) -> None: ...
 global___ResolvedEvent = ResolvedEvent
 
@@ -156,11 +158,12 @@ class WriteEvents(google.protobuf.message.Message):
     require_leader: builtins.bool
     def __init__(self,
         *,
-        event_stream_id: typing.Text = ...,
-        expected_version: builtins.int = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
+        expected_version: typing.Optional[builtins.int] = ...,
         events: typing.Optional[typing.Iterable[global___NewEvent]] = ...,
-        require_leader: builtins.bool = ...,
+        require_leader: typing.Optional[builtins.bool] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","expected_version",b"expected_version","require_leader",b"require_leader"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","events",b"events","expected_version",b"expected_version","require_leader",b"require_leader"]) -> None: ...
 global___WriteEvents = WriteEvents
 
@@ -182,14 +185,15 @@ class WriteEventsCompleted(google.protobuf.message.Message):
     current_version: builtins.int
     def __init__(self,
         *,
-        result: global___OperationResult.ValueType = ...,
-        message: typing.Text = ...,
-        first_event_number: builtins.int = ...,
-        last_event_number: builtins.int = ...,
-        prepare_position: builtins.int = ...,
-        commit_position: builtins.int = ...,
-        current_version: builtins.int = ...,
+        result: typing.Optional[global___OperationResult.ValueType] = ...,
+        message: typing.Optional[typing.Text] = ...,
+        first_event_number: typing.Optional[builtins.int] = ...,
+        last_event_number: typing.Optional[builtins.int] = ...,
+        prepare_position: typing.Optional[builtins.int] = ...,
+        commit_position: typing.Optional[builtins.int] = ...,
+        current_version: typing.Optional[builtins.int] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","current_version",b"current_version","first_event_number",b"first_event_number","last_event_number",b"last_event_number","message",b"message","prepare_position",b"prepare_position","result",b"result"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","current_version",b"current_version","first_event_number",b"first_event_number","last_event_number",b"last_event_number","message",b"message","prepare_position",b"prepare_position","result",b"result"]) -> None: ...
 global___WriteEventsCompleted = WriteEventsCompleted
 
@@ -205,11 +209,12 @@ class DeleteStream(google.protobuf.message.Message):
     hard_delete: builtins.bool
     def __init__(self,
         *,
-        event_stream_id: typing.Text = ...,
-        expected_version: builtins.int = ...,
-        require_leader: builtins.bool = ...,
-        hard_delete: builtins.bool = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
+        expected_version: typing.Optional[builtins.int] = ...,
+        require_leader: typing.Optional[builtins.bool] = ...,
+        hard_delete: typing.Optional[builtins.bool] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","expected_version",b"expected_version","hard_delete",b"hard_delete","require_leader",b"require_leader"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","expected_version",b"expected_version","hard_delete",b"hard_delete","require_leader",b"require_leader"]) -> None: ...
 global___DeleteStream = DeleteStream
 
@@ -219,21 +224,19 @@ class DeleteStreamCompleted(google.protobuf.message.Message):
     MESSAGE_FIELD_NUMBER: builtins.int
     PREPARE_POSITION_FIELD_NUMBER: builtins.int
     COMMIT_POSITION_FIELD_NUMBER: builtins.int
-    CURRENT_VERSION_FIELD_NUMBER: builtins.int
     result: global___OperationResult.ValueType
     message: typing.Text
     prepare_position: builtins.int
     commit_position: builtins.int
-    current_version: builtins.int
     def __init__(self,
         *,
-        result: global___OperationResult.ValueType = ...,
-        message: typing.Text = ...,
-        prepare_position: builtins.int = ...,
-        commit_position: builtins.int = ...,
-        current_version: builtins.int = ...,
+        result: typing.Optional[global___OperationResult.ValueType] = ...,
+        message: typing.Optional[typing.Text] = ...,
+        prepare_position: typing.Optional[builtins.int] = ...,
+        commit_position: typing.Optional[builtins.int] = ...,
         ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","current_version",b"current_version","message",b"message","prepare_position",b"prepare_position","result",b"result"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","message",b"message","prepare_position",b"prepare_position","result",b"result"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","message",b"message","prepare_position",b"prepare_position","result",b"result"]) -> None: ...
 global___DeleteStreamCompleted = DeleteStreamCompleted
 
 class TransactionStart(google.protobuf.message.Message):
@@ -246,10 +249,11 @@ class TransactionStart(google.protobuf.message.Message):
     require_leader: builtins.bool
     def __init__(self,
         *,
-        event_stream_id: typing.Text = ...,
-        expected_version: builtins.int = ...,
-        require_leader: builtins.bool = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
+        expected_version: typing.Optional[builtins.int] = ...,
+        require_leader: typing.Optional[builtins.bool] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","expected_version",b"expected_version","require_leader",b"require_leader"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","expected_version",b"expected_version","require_leader",b"require_leader"]) -> None: ...
 global___TransactionStart = TransactionStart
 
@@ -263,10 +267,11 @@ class TransactionStartCompleted(google.protobuf.message.Message):
     message: typing.Text
     def __init__(self,
         *,
-        transaction_id: builtins.int = ...,
-        result: global___OperationResult.ValueType = ...,
-        message: typing.Text = ...,
+        transaction_id: typing.Optional[builtins.int] = ...,
+        result: typing.Optional[global___OperationResult.ValueType] = ...,
+        message: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["message",b"message","result",b"result","transaction_id",b"transaction_id"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["message",b"message","result",b"result","transaction_id",b"transaction_id"]) -> None: ...
 global___TransactionStartCompleted = TransactionStartCompleted
 
@@ -281,10 +286,11 @@ class TransactionWrite(google.protobuf.message.Message):
     require_leader: builtins.bool
     def __init__(self,
         *,
-        transaction_id: builtins.int = ...,
+        transaction_id: typing.Optional[builtins.int] = ...,
         events: typing.Optional[typing.Iterable[global___NewEvent]] = ...,
-        require_leader: builtins.bool = ...,
+        require_leader: typing.Optional[builtins.bool] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["require_leader",b"require_leader","transaction_id",b"transaction_id"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["events",b"events","require_leader",b"require_leader","transaction_id",b"transaction_id"]) -> None: ...
 global___TransactionWrite = TransactionWrite
 
@@ -298,10 +304,11 @@ class TransactionWriteCompleted(google.protobuf.message.Message):
     message: typing.Text
     def __init__(self,
         *,
-        transaction_id: builtins.int = ...,
-        result: global___OperationResult.ValueType = ...,
-        message: typing.Text = ...,
+        transaction_id: typing.Optional[builtins.int] = ...,
+        result: typing.Optional[global___OperationResult.ValueType] = ...,
+        message: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["message",b"message","result",b"result","transaction_id",b"transaction_id"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["message",b"message","result",b"result","transaction_id",b"transaction_id"]) -> None: ...
 global___TransactionWriteCompleted = TransactionWriteCompleted
 
@@ -313,9 +320,10 @@ class TransactionCommit(google.protobuf.message.Message):
     require_leader: builtins.bool
     def __init__(self,
         *,
-        transaction_id: builtins.int = ...,
-        require_leader: builtins.bool = ...,
+        transaction_id: typing.Optional[builtins.int] = ...,
+        require_leader: typing.Optional[builtins.bool] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["require_leader",b"require_leader","transaction_id",b"transaction_id"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["require_leader",b"require_leader","transaction_id",b"transaction_id"]) -> None: ...
 global___TransactionCommit = TransactionCommit
 
@@ -337,14 +345,15 @@ class TransactionCommitCompleted(google.protobuf.message.Message):
     commit_position: builtins.int
     def __init__(self,
         *,
-        transaction_id: builtins.int = ...,
-        result: global___OperationResult.ValueType = ...,
-        message: typing.Text = ...,
-        first_event_number: builtins.int = ...,
-        last_event_number: builtins.int = ...,
-        prepare_position: builtins.int = ...,
-        commit_position: builtins.int = ...,
+        transaction_id: typing.Optional[builtins.int] = ...,
+        result: typing.Optional[global___OperationResult.ValueType] = ...,
+        message: typing.Optional[typing.Text] = ...,
+        first_event_number: typing.Optional[builtins.int] = ...,
+        last_event_number: typing.Optional[builtins.int] = ...,
+        prepare_position: typing.Optional[builtins.int] = ...,
+        commit_position: typing.Optional[builtins.int] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","first_event_number",b"first_event_number","last_event_number",b"last_event_number","message",b"message","prepare_position",b"prepare_position","result",b"result","transaction_id",b"transaction_id"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","first_event_number",b"first_event_number","last_event_number",b"last_event_number","message",b"message","prepare_position",b"prepare_position","result",b"result","transaction_id",b"transaction_id"]) -> None: ...
 global___TransactionCommitCompleted = TransactionCommitCompleted
 
@@ -360,11 +369,12 @@ class ReadEvent(google.protobuf.message.Message):
     require_leader: builtins.bool
     def __init__(self,
         *,
-        event_stream_id: typing.Text = ...,
-        event_number: builtins.int = ...,
-        resolve_link_tos: builtins.bool = ...,
-        require_leader: builtins.bool = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
+        event_number: typing.Optional[builtins.int] = ...,
+        resolve_link_tos: typing.Optional[builtins.bool] = ...,
+        require_leader: typing.Optional[builtins.bool] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["event_number",b"event_number","event_stream_id",b"event_stream_id","require_leader",b"require_leader","resolve_link_tos",b"resolve_link_tos"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["event_number",b"event_number","event_stream_id",b"event_stream_id","require_leader",b"require_leader","resolve_link_tos",b"resolve_link_tos"]) -> None: ...
 global___ReadEvent = ReadEvent
 
@@ -400,11 +410,11 @@ class ReadEventCompleted(google.protobuf.message.Message):
     error: typing.Text
     def __init__(self,
         *,
-        result: global___ReadEventCompleted.ReadEventResult.ValueType = ...,
+        result: typing.Optional[global___ReadEventCompleted.ReadEventResult.ValueType] = ...,
         event: typing.Optional[global___ResolvedIndexedEvent] = ...,
-        error: typing.Text = ...,
+        error: typing.Optional[typing.Text] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["event",b"event"]) -> builtins.bool: ...
+    def HasField(self, field_name: typing_extensions.Literal["error",b"error","event",b"event","result",b"result"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["error",b"error","event",b"event","result",b"result"]) -> None: ...
 global___ReadEventCompleted = ReadEventCompleted
 
@@ -422,12 +432,13 @@ class ReadStreamEvents(google.protobuf.message.Message):
     require_leader: builtins.bool
     def __init__(self,
         *,
-        event_stream_id: typing.Text = ...,
-        from_event_number: builtins.int = ...,
-        max_count: builtins.int = ...,
-        resolve_link_tos: builtins.bool = ...,
-        require_leader: builtins.bool = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
+        from_event_number: typing.Optional[builtins.int] = ...,
+        max_count: typing.Optional[builtins.int] = ...,
+        resolve_link_tos: typing.Optional[builtins.bool] = ...,
+        require_leader: typing.Optional[builtins.bool] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","from_event_number",b"from_event_number","max_count",b"max_count","require_leader",b"require_leader","resolve_link_tos",b"resolve_link_tos"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","from_event_number",b"from_event_number","max_count",b"max_count","require_leader",b"require_leader","resolve_link_tos",b"resolve_link_tos"]) -> None: ...
 global___ReadStreamEvents = ReadStreamEvents
 
@@ -472,13 +483,14 @@ class ReadStreamEventsCompleted(google.protobuf.message.Message):
     def __init__(self,
         *,
         events: typing.Optional[typing.Iterable[global___ResolvedIndexedEvent]] = ...,
-        result: global___ReadStreamEventsCompleted.ReadStreamResult.ValueType = ...,
-        next_event_number: builtins.int = ...,
-        last_event_number: builtins.int = ...,
-        is_end_of_stream: builtins.bool = ...,
-        last_commit_position: builtins.int = ...,
-        error: typing.Text = ...,
+        result: typing.Optional[global___ReadStreamEventsCompleted.ReadStreamResult.ValueType] = ...,
+        next_event_number: typing.Optional[builtins.int] = ...,
+        last_event_number: typing.Optional[builtins.int] = ...,
+        is_end_of_stream: typing.Optional[builtins.bool] = ...,
+        last_commit_position: typing.Optional[builtins.int] = ...,
+        error: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["error",b"error","is_end_of_stream",b"is_end_of_stream","last_commit_position",b"last_commit_position","last_event_number",b"last_event_number","next_event_number",b"next_event_number","result",b"result"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["error",b"error","events",b"events","is_end_of_stream",b"is_end_of_stream","last_commit_position",b"last_commit_position","last_event_number",b"last_event_number","next_event_number",b"next_event_number","result",b"result"]) -> None: ...
 global___ReadStreamEventsCompleted = ReadStreamEventsCompleted
 
@@ -496,12 +508,13 @@ class ReadAllEvents(google.protobuf.message.Message):
     require_leader: builtins.bool
     def __init__(self,
         *,
-        commit_position: builtins.int = ...,
-        prepare_position: builtins.int = ...,
-        max_count: builtins.int = ...,
-        resolve_link_tos: builtins.bool = ...,
-        require_leader: builtins.bool = ...,
+        commit_position: typing.Optional[builtins.int] = ...,
+        prepare_position: typing.Optional[builtins.int] = ...,
+        max_count: typing.Optional[builtins.int] = ...,
+        resolve_link_tos: typing.Optional[builtins.bool] = ...,
+        require_leader: typing.Optional[builtins.bool] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","max_count",b"max_count","prepare_position",b"prepare_position","require_leader",b"require_leader","resolve_link_tos",b"resolve_link_tos"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","max_count",b"max_count","prepare_position",b"prepare_position","require_leader",b"require_leader","resolve_link_tos",b"resolve_link_tos"]) -> None: ...
 global___ReadAllEvents = ReadAllEvents
 
@@ -541,14 +554,15 @@ class ReadAllEventsCompleted(google.protobuf.message.Message):
     error: typing.Text
     def __init__(self,
         *,
-        commit_position: builtins.int = ...,
-        prepare_position: builtins.int = ...,
+        commit_position: typing.Optional[builtins.int] = ...,
+        prepare_position: typing.Optional[builtins.int] = ...,
         events: typing.Optional[typing.Iterable[global___ResolvedEvent]] = ...,
-        next_commit_position: builtins.int = ...,
-        next_prepare_position: builtins.int = ...,
-        result: global___ReadAllEventsCompleted.ReadAllResult.ValueType = ...,
-        error: typing.Text = ...,
+        next_commit_position: typing.Optional[builtins.int] = ...,
+        next_prepare_position: typing.Optional[builtins.int] = ...,
+        result: typing.Optional[global___ReadAllEventsCompleted.ReadAllResult.ValueType] = ...,
+        error: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","error",b"error","next_commit_position",b"next_commit_position","next_prepare_position",b"next_prepare_position","prepare_position",b"prepare_position","result",b"result"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","error",b"error","events",b"events","next_commit_position",b"next_commit_position","next_prepare_position",b"next_prepare_position","prepare_position",b"prepare_position","result",b"result"]) -> None: ...
 global___ReadAllEventsCompleted = ReadAllEventsCompleted
 
@@ -589,10 +603,11 @@ class Filter(google.protobuf.message.Message):
     def data(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[typing.Text]: ...
     def __init__(self,
         *,
-        context: global___Filter.FilterContext.ValueType = ...,
-        type: global___Filter.FilterType.ValueType = ...,
+        context: typing.Optional[global___Filter.FilterContext.ValueType] = ...,
+        type: typing.Optional[global___Filter.FilterType.ValueType] = ...,
         data: typing.Optional[typing.Iterable[typing.Text]] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["context",b"context","type",b"type"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["context",b"context","data",b"data","type",b"type"]) -> None: ...
 global___Filter = Filter
 
@@ -615,15 +630,15 @@ class FilteredReadAllEvents(google.protobuf.message.Message):
     def filter(self) -> global___Filter: ...
     def __init__(self,
         *,
-        commit_position: builtins.int = ...,
-        prepare_position: builtins.int = ...,
-        max_count: builtins.int = ...,
-        max_search_window: builtins.int = ...,
-        resolve_link_tos: builtins.bool = ...,
-        require_leader: builtins.bool = ...,
+        commit_position: typing.Optional[builtins.int] = ...,
+        prepare_position: typing.Optional[builtins.int] = ...,
+        max_count: typing.Optional[builtins.int] = ...,
+        max_search_window: typing.Optional[builtins.int] = ...,
+        resolve_link_tos: typing.Optional[builtins.bool] = ...,
+        require_leader: typing.Optional[builtins.bool] = ...,
         filter: typing.Optional[global___Filter] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["filter",b"filter"]) -> builtins.bool: ...
+    def HasField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","filter",b"filter","max_count",b"max_count","max_search_window",b"max_search_window","prepare_position",b"prepare_position","require_leader",b"require_leader","resolve_link_tos",b"resolve_link_tos"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","filter",b"filter","max_count",b"max_count","max_search_window",b"max_search_window","prepare_position",b"prepare_position","require_leader",b"require_leader","resolve_link_tos",b"resolve_link_tos"]) -> None: ...
 global___FilteredReadAllEvents = FilteredReadAllEvents
 
@@ -665,15 +680,16 @@ class FilteredReadAllEventsCompleted(google.protobuf.message.Message):
     error: typing.Text
     def __init__(self,
         *,
-        commit_position: builtins.int = ...,
-        prepare_position: builtins.int = ...,
+        commit_position: typing.Optional[builtins.int] = ...,
+        prepare_position: typing.Optional[builtins.int] = ...,
         events: typing.Optional[typing.Iterable[global___ResolvedEvent]] = ...,
-        next_commit_position: builtins.int = ...,
-        next_prepare_position: builtins.int = ...,
-        is_end_of_stream: builtins.bool = ...,
-        result: global___FilteredReadAllEventsCompleted.FilteredReadAllResult.ValueType = ...,
-        error: typing.Text = ...,
+        next_commit_position: typing.Optional[builtins.int] = ...,
+        next_prepare_position: typing.Optional[builtins.int] = ...,
+        is_end_of_stream: typing.Optional[builtins.bool] = ...,
+        result: typing.Optional[global___FilteredReadAllEventsCompleted.FilteredReadAllResult.ValueType] = ...,
+        error: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","error",b"error","is_end_of_stream",b"is_end_of_stream","next_commit_position",b"next_commit_position","next_prepare_position",b"next_prepare_position","prepare_position",b"prepare_position","result",b"result"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","error",b"error","events",b"events","is_end_of_stream",b"is_end_of_stream","next_commit_position",b"next_commit_position","next_prepare_position",b"next_prepare_position","prepare_position",b"prepare_position","result",b"result"]) -> None: ...
 global___FilteredReadAllEventsCompleted = FilteredReadAllEventsCompleted
 
@@ -713,23 +729,24 @@ class CreatePersistentSubscription(google.protobuf.message.Message):
     named_consumer_strategy: typing.Text
     def __init__(self,
         *,
-        subscription_group_name: typing.Text = ...,
-        event_stream_id: typing.Text = ...,
-        resolve_link_tos: builtins.bool = ...,
-        start_from: builtins.int = ...,
-        message_timeout_milliseconds: builtins.int = ...,
-        record_statistics: builtins.bool = ...,
-        live_buffer_size: builtins.int = ...,
-        read_batch_size: builtins.int = ...,
-        buffer_size: builtins.int = ...,
-        max_retry_count: builtins.int = ...,
-        prefer_round_robin: builtins.bool = ...,
-        checkpoint_after_time: builtins.int = ...,
-        checkpoint_max_count: builtins.int = ...,
-        checkpoint_min_count: builtins.int = ...,
-        subscriber_max_count: builtins.int = ...,
-        named_consumer_strategy: typing.Text = ...,
+        subscription_group_name: typing.Optional[typing.Text] = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
+        resolve_link_tos: typing.Optional[builtins.bool] = ...,
+        start_from: typing.Optional[builtins.int] = ...,
+        message_timeout_milliseconds: typing.Optional[builtins.int] = ...,
+        record_statistics: typing.Optional[builtins.bool] = ...,
+        live_buffer_size: typing.Optional[builtins.int] = ...,
+        read_batch_size: typing.Optional[builtins.int] = ...,
+        buffer_size: typing.Optional[builtins.int] = ...,
+        max_retry_count: typing.Optional[builtins.int] = ...,
+        prefer_round_robin: typing.Optional[builtins.bool] = ...,
+        checkpoint_after_time: typing.Optional[builtins.int] = ...,
+        checkpoint_max_count: typing.Optional[builtins.int] = ...,
+        checkpoint_min_count: typing.Optional[builtins.int] = ...,
+        subscriber_max_count: typing.Optional[builtins.int] = ...,
+        named_consumer_strategy: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["buffer_size",b"buffer_size","checkpoint_after_time",b"checkpoint_after_time","checkpoint_max_count",b"checkpoint_max_count","checkpoint_min_count",b"checkpoint_min_count","event_stream_id",b"event_stream_id","live_buffer_size",b"live_buffer_size","max_retry_count",b"max_retry_count","message_timeout_milliseconds",b"message_timeout_milliseconds","named_consumer_strategy",b"named_consumer_strategy","prefer_round_robin",b"prefer_round_robin","read_batch_size",b"read_batch_size","record_statistics",b"record_statistics","resolve_link_tos",b"resolve_link_tos","start_from",b"start_from","subscriber_max_count",b"subscriber_max_count","subscription_group_name",b"subscription_group_name"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["buffer_size",b"buffer_size","checkpoint_after_time",b"checkpoint_after_time","checkpoint_max_count",b"checkpoint_max_count","checkpoint_min_count",b"checkpoint_min_count","event_stream_id",b"event_stream_id","live_buffer_size",b"live_buffer_size","max_retry_count",b"max_retry_count","message_timeout_milliseconds",b"message_timeout_milliseconds","named_consumer_strategy",b"named_consumer_strategy","prefer_round_robin",b"prefer_round_robin","read_batch_size",b"read_batch_size","record_statistics",b"record_statistics","resolve_link_tos",b"resolve_link_tos","start_from",b"start_from","subscriber_max_count",b"subscriber_max_count","subscription_group_name",b"subscription_group_name"]) -> None: ...
 global___CreatePersistentSubscription = CreatePersistentSubscription
 
@@ -741,9 +758,10 @@ class DeletePersistentSubscription(google.protobuf.message.Message):
     event_stream_id: typing.Text
     def __init__(self,
         *,
-        subscription_group_name: typing.Text = ...,
-        event_stream_id: typing.Text = ...,
+        subscription_group_name: typing.Optional[typing.Text] = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","subscription_group_name",b"subscription_group_name"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","subscription_group_name",b"subscription_group_name"]) -> None: ...
 global___DeletePersistentSubscription = DeletePersistentSubscription
 
@@ -783,23 +801,24 @@ class UpdatePersistentSubscription(google.protobuf.message.Message):
     named_consumer_strategy: typing.Text
     def __init__(self,
         *,
-        subscription_group_name: typing.Text = ...,
-        event_stream_id: typing.Text = ...,
-        resolve_link_tos: builtins.bool = ...,
-        start_from: builtins.int = ...,
-        message_timeout_milliseconds: builtins.int = ...,
-        record_statistics: builtins.bool = ...,
-        live_buffer_size: builtins.int = ...,
-        read_batch_size: builtins.int = ...,
-        buffer_size: builtins.int = ...,
-        max_retry_count: builtins.int = ...,
-        prefer_round_robin: builtins.bool = ...,
-        checkpoint_after_time: builtins.int = ...,
-        checkpoint_max_count: builtins.int = ...,
-        checkpoint_min_count: builtins.int = ...,
-        subscriber_max_count: builtins.int = ...,
-        named_consumer_strategy: typing.Text = ...,
+        subscription_group_name: typing.Optional[typing.Text] = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
+        resolve_link_tos: typing.Optional[builtins.bool] = ...,
+        start_from: typing.Optional[builtins.int] = ...,
+        message_timeout_milliseconds: typing.Optional[builtins.int] = ...,
+        record_statistics: typing.Optional[builtins.bool] = ...,
+        live_buffer_size: typing.Optional[builtins.int] = ...,
+        read_batch_size: typing.Optional[builtins.int] = ...,
+        buffer_size: typing.Optional[builtins.int] = ...,
+        max_retry_count: typing.Optional[builtins.int] = ...,
+        prefer_round_robin: typing.Optional[builtins.bool] = ...,
+        checkpoint_after_time: typing.Optional[builtins.int] = ...,
+        checkpoint_max_count: typing.Optional[builtins.int] = ...,
+        checkpoint_min_count: typing.Optional[builtins.int] = ...,
+        subscriber_max_count: typing.Optional[builtins.int] = ...,
+        named_consumer_strategy: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["buffer_size",b"buffer_size","checkpoint_after_time",b"checkpoint_after_time","checkpoint_max_count",b"checkpoint_max_count","checkpoint_min_count",b"checkpoint_min_count","event_stream_id",b"event_stream_id","live_buffer_size",b"live_buffer_size","max_retry_count",b"max_retry_count","message_timeout_milliseconds",b"message_timeout_milliseconds","named_consumer_strategy",b"named_consumer_strategy","prefer_round_robin",b"prefer_round_robin","read_batch_size",b"read_batch_size","record_statistics",b"record_statistics","resolve_link_tos",b"resolve_link_tos","start_from",b"start_from","subscriber_max_count",b"subscriber_max_count","subscription_group_name",b"subscription_group_name"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["buffer_size",b"buffer_size","checkpoint_after_time",b"checkpoint_after_time","checkpoint_max_count",b"checkpoint_max_count","checkpoint_min_count",b"checkpoint_min_count","event_stream_id",b"event_stream_id","live_buffer_size",b"live_buffer_size","max_retry_count",b"max_retry_count","message_timeout_milliseconds",b"message_timeout_milliseconds","named_consumer_strategy",b"named_consumer_strategy","prefer_round_robin",b"prefer_round_robin","read_batch_size",b"read_batch_size","record_statistics",b"record_statistics","resolve_link_tos",b"resolve_link_tos","start_from",b"start_from","subscriber_max_count",b"subscriber_max_count","subscription_group_name",b"subscription_group_name"]) -> None: ...
 global___UpdatePersistentSubscription = UpdatePersistentSubscription
 
@@ -828,9 +847,10 @@ class UpdatePersistentSubscriptionCompleted(google.protobuf.message.Message):
     reason: typing.Text
     def __init__(self,
         *,
-        result: global___UpdatePersistentSubscriptionCompleted.UpdatePersistentSubscriptionResult.ValueType = ...,
-        reason: typing.Text = ...,
+        result: typing.Optional[global___UpdatePersistentSubscriptionCompleted.UpdatePersistentSubscriptionResult.ValueType] = ...,
+        reason: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["reason",b"reason","result",b"result"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["reason",b"reason","result",b"result"]) -> None: ...
 global___UpdatePersistentSubscriptionCompleted = UpdatePersistentSubscriptionCompleted
 
@@ -859,9 +879,10 @@ class CreatePersistentSubscriptionCompleted(google.protobuf.message.Message):
     reason: typing.Text
     def __init__(self,
         *,
-        result: global___CreatePersistentSubscriptionCompleted.CreatePersistentSubscriptionResult.ValueType = ...,
-        reason: typing.Text = ...,
+        result: typing.Optional[global___CreatePersistentSubscriptionCompleted.CreatePersistentSubscriptionResult.ValueType] = ...,
+        reason: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["reason",b"reason","result",b"result"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["reason",b"reason","result",b"result"]) -> None: ...
 global___CreatePersistentSubscriptionCompleted = CreatePersistentSubscriptionCompleted
 
@@ -890,9 +911,10 @@ class DeletePersistentSubscriptionCompleted(google.protobuf.message.Message):
     reason: typing.Text
     def __init__(self,
         *,
-        result: global___DeletePersistentSubscriptionCompleted.DeletePersistentSubscriptionResult.ValueType = ...,
-        reason: typing.Text = ...,
+        result: typing.Optional[global___DeletePersistentSubscriptionCompleted.DeletePersistentSubscriptionResult.ValueType] = ...,
+        reason: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["reason",b"reason","result",b"result"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["reason",b"reason","result",b"result"]) -> None: ...
 global___DeletePersistentSubscriptionCompleted = DeletePersistentSubscriptionCompleted
 
@@ -906,10 +928,11 @@ class ConnectToPersistentSubscription(google.protobuf.message.Message):
     allowed_in_flight_messages: builtins.int
     def __init__(self,
         *,
-        subscription_id: typing.Text = ...,
-        event_stream_id: typing.Text = ...,
-        allowed_in_flight_messages: builtins.int = ...,
+        subscription_id: typing.Optional[typing.Text] = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
+        allowed_in_flight_messages: typing.Optional[builtins.int] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["allowed_in_flight_messages",b"allowed_in_flight_messages","event_stream_id",b"event_stream_id","subscription_id",b"subscription_id"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["allowed_in_flight_messages",b"allowed_in_flight_messages","event_stream_id",b"event_stream_id","subscription_id",b"subscription_id"]) -> None: ...
 global___ConnectToPersistentSubscription = ConnectToPersistentSubscription
 
@@ -922,9 +945,10 @@ class PersistentSubscriptionAckEvents(google.protobuf.message.Message):
     def processed_event_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.bytes]: ...
     def __init__(self,
         *,
-        subscription_id: typing.Text = ...,
+        subscription_id: typing.Optional[typing.Text] = ...,
         processed_event_ids: typing.Optional[typing.Iterable[builtins.bytes]] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["subscription_id",b"subscription_id"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["processed_event_ids",b"processed_event_ids","subscription_id",b"subscription_id"]) -> None: ...
 global___PersistentSubscriptionAckEvents = PersistentSubscriptionAckEvents
 
@@ -960,11 +984,12 @@ class PersistentSubscriptionNakEvents(google.protobuf.message.Message):
     action: global___PersistentSubscriptionNakEvents.NakAction.ValueType
     def __init__(self,
         *,
-        subscription_id: typing.Text = ...,
+        subscription_id: typing.Optional[typing.Text] = ...,
         processed_event_ids: typing.Optional[typing.Iterable[builtins.bytes]] = ...,
-        message: typing.Text = ...,
-        action: global___PersistentSubscriptionNakEvents.NakAction.ValueType = ...,
+        message: typing.Optional[typing.Text] = ...,
+        action: typing.Optional[global___PersistentSubscriptionNakEvents.NakAction.ValueType] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["action",b"action","message",b"message","subscription_id",b"subscription_id"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["action",b"action","message",b"message","processed_event_ids",b"processed_event_ids","subscription_id",b"subscription_id"]) -> None: ...
 global___PersistentSubscriptionNakEvents = PersistentSubscriptionNakEvents
 
@@ -978,10 +1003,11 @@ class PersistentSubscriptionConfirmation(google.protobuf.message.Message):
     last_event_number: builtins.int
     def __init__(self,
         *,
-        last_commit_position: builtins.int = ...,
-        subscription_id: typing.Text = ...,
-        last_event_number: builtins.int = ...,
+        last_commit_position: typing.Optional[builtins.int] = ...,
+        subscription_id: typing.Optional[typing.Text] = ...,
+        last_event_number: typing.Optional[builtins.int] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["last_commit_position",b"last_commit_position","last_event_number",b"last_event_number","subscription_id",b"subscription_id"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["last_commit_position",b"last_commit_position","last_event_number",b"last_event_number","subscription_id",b"subscription_id"]) -> None: ...
 global___PersistentSubscriptionConfirmation = PersistentSubscriptionConfirmation
 
@@ -995,9 +1021,9 @@ class PersistentSubscriptionStreamEventAppeared(google.protobuf.message.Message)
     def __init__(self,
         *,
         event: typing.Optional[global___ResolvedIndexedEvent] = ...,
-        retryCount: builtins.int = ...,
+        retryCount: typing.Optional[builtins.int] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["event",b"event"]) -> builtins.bool: ...
+    def HasField(self, field_name: typing_extensions.Literal["event",b"event","retryCount",b"retryCount"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["event",b"event","retryCount",b"retryCount"]) -> None: ...
 global___PersistentSubscriptionStreamEventAppeared = PersistentSubscriptionStreamEventAppeared
 
@@ -1009,9 +1035,10 @@ class SubscribeToStream(google.protobuf.message.Message):
     resolve_link_tos: builtins.bool
     def __init__(self,
         *,
-        event_stream_id: typing.Text = ...,
-        resolve_link_tos: builtins.bool = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
+        resolve_link_tos: typing.Optional[builtins.bool] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","resolve_link_tos",b"resolve_link_tos"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["event_stream_id",b"event_stream_id","resolve_link_tos",b"resolve_link_tos"]) -> None: ...
 global___SubscribeToStream = SubscribeToStream
 
@@ -1028,12 +1055,12 @@ class FilteredSubscribeToStream(google.protobuf.message.Message):
     checkpoint_interval: builtins.int
     def __init__(self,
         *,
-        event_stream_id: typing.Text = ...,
-        resolve_link_tos: builtins.bool = ...,
+        event_stream_id: typing.Optional[typing.Text] = ...,
+        resolve_link_tos: typing.Optional[builtins.bool] = ...,
         filter: typing.Optional[global___Filter] = ...,
-        checkpoint_interval: builtins.int = ...,
+        checkpoint_interval: typing.Optional[builtins.int] = ...,
         ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["filter",b"filter"]) -> builtins.bool: ...
+    def HasField(self, field_name: typing_extensions.Literal["checkpoint_interval",b"checkpoint_interval","event_stream_id",b"event_stream_id","filter",b"filter","resolve_link_tos",b"resolve_link_tos"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["checkpoint_interval",b"checkpoint_interval","event_stream_id",b"event_stream_id","filter",b"filter","resolve_link_tos",b"resolve_link_tos"]) -> None: ...
 global___FilteredSubscribeToStream = FilteredSubscribeToStream
 
@@ -1045,9 +1072,10 @@ class CheckpointReached(google.protobuf.message.Message):
     prepare_position: builtins.int
     def __init__(self,
         *,
-        commit_position: builtins.int = ...,
-        prepare_position: builtins.int = ...,
+        commit_position: typing.Optional[builtins.int] = ...,
+        prepare_position: typing.Optional[builtins.int] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","prepare_position",b"prepare_position"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["commit_position",b"commit_position","prepare_position",b"prepare_position"]) -> None: ...
 global___CheckpointReached = CheckpointReached
 
@@ -1059,9 +1087,10 @@ class SubscriptionConfirmation(google.protobuf.message.Message):
     last_event_number: builtins.int
     def __init__(self,
         *,
-        last_commit_position: builtins.int = ...,
-        last_event_number: builtins.int = ...,
+        last_commit_position: typing.Optional[builtins.int] = ...,
+        last_event_number: typing.Optional[builtins.int] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["last_commit_position",b"last_commit_position","last_event_number",b"last_event_number"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["last_commit_position",b"last_commit_position","last_event_number",b"last_event_number"]) -> None: ...
 global___SubscriptionConfirmation = SubscriptionConfirmation
 
@@ -1109,8 +1138,9 @@ class SubscriptionDropped(google.protobuf.message.Message):
     reason: global___SubscriptionDropped.SubscriptionDropReason.ValueType
     def __init__(self,
         *,
-        reason: global___SubscriptionDropped.SubscriptionDropReason.ValueType = ...,
+        reason: typing.Optional[global___SubscriptionDropped.SubscriptionDropReason.ValueType] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["reason",b"reason"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["reason",b"reason"]) -> None: ...
 global___SubscriptionDropped = SubscriptionDropped
 
@@ -1149,13 +1179,14 @@ class NotHandled(google.protobuf.message.Message):
         external_secure_tcp_port: builtins.int
         def __init__(self,
             *,
-            external_tcp_address: typing.Text = ...,
-            external_tcp_port: builtins.int = ...,
-            http_address: typing.Text = ...,
-            http_port: builtins.int = ...,
-            external_secure_tcp_address: typing.Text = ...,
-            external_secure_tcp_port: builtins.int = ...,
+            external_tcp_address: typing.Optional[typing.Text] = ...,
+            external_tcp_port: typing.Optional[builtins.int] = ...,
+            http_address: typing.Optional[typing.Text] = ...,
+            http_port: typing.Optional[builtins.int] = ...,
+            external_secure_tcp_address: typing.Optional[typing.Text] = ...,
+            external_secure_tcp_port: typing.Optional[builtins.int] = ...,
             ) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["external_secure_tcp_address",b"external_secure_tcp_address","external_secure_tcp_port",b"external_secure_tcp_port","external_tcp_address",b"external_tcp_address","external_tcp_port",b"external_tcp_port","http_address",b"http_address","http_port",b"http_port"]) -> builtins.bool: ...
         def ClearField(self, field_name: typing_extensions.Literal["external_secure_tcp_address",b"external_secure_tcp_address","external_secure_tcp_port",b"external_secure_tcp_port","external_tcp_address",b"external_tcp_address","external_tcp_port",b"external_tcp_port","http_address",b"http_address","http_port",b"http_port"]) -> None: ...
 
     REASON_FIELD_NUMBER: builtins.int
@@ -1164,9 +1195,10 @@ class NotHandled(google.protobuf.message.Message):
     additional_info: builtins.bytes
     def __init__(self,
         *,
-        reason: global___NotHandled.NotHandledReason.ValueType = ...,
-        additional_info: builtins.bytes = ...,
+        reason: typing.Optional[global___NotHandled.NotHandledReason.ValueType] = ...,
+        additional_info: typing.Optional[builtins.bytes] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["additional_info",b"additional_info","reason",b"reason"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["additional_info",b"additional_info","reason",b"reason"]) -> None: ...
 global___NotHandled = NotHandled
 
@@ -1199,9 +1231,10 @@ class ScavengeDatabaseResponse(google.protobuf.message.Message):
     scavengeId: typing.Text
     def __init__(self,
         *,
-        result: global___ScavengeDatabaseResponse.ScavengeResult.ValueType = ...,
-        scavengeId: typing.Text = ...,
+        result: typing.Optional[global___ScavengeDatabaseResponse.ScavengeResult.ValueType] = ...,
+        scavengeId: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["result",b"result","scavengeId",b"scavengeId"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["result",b"result","scavengeId",b"scavengeId"]) -> None: ...
 global___ScavengeDatabaseResponse = ScavengeDatabaseResponse
 
@@ -1213,9 +1246,10 @@ class IdentifyClient(google.protobuf.message.Message):
     connection_name: typing.Text
     def __init__(self,
         *,
-        version: builtins.int = ...,
-        connection_name: typing.Text = ...,
+        version: typing.Optional[builtins.int] = ...,
+        connection_name: typing.Optional[typing.Text] = ...,
         ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["connection_name",b"connection_name","version",b"version"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["connection_name",b"connection_name","version",b"version"]) -> None: ...
 global___IdentifyClient = IdentifyClient
 

@@ -1301,7 +1301,13 @@ def connect(
             stacklevel=2,
         )
     discovery = get_discoverer(
-        host, port, discovery_host, discovery_port, selector, retry_policy, sslcontext=sslcontext
+        host,
+        port,
+        discovery_host,
+        discovery_port,
+        selector,
+        retry_policy,
+        sslcontext=sslcontext,
     )
     dispatcher = MessageDispatcher(name=name)
     connector = Connector(discovery, dispatcher, name=name, sslcontext=sslcontext)

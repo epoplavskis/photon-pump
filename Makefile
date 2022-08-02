@@ -1,4 +1,4 @@
-BLACK_EXCLUSION=photonpump/__init__.py|photonpump/_version.py|versioneer.py|.tox|.venv
+BLACK_EXCLUSION=photonpump/__init__.py|photonpump/_version.py|versioneer.py|.tox|.venv|.pb2
 SHELL = /bin/bash
 default: fast_tests
 travis: check_lint tox
@@ -44,3 +44,8 @@ create_users:
     	-d @test-user.json
 
 eventstore_docker: run_compose create_users
+
+
+generate:
+	python -m grpc_tools.protoc -I=proto --python_out=photonpump --mypy_out=photonpump proto/*
+	
