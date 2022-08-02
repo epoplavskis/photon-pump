@@ -1,14 +1,15 @@
 # pylint: disable=invalid-name, bad-continuation
+import time
 import uuid
 
 import pytest
 
-from photonpump import connect, messages, messages_pb2, exceptions
+from photonpump import messages, messages_pb2, exceptions
 from . import data
 
 
 @pytest.mark.asyncio
-async def test_single_event_publish(event_loop):
+async def test_single_event_publish(event_loop, connect):
     stream_name = str(uuid.uuid4())
     async with connect(username="test-user", password="test-password") as conn:
         result = await conn.publish_event(
@@ -22,7 +23,7 @@ async def test_single_event_publish(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_three_events_publish(event_loop):
+async def test_three_events_publish(event_loop, connect):
     stream_name = str(uuid.uuid4())
     async with connect(username="test-user", password="test-password") as c:
         result = await c.publish(
@@ -47,7 +48,7 @@ async def test_three_events_publish(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_a_large_event(event_loop):
+async def test_a_large_event(event_loop, connect):
     stream_name = str(uuid.uuid4())
     async with connect(username="test-user", password="test-password") as c:
         write_result = await c.publish(
@@ -59,13 +60,16 @@ async def test_a_large_event(event_loop):
             ],
         )
         assert write_result.first_event_number == 0
-        read_result = await c.get(stream_name, 0)
-        print(read_result)
+        for _ in range(10):
+            time.sleep(0.1)
+            read_result = await c.get(stream_name, 0)
+            if read_result:
+                break
         assert read_result[0].event.type == "big_json"
 
 
 @pytest.mark.asyncio
-async def test_publish_raises_exception_if_not_authenticated(event_loop):
+async def test_publish_raises_exception_if_not_authenticated(event_loop, connect):
     stream_name = str(uuid.uuid4())
 
     async with connect() as conn:

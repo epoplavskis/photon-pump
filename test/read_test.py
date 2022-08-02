@@ -2,7 +2,7 @@
 import logging
 import uuid
 import pytest
-from photonpump import connect, exceptions, messages
+from photonpump import exceptions, messages
 from .fixtures import (
     given_two_streams_with_two_events,
     given_a_stream_with_three_events,
@@ -10,7 +10,7 @@ from .fixtures import (
 
 
 @pytest.mark.asyncio
-async def test_single_event_roundtrip(event_loop):
+async def test_single_event_roundtrip(event_loop, connect):
     stream_name = str(uuid.uuid4())
     async with connect(username="test-user", password="test-password") as c:
         await c.publish_event(
@@ -28,7 +28,7 @@ async def test_single_event_roundtrip(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_missing_stream(event_loop):
+async def test_missing_stream(event_loop, connect):
     stream_name = str(uuid.uuid4())
     async with connect(username="test-user", password="test-password") as c:
         with pytest.raises(exceptions.StreamNotFound) as exc:
@@ -37,7 +37,7 @@ async def test_missing_stream(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_read_multiple(event_loop):
+async def test_read_multiple(event_loop, connect):
     stream_name = str(uuid.uuid4())
     async with connect(username="test-user", password="test-password") as c:
         await given_a_stream_with_three_events(c, stream_name)
@@ -54,7 +54,7 @@ async def test_read_multiple(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_read_with_max_count(event_loop):
+async def test_read_with_max_count(event_loop, connect):
     stream_name = str(uuid.uuid4())
     async with connect(username="test-user", password="test-password") as c:
         await given_a_stream_with_three_events(c, stream_name)
@@ -70,7 +70,7 @@ async def test_read_with_max_count(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_read_with_max_count_and_from_event(event_loop):
+async def test_read_with_max_count_and_from_event(event_loop, connect):
     stream_name = str(uuid.uuid4())
     async with connect(username="test-user", password="test-password") as c:
         await given_a_stream_with_three_events(c, stream_name)
@@ -86,7 +86,7 @@ async def test_read_with_max_count_and_from_event(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_streaming_read(event_loop):
+async def test_streaming_read(event_loop, connect):
     stream_name = str(uuid.uuid4())
     async with connect(
         username="test-user",
@@ -105,7 +105,7 @@ async def test_streaming_read(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_async_comprehension(event_loop):
+async def test_async_comprehension(event_loop, connect):
     def embiggen(e):
         data = e.json()
         data["Height"] *= 10
@@ -138,14 +138,14 @@ async def test_async_comprehension(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_iter_from_missing_stream(event_loop):
+async def test_iter_from_missing_stream(event_loop, connect):
     async with connect(username="test-user", password="test-password") as c:
         with pytest.raises(exceptions.StreamNotFound):
             [e async for e in c.iter("my-stream-that-isnt-a-stream")]
 
 
 @pytest.mark.asyncio
-async def test_iterall(event_loop):
+async def test_iterall(event_loop, connect):
     async with connect(
         username="admin",  # iter_all aggregates all streams so it needs systemwide-read perms
         password="changeit",
@@ -163,7 +163,7 @@ async def test_iterall(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_readall(event_loop):
+async def test_readall(event_loop, connect):
     async with connect(
         username="admin",  # get_all aggregates all streams so it needs systemwide-read perms
         password="changeit",
@@ -179,12 +179,3 @@ async def test_readall(event_loop):
             events_read += 1
 
         assert events_read == 4
-
-
-@pytest.mark.asyncio
-async def test_anonymous_access_still_works(event_loop):
-    stream_name = str(uuid.uuid4())
-    async with connect(port=11113, discovery_port=22113) as c:
-        await c.publish_event(stream_name, "first_event", body={"thing": 1})
-        results = await c.get(stream_name)
-        assert results[0].event.type == "first_event"

@@ -104,17 +104,16 @@ async def test_subscription_configuration():
     await convo.start(output)
     request = await output.get()
 
-    expected_bytes = read_hex(
+    expected_bytes = bytearray(read_hex(
         """
-C8 00 7B 72 F5 8F A9 58 05 48 82 3A 45 1D 5E B3
-07 F7 0A 11 62 65 73 74 2D 73 75 62 73 63 72 69
-70 74 69 6F 6E 12 10 24 63 65 2D 43 61 6E 63 65
-6C 6C 61 74 69 6F 6E 18 01 20 00 28 B0 EA 01 30
-00 38 20 40 40 48 80 01 50 0A 58 01 60 D0 0F 68
-E8 07 70 0A 78 00 82 01 0A 52 6F 75 6E 64 52 6F
-62 69 6E
+c8 00 7b 72 f5 8f a9 58 05 48 82 3a 45 1d 5e b3
+07 f7 0a 11 62 65 73 74 2d 73 75 62 73 63 72 69
+70 74 69 6f 6e 12 10 24 63 65 2d 43 61 6e 63 65
+6c 6c 61 74 69 6f 6e 18 01 28 b0 ea 01 38 20 40
+40 48 80 01 50 0a 58 01 60 d0 0f 68 e8 07 70 0a
+82 01 0a 52 6f 75 6e 64 52 6f 62 69 6e
 """
-    )
+    ))
 
     actual_bytes = (request.header_bytes + request.payload)[4:]
 

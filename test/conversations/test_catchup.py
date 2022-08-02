@@ -199,7 +199,7 @@ async def test_start_read_phase():
     assert body.event_stream_id == "my-stream"
     assert body.from_event_number == 0
     assert body.resolve_link_tos is True
-    assert body.require_master is False
+    assert body.require_leader is False
     assert body.max_count == 100
 
 

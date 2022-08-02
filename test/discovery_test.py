@@ -11,14 +11,13 @@ from photonpump.discovery import (
     DiscoveryRetryPolicy,
     NodeService,
     NodeState,
-    SingleNodeDiscovery,
     StaticSeedFinder,
     Stats,
     fetch_new_gossip,
     get_discoverer,
     read_gossip,
     select,
-    prefer_master,
+    prefer_leader,
     prefer_replica,
     KEEP_RETRYING,
 )
@@ -26,7 +25,7 @@ from photonpump.discovery import (
 from . import data
 
 GOOD_NODE = DiscoveredNode(
-    state=NodeState.Master,
+    state=NodeState.Leader,
     is_alive=True,
     internal_tcp=None,
     internal_http=None,
@@ -77,29 +76,29 @@ def test_selector_with_nodes_in_all_states():
 
     selected = select(gossip)
 
-    assert selected.state == NodeState.Master
+    assert selected.state == NodeState.Leader
 
 
 def test_selector_with_slave_and_clone():
     gossip = [
         GOOD_NODE._replace(state=NodeState.Clone),
-        GOOD_NODE._replace(state=NodeState.Slave),
+        GOOD_NODE._replace(state=NodeState.Follower),
     ]
 
     selected = select(gossip)
 
-    assert selected.state == NodeState.Slave
+    assert selected.state == NodeState.Follower
 
 
 def test_selector_with_master_and_slave():
     gossip = [
-        GOOD_NODE._replace(state=NodeState.Master),
-        GOOD_NODE._replace(state=NodeState.Slave),
+        GOOD_NODE._replace(state=NodeState.Leader),
+        GOOD_NODE._replace(state=NodeState.Follower),
     ]
 
     selected = select(gossip)
 
-    assert selected.state == NodeState.Master
+    assert selected.state == NodeState.Leader
 
 
 def gossip_nodes(nodes: List[NodeService]):
@@ -112,13 +111,13 @@ def gossip_nodes(nodes: List[NodeService]):
 @pytest.mark.asyncio
 async def test_no_gossip_seeds_found():
     async with aiohttp.ClientSession() as session:
-        gossip = await fetch_new_gossip(session, [])
+        gossip = await fetch_new_gossip(session, [], None)
 
     assert gossip == []
 
 
 def test_gossip_reader():
-    gossip = read_gossip(data.GOSSIP)
+    gossip = read_gossip(data.GOSSIP, False)
     assert len(gossip) == 3
 
     assert gossip[1].internal_tcp.port == 1112
@@ -133,7 +132,7 @@ async def test_fetch_gossip():
     with aioresponses() as mock:
         mock.get("http://10.10.10.10:2113/gossip", status=200, payload=data.GOSSIP)
         async with aiohttp.ClientSession() as session:
-            gossip = await fetch_new_gossip(session, node)
+            gossip = await fetch_new_gossip(session, node, None)
 
     assert len(gossip) == 3
 
@@ -145,7 +144,7 @@ async def test_aiohttp_failure():
     with aioresponses() as mock:
         mock.get("http://10.10.10.10:2113/gossip", status=502)
         async with aiohttp.ClientSession() as session:
-            gossip = await fetch_new_gossip(session, node)
+            gossip = await fetch_new_gossip(session, node, None)
 
     assert not gossip
 
@@ -216,7 +215,7 @@ async def test_discovery_failure_for_static_seed():
     gossip = data.make_gossip("2.3.4.5")
     retry = always_succeed()
     with aioresponses() as mock:
-        successful_discoverer = ClusterDiscovery(StaticSeedFinder([seed]), retry, None)
+        successful_discoverer = ClusterDiscovery(StaticSeedFinder([seed]), retry, None, None)
 
         mock.get("http://1.2.3.4:2113/gossip", status=500)
         mock.get("http://1.2.3.4:2113/gossip", payload=gossip)
@@ -253,7 +252,7 @@ async def test_repeated_discovery_failure_for_static_seed():
     retry = always_fail()
     gossip = data.make_gossip("2.3.4.5")
     with aioresponses() as mock:
-        successful_discoverer = ClusterDiscovery(StaticSeedFinder([seed]), retry, None)
+        successful_discoverer = ClusterDiscovery(StaticSeedFinder([seed]), retry, None, None)
 
         mock.get("http://1.2.3.4:2113/gossip", status=500)
         mock.get("http://1.2.3.4:2113/gossip", payload=gossip)
@@ -286,13 +285,13 @@ async def test_prefer_replica():
 
 
 @pytest.mark.asyncio
-async def test_prefer_master():
+async def test_prefer_leader():
     """
-    If we ask the discoverer to prefer_master it should return a master node
+    If we ask the discoverer to prefer_leader it should return a leader node
     before returning a replica.
     """
 
-    discoverer = get_discoverer(None, None, "10.0.0.1", 2113, prefer_master)
+    discoverer = get_discoverer(None, None, "10.0.0.1", 2113, prefer_leader)
     gossip = data.make_gossip("10.0.0.1", "10.0.0.2")
     with aioresponses() as mock:
         mock.get("http://10.0.0.1:2113/gossip", payload=gossip)

@@ -88,9 +88,9 @@ class TooBusy(ConversationException):
         super().__init__(conversation_id, "Message not handled: Server too busy")
 
 
-class NotMaster(ConversationException):
+class NotLeader(ConversationException):
     def __init__(self, conversation_id):
-        super().__init__(conversation_id, "Message not handled: Must be sent to master")
+        super().__init__(conversation_id, "Message not handled: Must be sent to leader")
 
 
 class NotHandled(ConversationException):

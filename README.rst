@@ -39,6 +39,33 @@ The `photonpump.connect` function returns an async context manager so that the c
     >>> await client.ping()
     >>> await client.close()
 
+Secure connection
+~~~~~~~~~~~~~~~~~
+
+Pass `~ssl.SSLContext` class to `~photonpump.Client`.
+
+    >>> import ssl
+    >>> import asyncio
+    >>>
+    >>> from photonpump import connect
+    >>>
+    >>> context = ssl.SSLContext()
+    >>> context.load_verify_locations("certs/ca/ca.crt")
+    >>> context.verify_mode = ssl.CERT_REQUIRED
+    >>>
+    >>> async def main():
+    >>>     async with connect(
+    >>>         port=1111,
+    >>>         host="localhost",
+    >>>         username="admin",
+    >>>         password="changeit",
+    >>>         sslcontext=context,  # or sslcontext=True if self-signed cert is not used
+    >>>     ) as conn:
+    >>>         await conn.ping()
+    >>>
+    >>>
+    >>> asyncio.run(main())
+
 Reading and Writing single events
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
