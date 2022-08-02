@@ -2,11 +2,6 @@ sudo: required
 dist: focal
 language: python
 
-branches:
-  except:
-    - legacy
-    - experimental
-
 matrix:
   include:
     - python: "3.10"
