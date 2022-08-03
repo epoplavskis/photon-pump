@@ -46,6 +46,6 @@ create_users:
 eventstore_docker: run_compose create_users
 
 
-generate:
-	python -m grpc_tools.protoc -I=proto --python_out=photonpump --mypy_out=photonpump proto/*
+proto-compile:
+	protoc -I=proto --python_out=photonpump --mypy_out=photonpump proto/*
 	
