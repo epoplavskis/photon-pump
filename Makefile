@@ -48,4 +48,3 @@ eventstore_docker: run_compose create_users
 
 proto-compile:
 	protoc -I=proto --python_out=photonpump --mypy_out=photonpump proto/*
-	
