@@ -49,8 +49,9 @@ Pass `~ssl.SSLContext` class to `~photonpump.Client`.
     >>>
     >>> from photonpump import connect
     >>>
-    >>> context = ssl.SSLContext()
+    >>> context = ssl.SSLContext(ssl.PROTOCOL_TLS)
     >>> context.load_verify_locations("certs/ca/ca.crt")
+    >>> context.load_cert_chain(certfile="certs/ca/ca.crt", keyfile="certs/ca/ca.key")
     >>> context.verify_mode = ssl.CERT_REQUIRED
     >>>
     >>> async def main():
