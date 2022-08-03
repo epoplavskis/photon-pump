@@ -34,14 +34,14 @@ run_compose:
 
 create_users:
 	until curl -f --insecure https://localhost:2111/health/live; do sleep 1; done
-	curl -k -f -i "https://127.0.0.1:2111/streams/%24settings" \
+	until curl -k -f -i "https://127.0.0.1:2111/streams/%24settings" \
 		--user admin:changeit \
     	-H "Content-Type: application/vnd.eventstore.events+json" \
-    	-d @default-acl.json
-	curl -k -f -i "https://127.0.0.1:2111/users" \
+    	-d @default-acl.json; do sleep 1; done
+	until curl -k -f -i "https://127.0.0.1:2111/users" \
     	--user admin:changeit \
     	-H "Content-Type: application/json" \
-    	-d @test-user.json
+    	-d @test-user.json; do sleep 1; done
 
 eventstore_docker: run_compose create_users
 
