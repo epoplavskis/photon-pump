@@ -115,7 +115,7 @@ async def test_too_busy_message():
 
 
 @pytest.mark.asyncio
-async def test_not_master():
+async def test_not_leader():
 
     output = TeeQueue()
     payload = proto.NotHandled()

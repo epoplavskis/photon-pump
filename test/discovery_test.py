@@ -277,7 +277,7 @@ async def test_repeated_discovery_failure_for_static_seed():
 async def test_prefer_replica():
     """
     If we ask the discoverer to prefer_replica it should return a replica node
-    before returning a master.
+    before returning a leader.
     """
 
     discoverer = get_discoverer(None, None, "10.0.0.1", 2113, prefer_replica)

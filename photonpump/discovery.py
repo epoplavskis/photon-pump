@@ -67,14 +67,14 @@ def first(elems: Iterable):
 
 def prefer_leader(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
     """
-    Select the master if available, otherwise fall back to a replica.
+    Select the leader if available, otherwise fall back to a replica.
     """
     return max(nodes, key=attrgetter("state"))
 
 
 def prefer_replica(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
     """
-    Select a random replica if any are available or fall back to the master.
+    Select a random replica if any are available or fall back to the leader.
     """
     leaders = [node for node in nodes if node.state == NodeState.Leader]
     replicas = [node for node in nodes if node.state != NodeState.Leader]
@@ -82,7 +82,7 @@ def prefer_replica(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
     if replicas:
         return random.choice(replicas)
     else:
-        # if you have more than one master then you're on your own, bud.
+        # if you have more than one leader then you're on your own, bud.
 
         return leaders[0]
 
