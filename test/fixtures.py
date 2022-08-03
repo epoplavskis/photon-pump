@@ -1,4 +1,6 @@
-from photonpump import messages
+import time
+
+from photonpump import messages, StreamNotFound, Client
 
 
 async def given_a_stream_with_three_events(c, stream_name):
@@ -20,6 +22,7 @@ async def given_a_stream_with_three_events(c, stream_name):
         ],
     )
     assert "denied" not in str(result).lower()  # this should now never happen
+    await wait_for_stream(c, stream_name)
 
 
 async def given_two_streams_with_two_events(c, unique_id):
@@ -49,3 +52,18 @@ async def given_two_streams_with_two_events(c, unique_id):
             ),
         ],
     )
+    await wait_for_stream(c, f"stream_one_{unique_id}")
+    await wait_for_stream(c, f"stream_two_{unique_id}")
+
+
+async def wait_for_stream(
+    c: Client, stream: str, timeout: int = 0.1, attempts: int = 10
+) -> None:
+    for attempt in range(attempts):
+        try:
+            await c.get(stream=stream, max_count=1)
+            return
+        except StreamNotFound:
+            if attempt + 1 == attempts:
+                raise
+            time.sleep(timeout)

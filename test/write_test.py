@@ -6,6 +6,7 @@ import pytest
 
 from photonpump import messages, messages_pb2, exceptions
 from . import data
+from .fixtures import wait_for_stream
 
 
 @pytest.mark.asyncio
@@ -60,11 +61,8 @@ async def test_a_large_event(event_loop, connect):
             ],
         )
         assert write_result.first_event_number == 0
-        for _ in range(10):
-            time.sleep(0.1)
-            read_result = await c.get(stream_name, 0)
-            if read_result:
-                break
+        await wait_for_stream(c, stream_name)
+        read_result = await c.get(stream_name, 0)
         assert read_result[0].event.type == "big_json"
 
 

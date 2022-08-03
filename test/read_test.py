@@ -75,13 +75,7 @@ async def test_read_with_max_count_and_from_event(event_loop, connect):
     stream_name = str(uuid.uuid4())
     async with connect(username="test-user", password="test-password") as c:
         await given_a_stream_with_three_events(c, stream_name)
-
-        for _ in range(10):
-            try:
-                result = await c.get(stream_name, max_count=1, from_event=2)
-                break
-            except StreamNotFound:
-                time.sleep(0.1)
+        result = await c.get(stream_name, max_count=1, from_event=2)
         assert isinstance(result, list)
         assert len(result) == 1
 
