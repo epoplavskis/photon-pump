@@ -1,8 +1,9 @@
 # pylint: disable=invalid-name, bad-continuation, expression-not-assigned
 import logging
+import time
 import uuid
 import pytest
-from photonpump import exceptions, messages
+from photonpump import exceptions, messages, StreamNotFound
 from .fixtures import (
     given_two_streams_with_two_events,
     given_a_stream_with_three_events,
@@ -75,7 +76,12 @@ async def test_read_with_max_count_and_from_event(event_loop, connect):
     async with connect(username="test-user", password="test-password") as c:
         await given_a_stream_with_three_events(c, stream_name)
 
-        result = await c.get(stream_name, max_count=1, from_event=2)
+        for _ in range(10):
+            try:
+                result = await c.get(stream_name, max_count=1, from_event=2)
+                break
+            except StreamNotFound:
+                time.sleep(0.1)
         assert isinstance(result, list)
         assert len(result) == 1
 
