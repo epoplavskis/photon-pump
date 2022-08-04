@@ -137,7 +137,7 @@ def read_gossip(data, secure: bool):
         external_http_port = m.get("httpEndPointPort", m.get("externalHttpPort"))
         assert external_http_port
         node = DiscoveredNode(
-            state=NodeState[m["state"]],
+            state=getattr(NodeState, m["state"]),
             is_alive=m["isAlive"],
             internal_tcp=NodeService(m["internalTcpIp"], internal_tcp_port, None),
             external_tcp=NodeService(m["externalTcpIp"], external_tcp_port, None),
