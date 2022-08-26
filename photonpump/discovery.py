@@ -251,8 +251,8 @@ async def fetch_new_gossip(session, seed, sslcontext):
         data = await resp.json()
 
         return read_gossip(data, bool(sslcontext))
-    except aiohttp.ClientError:
-        LOG.exception("Failed loading gossip from %s", url)
+    except aiohttp.ClientError as err:
+        LOG.exception("Failed loading gossip from %s: %s", url, err)
 
         return None
 
