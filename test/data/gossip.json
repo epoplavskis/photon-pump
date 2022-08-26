@@ -3,7 +3,7 @@
     {
       "instanceId": "84b8c4bc-db01-4ee7-bcdb-5bc18a068d09",
       "timeStamp": "2018-01-27T16:12:53.009062Z",
-      "state": "Slave",
+      "state": "Follower",
       "isAlive": true,
       "internalTcpIp": "172.31.224.200",
       "internalTcpPort": 1112,
@@ -26,7 +26,7 @@
     {
       "instanceId": "16657e53-d440-42c6-81a0-110d76618248",
       "timeStamp": "2018-01-27T16:12:51.316066Z",
-      "state": "Slave",
+      "state": "Follower",
       "isAlive": true,
       "internalTcpIp": "172.31.216.176",
       "internalTcpPort": 1112,
@@ -49,7 +49,7 @@
     {
       "instanceId": "fbeef1a9-2ec2-4663-ac5f-f6a19472c038",
       "timeStamp": "2018-01-27T16:12:52.242831Z",
-      "state": "Master",
+      "state": "Leader",
       "isAlive": true,
       "internalTcpIp": "172.31.194.207",
       "internalTcpPort": 1112,

@@ -115,11 +115,11 @@ async def test_too_busy_message():
 
 
 @pytest.mark.asyncio
-async def test_not_master():
+async def test_not_leader():
 
     output = TeeQueue()
     payload = proto.NotHandled()
-    payload.reason = msg.NotHandledReason.NotMaster
+    payload.reason = msg.NotHandledReason.NotLeader
 
     conversation = Ping()
     await conversation.respond_to(
@@ -129,7 +129,7 @@ async def test_not_master():
         output,
     )
 
-    with pytest.raises(exn.NotMaster) as exc:
+    with pytest.raises(exn.NotLeader) as exc:
         await conversation.result
         assert exc.conversation_id == conversation.conversation_id
 

@@ -6,8 +6,8 @@ import logging
 import struct
 import uuid
 import warnings
+import ssl
 from typing import Any, NamedTuple, Optional, Sequence, Union
-from webbrowser import get
 
 from . import conversations as convo
 from . import messages as msg
@@ -61,6 +61,7 @@ class Connector:
         ctrl_queue=None,
         connect_timeout=5,
         name=None,
+        sslcontext: Union[bool, None, ssl.SSLContext] = None,
     ):
         self.name = name
         self.connection_counter = 0
@@ -75,6 +76,7 @@ class Connector:
         self.heartbeat_failures = 0
         self.connect_timeout = connect_timeout
         self.active_protocol = None
+        self.sslcontext = sslcontext
 
     def _put_msg(self, msg):
         asyncio.ensure_future(self.ctrl_queue.put(msg))
@@ -160,10 +162,13 @@ class Connector:
                 self.name,
             )
             await asyncio.wait_for(
-                loop.create_connection(lambda: protocol, node.address, node.port),
+                loop.create_connection(
+                    lambda: protocol, node.address, node.port, ssl=self.sslcontext
+                ),
                 self.connect_timeout,
             )
         except Exception as e:
+            self.log.error("Failed to connect to %s:%s, %s", node.address, node.port, e)
             await self.ctrl_queue.put(
                 ConnectorInstruction(ConnectorCommand.HandleConnectFailure, None, e)
             )
@@ -609,7 +614,7 @@ class Client:
         id: Optional[uuid.UUID] = None,
         metadata: Optional[Any] = None,
         expected_version: int = -2,
-        require_master: bool = False,
+        require_leader: bool = False,
     ) -> None:
         """
         Publish a single event to the EventStore.
@@ -635,7 +640,7 @@ class Client:
                     -1: NoStream. Checks that the stream does not yet exist.
                     0: EmptyStream. Checks that the stream has been explicitly created but
                     does not yet contain any events.
-            require_master: If true, slave nodes will reject this message.
+            require_leader: If true, follower nodes will reject this message.
 
         Examples:
 
@@ -659,7 +664,7 @@ class Client:
             stream,
             [event],
             expected_version=expected_version,
-            require_master=require_master,
+            require_leader=require_leader,
             credential=self.credential,
         )
         result = await self.dispatcher.start_conversation(conversation)
@@ -671,13 +676,13 @@ class Client:
         stream: str,
         events: Sequence[msg.NewEventData],
         expected_version=msg.ExpectedVersion.Any,
-        require_master=False,
+        require_leader=False,
     ):
         cmd = convo.WriteEvents(
             stream,
             events,
             expected_version=expected_version,
-            require_master=require_master,
+            require_leader=require_leader,
             credential=self.credential,
         )
         result = await self.dispatcher.start_conversation(cmd)
@@ -688,7 +693,7 @@ class Client:
         stream: str,
         event_number: int,
         resolve_links=True,
-        require_master=False,
+        require_leader=False,
         correlation_id: uuid.UUID = None,
     ) -> msg.Event:
         """
@@ -699,8 +704,8 @@ class Client:
             event_number: The sequence number of the event to read.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_leader (optional): True if this command must be
+                sent direct to the leader node, otherwise False.
             correlation_id (optional): A unique identifer for this
                 command.
 
@@ -719,7 +724,7 @@ class Client:
             stream,
             event_number,
             resolve_links,
-            require_master,
+            require_leader,
             conversation_id=correlation_id,
             credential=self.credential,
         )
@@ -735,7 +740,7 @@ class Client:
         from_event: int = 0,
         max_count: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_leader: bool = False,
         correlation_id: uuid.UUID = None,
     ):
         """
@@ -751,8 +756,8 @@ class Client:
             max_count (optional): The maximum number of events to return.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_leader (optional): True if this command must be
+                sent direct to the leader node, otherwise False.
             correlation_id (optional): A unique identifer for this command.
 
         Examples:
@@ -783,7 +788,7 @@ class Client:
             from_event,
             max_count,
             resolve_links,
-            require_master,
+            require_leader,
             direction=direction,
             credential=self.credential,
         )
@@ -797,7 +802,7 @@ class Client:
         from_position: Optional[Union[msg.Position, msg._PositionSentinel]] = None,
         max_count: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_leader: bool = False,
         correlation_id: uuid.UUID = None,
     ):
         """
@@ -812,9 +817,9 @@ class Client:
             max_count (optional): The maximum number of events to return.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
-            correlation_id (optional): A unique identifer for this command.
+            required_leader (optional): True if this command must be
+                sent direct to the leader node, otherwise False.
+            correlation_id (optional): A unique identifier for this command.
 
         Examples:
 
@@ -837,7 +842,7 @@ class Client:
             msg.Position.for_direction(direction, from_position),
             max_count,
             resolve_links,
-            require_master,
+            require_leader,
             direction=direction,
             credential=self.credential,
         )
@@ -852,7 +857,7 @@ class Client:
         from_event: int = None,
         batch_size: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_leader: bool = False,
         correlation_id: uuid.UUID = None,
     ):
         """
@@ -867,8 +872,8 @@ class Client:
             batch_size: The maximum number of events to read at a time.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            require_leader (optional): True if this command must be
+                sent direct to the leader node, otherwise False.
             correlation_id (optional): A unique identifer for this
                 command.
 
@@ -913,7 +918,7 @@ class Client:
         from_position: Optional[Union[msg.Position, msg._PositionSentinel]] = None,
         batch_size: int = 100,
         resolve_links: bool = True,
-        require_master: bool = False,
+        require_leader: bool = False,
         correlation_id: Optional[uuid.UUID] = None,
     ):
         """
@@ -928,9 +933,9 @@ class Client:
             batch_size (optional): The maximum number of events to read at a time.
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
-            correlation_id (optional): A unique identifer for this
+            required_leader (optional): True if this command must be
+                sent direct to the leader node, otherwise False.
+            correlation_id (optional): A unique identifier for this
                 command.
 
         Examples:
@@ -960,7 +965,7 @@ class Client:
             msg.Position.for_direction(direction, from_position),
             batch_size,
             resolve_links,
-            require_master,
+            require_leader,
             direction,
             self.credential,
             correlation_id,
@@ -1052,8 +1057,8 @@ class Client:
 
             resolve_links (optional): True if eventstore should
                 automatically resolve Link Events, otherwise False.
-            required_master (optional): True if this command must be
-                sent direct to the master node, otherwise False.
+            required_leader (optional): True if this command must be
+                sent direct to the leader node, otherwise False.
             correlation_id (optional): A unique identifer for this
                 command.
             batch_size (optioal): The number of events to pull down from
@@ -1203,6 +1208,7 @@ def connect(
     name=None,
     selector=select_random,
     retry_policy=None,
+    sslcontext: Union[bool, None, ssl.SSLContext] = None,
 ) -> Client:
     """Create a new client.
 
@@ -1233,21 +1239,21 @@ def connect(
 
         If you're using
         :meth:`persistent subscriptions <photonpump.connection.Client.create_subscription>`
-        you will always want to connect to the master node of the cluster.
+        you will always want to connect to the leader node of the cluster.
         The selector parameter is a function that chooses an available node from
-        the gossip result. To select the master node, use the
-        :func:`photonpump.discovery.prefer_master` function. This function will return
-        the master node if there is a live master, and a random replica otherwise.
-        All requests to the server can be made with the require_master flag which
-        will raise an error if the current node is not a master.
+        the gossip result. To select the leader node, use the
+        :func:`photonpump.discovery.prefer_leader` function. This function will return
+        the leader node if there is a live leader, and a random replica otherwise.
+        All requests to the server can be made with the require_leader flag which
+        will raise an error if the current node is not a leader.
 
         >>> async with connect(
         >>>     discovery_host="eventstore.test",
-        >>>     selector=discovery.prefer_master,
+        >>>     selector=discovery.prefer_leader,
         >>> ) as c:
-        >>>     await c.ping(require_master=True)
+        >>>     await c.ping(require_leader=True)
 
-        Conversely, you might want to avoid connecting to the master node for reasons
+        Conversely, you might want to avoid connecting to the leader node for reasons
         of scalability. For this you can use the
         :func:`photonpump.discovery.prefer_replica` function.
 
@@ -1283,6 +1289,7 @@ def connect(
         username: The username to use when communicating with eventstore.
         password: The password to use when communicating with eventstore.
         loop:An Asyncio event loop.
+        sslcontext: An optional ssl context (`bool`, or `ssl.Context`)
         selector: An optional function that selects one element from a list of
             :class:`photonpump.disovery.DiscoveredNode` elements.
 
@@ -1294,10 +1301,16 @@ def connect(
             stacklevel=2,
         )
     discovery = get_discoverer(
-        host, port, discovery_host, discovery_port, selector, retry_policy
+        host,
+        port,
+        discovery_host,
+        discovery_port,
+        selector,
+        retry_policy,
+        sslcontext=sslcontext,
     )
     dispatcher = MessageDispatcher(name=name)
-    connector = Connector(discovery, dispatcher, name=name)
+    connector = Connector(discovery, dispatcher, name=name, sslcontext=sslcontext)
 
     credential = msg.Credential(username, password) if username and password else None
 

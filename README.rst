@@ -39,6 +39,34 @@ The `photonpump.connect` function returns an async context manager so that the c
     >>> await client.ping()
     >>> await client.close()
 
+Secure connection
+~~~~~~~~~~~~~~~~~
+
+Pass `~ssl.SSLContext` class to `~photonpump.Client`.
+
+    >>> import ssl
+    >>> import asyncio
+    >>>
+    >>> from photonpump import connect
+    >>>
+    >>> context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+    >>> context.load_verify_locations("certs/ca/ca.crt")
+    >>> context.load_cert_chain(certfile="certs/ca/ca.crt", keyfile="certs/ca/ca.key")
+    >>> context.verify_mode = ssl.CERT_REQUIRED
+    >>>
+    >>> async def main():
+    >>>     async with connect(
+    >>>         port=1111,
+    >>>         host="localhost",
+    >>>         username="admin",
+    >>>         password="changeit",
+    >>>         sslcontext=context,  # or sslcontext=True if self-signed cert is not used
+    >>>     ) as conn:
+    >>>         await conn.ping()
+    >>>
+    >>>
+    >>> asyncio.run(main())
+
 Reading and Writing single events
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -191,7 +219,7 @@ Persistent Subscriptions
 
 Sometimes we want to watch a stream continuously and be notified when a new event occurs. Eventstore supports volatile and persistent subscriptions for this use case.
 
-A persistent subscription stores its state on the server. When your application restarts, you can connect to the subscription again and continue where you left off. Multiple clients can connect to the same persistent subscription to support competing consumer scenarios. To support these features, persistent subscriptions have to run against the master node of an Eventstore cluster.
+A persistent subscription stores its state on the server. When your application restarts, you can connect to the subscription again and continue where you left off. Multiple clients can connect to the same persistent subscription to support competing consumer scenarios. To support these features, persistent subscriptions have to run against the leader node of an Eventstore cluster.
 
 Firstly, we need to `create the subscription <photonpump.connection.Client.create_subscription>`.
 
@@ -225,9 +253,9 @@ Volatile subsciptions do not support event acknowledgement.
 High-Availability Scenarios
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Eventstore supports an HA-cluster deployment topology. In this scenario, Eventstore runs a master node and multiple slaves. Some operations, particularly persistent subscriptions and projections, are handled only by the master node. To connect to an HA-cluster and automatically find the master node, photonpump supports cluster discovery.
+Eventstore supports an HA-cluster deployment topology. In this scenario, Eventstore runs a leader node and multiple followers. Some operations, particularly persistent subscriptions and projections, are handled only by the leader node. To connect to an HA-cluster and automatically find the leader node, photonpump supports cluster discovery.
 
-The cluster discovery interrogates eventstore gossip to find the active master. You can provide the IP of a maching in the cluster, or a DNS name that resolves to some members of the cluster, and photonpump will discover the others.
+The cluster discovery interrogates eventstore gossip to find the active leader. You can provide the IP of a machine in the cluster, or a DNS name that resolves to some members of the cluster, and photonpump will discover the others.
 
     >>> async def connect_to_cluster(hostname_or_ip, port=2113):
     >>>     with connect(discovery_host=hostname_or_ip, discovery_port=2113) as c:

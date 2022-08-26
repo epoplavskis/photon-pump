@@ -1,10 +1,12 @@
 import asyncio
+import enum
 import logging
 import random
 import socket
+import ssl
 from enum import IntEnum
 from operator import attrgetter
-from typing import Callable, Iterable, List, NamedTuple, Optional
+from typing import Callable, Iterable, List, NamedTuple, Optional, Union
 
 import aiodns
 import aiohttp
@@ -13,20 +15,25 @@ LOG = logging.getLogger("photonpump.discovery")
 
 
 class NodeState(IntEnum):
-    Initializing = 0
-    Unknown = 1
-    PreReplica = 2
-    CatchingUp = 3
-    Clone = 4
-    Slave = 5
-    PreMaster = 6
-    Master = 7
-    Manager = 8
-    ShuttingDown = 9
-    Shutdown = 10
+    Initializing = enum.auto()
+    DiscoverLeader = enum.auto()
+    Unknown = enum.auto()
+    PreReplica = enum.auto()
+    CatchingUp = enum.auto()
+    Clone = enum.auto()
+    Follower = enum.auto()
+    PreLeader = enum.auto()
+    Leader = enum.auto()
+    Manager = enum.auto()
+    ShuttingDown = enum.auto()
+    Shutdown = enum.auto()
+    ReadOnlyLeaderless = enum.auto()
+    PreReadOnlyReplica = enum.auto()
+    ReadOnlyReplica = enum.auto()
+    ResigningLeader = enum.auto()
 
 
-ELIGIBLE_STATE = [NodeState.Clone, NodeState.Slave, NodeState.Master]
+ELIGIBLE_STATE = [NodeState.Clone, NodeState.Follower, NodeState.Leader]
 KEEP_RETRYING = -1
 
 
@@ -58,26 +65,26 @@ def first(elems: Iterable):
         return elem
 
 
-def prefer_master(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
+def prefer_leader(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
     """
-    Select the master if available, otherwise fall back to a replica.
+    Select the leader if available, otherwise fall back to a replica.
     """
     return max(nodes, key=attrgetter("state"))
 
 
 def prefer_replica(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
     """
-    Select a random replica if any are available or fall back to the master.
+    Select a random replica if any are available or fall back to the leader.
     """
-    masters = [node for node in nodes if node.state == NodeState.Master]
-    replicas = [node for node in nodes if node.state != NodeState.Master]
+    leaders = [node for node in nodes if node.state == NodeState.Leader]
+    replicas = [node for node in nodes if node.state != NodeState.Leader]
 
     if replicas:
         return random.choice(replicas)
     else:
-        # if you have more than one master then you're on your own, bud.
+        # if you have more than one leader then you're on your own, bud.
 
-        return masters[0]
+        return leaders[0]
 
 
 def select_random(nodes: List[DiscoveredNode]) -> Optional[DiscoveredNode]:
@@ -94,7 +101,7 @@ def select(
         node for node in gossip if node.is_alive and node.state in ELIGIBLE_STATE
     ]
 
-    selector = selector or prefer_master
+    selector = selector or prefer_leader
     LOG.debug(
         "Selecting node using '%s' from gossip members: %r", selector, eligible_nodes
     )
@@ -105,7 +112,7 @@ def select(
     return selector(eligible_nodes)
 
 
-def read_gossip(data):
+def read_gossip(data, secure: bool):
     if not data:
         LOG.debug("No gossip returned")
 
@@ -113,17 +120,33 @@ def read_gossip(data):
 
     LOG.debug("Received gossip for {%s} nodes", len(data["members"]))
 
-    return [
-        DiscoveredNode(
-            state=NodeState[m["state"]],
-            is_alive=m["isAlive"],
-            internal_tcp=NodeService(m["internalTcpIp"], m["internalTcpPort"], None),
-            external_tcp=NodeService(m["externalTcpIp"], m["externalTcpPort"], None),
-            internal_http=NodeService(m["internalHttpIp"], m["internalHttpPort"], None),
-            external_http=NodeService(m["externalHttpIp"], m["externalHttpPort"], None),
+    nodes = []
+    for m in data["members"]:
+        internal_tcp_port = (
+            m["internalSecureTcpPort"] if secure else m["internalTcpPort"]
         )
-        for m in data["members"]
-    ]
+        external_tcp_port = (
+            m["externalSecureTcpPort"] if secure else m["externalTcpPort"]
+        )
+        internal_http_ip = m.get("httpEndPointIp", m.get("internalHttpIp"))
+        assert internal_http_ip
+        external_http_ip = m.get("httpEndPointIp", m.get("externalHttpIp"))
+        assert external_http_ip
+        internal_http_port = m.get("httpEndPointPort", m.get("internalHttpPort"))
+        assert internal_http_port
+        external_http_port = m.get("httpEndPointPort", m.get("externalHttpPort"))
+        assert external_http_port
+        node = DiscoveredNode(
+            state=getattr(NodeState, m["state"]),
+            is_alive=m["isAlive"],
+            internal_tcp=NodeService(m["internalTcpIp"], internal_tcp_port, None),
+            external_tcp=NodeService(m["externalTcpIp"], external_tcp_port, None),
+            internal_http=NodeService(internal_http_ip, internal_http_port, None),
+            external_http=NodeService(external_http_ip, external_http_port, None),
+        )
+
+        nodes.append(node)
+    return nodes
 
 
 class DiscoveryFailed(Exception):
@@ -216,26 +239,26 @@ class DnsSeedFinder:
         self.seeds.append(node)
 
 
-async def fetch_new_gossip(session, seed):
+async def fetch_new_gossip(session, seed, sslcontext):
     if not seed:
         return []
 
-    LOG.debug("Fetching gossip from http://%s:%s/gossip", seed.address, seed.port)
+    url = f"{'https' if sslcontext else 'http'}://{seed.address}:{seed.port}/gossip"
+
+    LOG.debug("Fetching gossip from %s", url)
     try:
-        resp = await session.get(f"http://{seed.address}:{seed.port}/gossip")
+        resp = await session.get(url, ssl=sslcontext)
         data = await resp.json()
 
-        return read_gossip(data)
-    except aiohttp.ClientError:
-        LOG.exception(
-            "Failed loading gossip from http://%s:%s/gossip", seed.address, seed.port
-        )
+        return read_gossip(data, bool(sslcontext))
+    except aiohttp.ClientError as err:
+        LOG.exception("Failed loading gossip from %s: %s", url, err)
 
         return None
 
 
 class SingleNodeDiscovery:
-    def __init__(self, node, retry_policy):
+    def __init__(self, node: NodeService, retry_policy):
         self.node = node
         self.failed = False
         self.retry_policy = retry_policy
@@ -286,12 +309,13 @@ class Stats(dict):
 
 
 class ClusterDiscovery:
-    def __init__(self, seed_finder, retry_policy, selector):
+    def __init__(self, seed_finder, retry_policy, selector, sslcontext):
         self.seeds = seed_finder
         self.last_gossip = []
         self.best_node = None
         self.retry_policy = retry_policy
         self.selector = selector
+        self.sslcontext = sslcontext
 
     def mark_failed(self, node):
         self.seeds.mark_failed(node)
@@ -315,7 +339,7 @@ class ClusterDiscovery:
 
             await self.retry_policy.wait(seed)
             async with aiohttp.ClientSession() as session:
-                gossip = await fetch_new_gossip(session, seed)
+                gossip = await fetch_new_gossip(session, seed, self.sslcontext)
 
             if gossip:
                 self.record_gossip(seed, gossip)
@@ -391,12 +415,13 @@ class DiscoveryRetryPolicy:
 
 
 def get_discoverer(
-    host,
-    port,
-    discovery_host,
-    discovery_port,
+    host: str,
+    port: int,
+    discovery_host: Optional[str],
+    discovery_port: Optional[int],
     selector: Optional[Selector] = None,
     retry_policy: Optional[DiscoveryRetryPolicy] = None,
+    sslcontext: Union[bool, None, ssl.SSLContext] = None,
 ):
     if discovery_host is None:
         LOG.info("Using single-node discoverer")
@@ -416,6 +441,7 @@ def get_discoverer(
             StaticSeedFinder([NodeService(discovery_host, discovery_port, None)]),
             retry_policy or DiscoveryRetryPolicy(),
             selector,
+            sslcontext=sslcontext,
         )
     except socket.error:
         LOG.info("Using cluster node discovery with DNS")
@@ -425,4 +451,5 @@ def get_discoverer(
             DnsSeedFinder(discovery_host, resolver, discovery_port),
             retry_policy or DiscoveryRetryPolicy(),
             selector,
+            sslcontext=sslcontext,
         )

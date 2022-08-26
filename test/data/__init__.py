@@ -24,10 +24,10 @@ with open(CHAIR_PATH, "r") as fchair:
 
 def get_state(idx):
     if idx == 0:
-        return "Master"
+        return "Leader"
 
     if idx < 3:
-        return "Slave"
+        return "Follower"
 
     return "Clone"
 

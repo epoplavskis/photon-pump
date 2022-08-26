@@ -2,12 +2,11 @@ import uuid
 
 import pytest
 
-from photonpump import connect
-from photonpump.discovery import DiscoveryRetryPolicy
+from photonpump.discovery import DiscoveryRetryPolicy, prefer_leader
 
 
 @pytest.mark.asyncio
-async def test_ping_context_mgr(event_loop):
+async def test_ping_context_mgr(event_loop, connect):
 
     async with connect() as conn:
         id = uuid.uuid4()
@@ -15,9 +14,15 @@ async def test_ping_context_mgr(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_connect_subscription(event_loop):
+async def test_connect_subscription(event_loop, connect):
 
-    async with connect(username="admin", password="changeit") as conn:
+    async with connect(
+        username="admin",
+        password="changeit",
+        discovery_host="localhost",
+        selector=prefer_leader,
+        discovery_port=2111,
+    ) as conn:
         subscription_name = str(uuid.uuid4())
         stream_name = str(uuid.uuid4())
         event_id = uuid.uuid4()
@@ -31,7 +36,7 @@ async def test_connect_subscription(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_subscribe_to(event_loop):
+async def test_subscribe_to(event_loop, connect):
 
     async with connect(username="admin", password="changeit") as conn:
         stream_name = str(uuid.uuid4())
@@ -46,7 +51,7 @@ async def test_subscribe_to(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_setting_retry_policy(event_loop):
+async def test_setting_retry_policy(event_loop, connect):
     class silly_retry_policy(DiscoveryRetryPolicy):
         def __init__(self):
             super().__init__()
@@ -65,11 +70,12 @@ async def test_setting_retry_policy(event_loop):
 
 @pytest.mark.asyncio
 async def test_connect_logs_deprecation_warning_when_used_with_loop_parameter(
-    event_loop,
+    event_loop, connect
 ):
     with pytest.warns(DeprecationWarning) as record:
         async with connect(loop=event_loop) as conn:
             await conn.ping(conversation_id=uuid.uuid4())
 
-    assert len(record) == 1
+    assert len(record) <= 10
+
     assert "The loop parameter has been deprecated" in record[0].message.args[0]
